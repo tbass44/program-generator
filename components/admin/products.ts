@@ -13,6 +13,7 @@ export interface ProductMaster {
   concerns: string;
   reasonTemplate: string;
   price: number;
+  inventoryCount: number;
   url: string;
   status: ProductMasterStatus;
 }
@@ -60,6 +61,7 @@ export const dummyProducts: ProductMaster[] = [
     concerns: '腰痛、睡眠の質低下',
     reasonTemplate: '寝姿勢を安定させて腰部負担を軽減するために提案します。',
     price: 39800,
+    inventoryCount: 10,
     url: 'https://example.com/products/mattress',
     status: '有効',
   },
@@ -71,6 +73,7 @@ export const dummyProducts: ProductMaster[] = [
     concerns: '睡眠不足、筋緊張',
     reasonTemplate: '筋緊張緩和と睡眠の質改善を目的に提案します。',
     price: 3200,
+    inventoryCount: 50,
     url: 'https://example.com/products/magnesium',
     status: '有効',
   },
@@ -82,6 +85,7 @@ export const dummyProducts: ProductMaster[] = [
     concerns: '姿勢不良、運動不足',
     reasonTemplate: '自宅での継続運動を習慣化するために提案します。',
     price: 2500,
+    inventoryCount: 30,
     url: 'https://example.com/products/tube',
     status: '有効',
   },
@@ -93,6 +97,7 @@ export const dummyProducts: ProductMaster[] = [
     concerns: '乾燥、肌荒れ',
     reasonTemplate: '施術後の肌バリア維持のために提案します。',
     price: 2800,
+    inventoryCount: 0,
     url: 'https://example.com/products/lotion',
     status: '無効',
   },

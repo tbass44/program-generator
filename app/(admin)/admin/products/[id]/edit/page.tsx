@@ -24,6 +24,7 @@ export default function AdminProductEditPage() {
     concerns: currentProduct.concerns,
     reasonTemplate: currentProduct.reasonTemplate,
     price: String(currentProduct.price),
+    inventoryCount: String(currentProduct.inventoryCount),
     url: currentProduct.url,
     status: currentProduct.status,
   });

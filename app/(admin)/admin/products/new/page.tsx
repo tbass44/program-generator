@@ -15,6 +15,7 @@ const initialValues: ProductFormValues = {
   concerns: '',
   reasonTemplate: '',
   price: '',
+  inventoryCount: '',
   url: '',
   status: '有効',
 };
