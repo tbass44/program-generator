@@ -17,7 +17,6 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -26,9 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageHeader, SectionCard, ProgramSection } from '@/components/admin';
-import type { SupportProposal, SupportStatus } from '@/components/admin';
 import { toast } from 'sonner';
 
 const dummyPatients = [
@@ -46,8 +43,34 @@ const supportCategories = [
   { id: 'skincare', label: 'スキンケア', icon: Sparkle, description: '化粧品、ボディケア用品など' },
 ];
 
-const categoryOptions = ['物理療法（睡眠）', '栄養療法', '運動療法', 'スキンケア'];
-const statusOptions: SupportStatus[] = ['提案中', '検討中', '購入済み', '見送り'];
+const supportCategoryIds = ['physical', 'nutrition', 'exercise', 'skincare'] as const;
+type SupportCategoryId = (typeof supportCategoryIds)[number];
+type ManualSupportStatus = '提案中' | 'レンタル希望' | 'レンタル中' | '購入希望';
+
+const statusOptions: ManualSupportStatus[] = ['提案中', 'レンタル希望', 'レンタル中', '購入希望'];
+
+const categoryProductOptions: Record<SupportCategoryId, string[]> = {
+  physical: ['体圧分散マットレス', '高さ調整枕', '睡眠サポートブランケット'],
+  nutrition: ['ビタミンDサプリ', 'マグネシウムサプリ', 'オメガ3サプリ'],
+  exercise: ['ストレッチチューブ', 'バランスボール', 'フォームローラー'],
+  skincare: ['保湿ローション', '低刺激クレンザー', 'UVケアクリーム'],
+};
+
+type ProductStatusMap = Record<string, ManualSupportStatus>;
+
+type ManualSupportSection = {
+  selectedProducts: string[];
+  productStatuses: ProductStatusMap;
+  description: string;
+  reason: string;
+};
+
+const createInitialManualSupportSections = (): Record<SupportCategoryId, ManualSupportSection> => ({
+  physical: { selectedProducts: [], productStatuses: {}, description: '', reason: '' },
+  nutrition: { selectedProducts: [], productStatuses: {}, description: '', reason: '' },
+  exercise: { selectedProducts: [], productStatuses: {}, description: '', reason: '' },
+  skincare: { selectedProducts: [], productStatuses: {}, description: '', reason: '' },
+});
 
 const dummyResult = {
   summary: `腰痛（慢性）と睡眠の質低下を主訴として来院。定期的なマッサージで一時的改善あり。姿勢不良と寝環境の課題が根本原因と推定。`,
@@ -116,7 +139,7 @@ type Mode = 'ai' | 'manual';
 
 export default function AdminProgramNewPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>('ai');
+  const [mode, setMode] = useState<Mode>('manual');
 
   // Common state
   const [selectedPatient, setSelectedPatient] = useState<string>('');
@@ -134,7 +157,9 @@ export default function AdminProgramNewPage() {
   const [manualShortTerm, setManualShortTerm] = useState('');
   const [manualLongTerm, setManualLongTerm] = useState('');
   const [manualTodayTask, setManualTodayTask] = useState('');
-  const [manualProposals, setManualProposals] = useState<SupportProposal[]>([]);
+  const [manualSupportSections, setManualSupportSections] = useState<
+    Record<SupportCategoryId, ManualSupportSection>
+  >(createInitialManualSupportSections);
 
   const canGenerate = selectedPatient !== '' && memo.trim() !== '';
 
@@ -183,28 +208,64 @@ export default function AdminProgramNewPage() {
     router.push('/admin/programs/new/edit');
   };
 
-  const addManualProposal = () => {
-    setManualProposals([
-      ...manualProposals,
-      {
-        id: String(Date.now()),
-        category: categoryOptions[0],
-        name: '',
-        description: '',
-        reason: '',
-        status: '提案中',
+  const updateManualSupportSection = (
+    categoryId: SupportCategoryId,
+    field: keyof ManualSupportSection,
+    value: string | string[]
+  ) => {
+    setManualSupportSections((prev) => ({
+      ...prev,
+      [categoryId]: {
+        ...prev[categoryId],
+        [field]: value,
       },
-    ]);
+    }));
   };
 
-  const removeManualProposal = (id: string) => {
-    setManualProposals(manualProposals.filter((p) => p.id !== id));
+  const handleManualProductToggle = (
+    categoryId: SupportCategoryId,
+    productName: string,
+    checked: boolean
+  ) => {
+    const section = manualSupportSections[categoryId];
+    const currentProducts = section.selectedProducts;
+    const nextProducts = checked
+      ? [...currentProducts, productName]
+      : currentProducts.filter((product) => product !== productName);
+
+    const nextProductStatuses: ProductStatusMap = { ...section.productStatuses };
+    if (checked) {
+      nextProductStatuses[productName] = nextProductStatuses[productName] ?? '提案中';
+    } else {
+      delete nextProductStatuses[productName];
+    }
+
+    setManualSupportSections((prev) => ({
+      ...prev,
+      [categoryId]: {
+        ...prev[categoryId],
+        selectedProducts: nextProducts,
+        productStatuses: nextProductStatuses,
+      },
+    }));
   };
 
-  const updateManualProposal = (id: string, field: keyof SupportProposal, value: string) => {
-    setManualProposals(
-      manualProposals.map((p) => (p.id === id ? { ...p, [field]: value } : p))
-    );
+  const updateManualProductStatus = (
+    categoryId: SupportCategoryId,
+    productName: string,
+    statusValue: ManualSupportStatus
+  ) => {
+    const section = manualSupportSections[categoryId];
+    setManualSupportSections((prev) => ({
+      ...prev,
+      [categoryId]: {
+        ...prev[categoryId],
+        productStatuses: {
+          ...section.productStatuses,
+          [productName]: statusValue,
+        },
+      },
+    }));
   };
 
   const canSaveManual =
@@ -225,11 +286,11 @@ export default function AdminProgramNewPage() {
         <div className="flex items-center gap-2">
           <Button
             variant={mode === 'ai' ? 'default' : 'outline'}
-            onClick={() => setMode('ai')}
-            className="flex-1"
+            disabled
+            className="flex-1 opacity-60 cursor-not-allowed"
           >
             <Sparkles className="h-4 w-4 mr-2" />
-            AI生成モード
+            AI生成モード（今後追加予定）
           </Button>
           <Button
             variant={mode === 'manual' ? 'default' : 'outline'}
@@ -485,119 +546,107 @@ export default function AdminProgramNewPage() {
           </SectionCard>
 
           {/* Support Proposals */}
-          <SectionCard
-            title="商品サポート提案"
-            className="mb-6"
-            actions={
-              <Button variant="outline" size="sm" onClick={addManualProposal}>
-                <Sparkles className="h-4 w-4 mr-1" />
-                追加
-              </Button>
-            }
-          >
+          <SectionCard title="商品サポート提案" className="mb-6">
             <div className="space-y-4">
-              {manualProposals.map((proposal, index) => (
-                <Card key={proposal.id}>
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm">提案 {index + 1}</CardTitle>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        onClick={() => removeManualProposal(proposal.id)}
-                      >
-                        x
-                      </Button>
+              {supportCategories.map((category) => {
+                const section = manualSupportSections[category.id as SupportCategoryId];
+
+                return (
+                  <div key={category.id} className="border rounded-lg p-4 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <category.icon className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-sm font-medium">{category.label}</h3>
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <Label>カテゴリ</Label>
-                        <Select
-                          value={proposal.category}
-                          onValueChange={(value) =>
-                            updateManualProposal(proposal.id, 'category', value)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categoryOptions.map((cat) => (
-                              <SelectItem key={cat} value={cat}>
-                                {cat}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>ステータス</Label>
-                        <Select
-                          value={proposal.status}
-                          onValueChange={(value) =>
-                            updateManualProposal(proposal.id, 'status', value)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {statusOptions.map((s) => (
-                              <SelectItem key={s} value={s}>
-                                {s}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
+
                     <div className="space-y-2">
-                      <Label>商品/サポート名</Label>
-                      <Input
-                        value={proposal.name}
+                      <Label>商品（複数選択）</Label>
+                      <div className="space-y-3">
+                        {categoryProductOptions[category.id as SupportCategoryId].map((product) => (
+                          <div key={product} className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <div className="flex items-center space-x-2 flex-1">
+                              <Checkbox
+                                id={`${category.id}-${product}`}
+                                checked={section.selectedProducts.includes(product)}
+                                onCheckedChange={(checked) =>
+                                  handleManualProductToggle(
+                                    category.id as SupportCategoryId,
+                                    product,
+                                    checked as boolean
+                                  )
+                                }
+                              />
+                              <Label
+                                htmlFor={`${category.id}-${product}`}
+                                className="text-sm font-normal cursor-pointer"
+                              >
+                                {product}
+                              </Label>
+                            </div>
+                            {section.selectedProducts.includes(product) && (
+                              <Select
+                                value={section.productStatuses[product] ?? '提案中'}
+                                onValueChange={(value) =>
+                                  updateManualProductStatus(
+                                    category.id as SupportCategoryId,
+                                    product,
+                                    value as ManualSupportStatus
+                                  )
+                                }
+                              >
+                                <SelectTrigger className="w-full sm:w-48">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {statusOptions.map((s) => (
+                                    <SelectItem key={s} value={s}>
+                                      {s}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>商品の説明</Label>
+                      <Textarea
+                        value={section.description}
                         onChange={(e) =>
-                          updateManualProposal(proposal.id, 'name', e.target.value)
+                          updateManualSupportSection(
+                            category.id as SupportCategoryId,
+                            'description',
+                            e.target.value
+                          )
                         }
-                        placeholder="商品名またはサポート名"
+                        placeholder={`${category.label}の商品説明を入力`}
+                        className="min-h-[80px]"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label>説明</Label>
-                      <Input
-                        value={proposal.description}
-                        onChange={(e) =>
-                          updateManualProposal(proposal.id, 'description', e.target.value)
-                        }
-                        placeholder="商品の説明"
-                      />
-                    </div>
+
                     <div className="space-y-2">
                       <Label>提案理由</Label>
                       <Textarea
-                        value={proposal.reason}
+                        value={section.reason}
                         onChange={(e) =>
-                          updateManualProposal(proposal.id, 'reason', e.target.value)
+                          updateManualSupportSection(
+                            category.id as SupportCategoryId,
+                            'reason',
+                            e.target.value
+                          )
                         }
-                        placeholder="なぜこの商品を提案するのか"
-                        className="min-h-[60px]"
+                        placeholder={`${category.label}の提案理由を入力`}
+                        className="min-h-[80px]"
                       />
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-
-              {manualProposals.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <p className="text-sm">商品サポート提案がありません</p>
-                  <Button variant="outline" size="sm" className="mt-3" onClick={addManualProposal}>
-                    <Sparkles className="h-4 w-4 mr-1" />
-                    追加
-                  </Button>
-                </div>
-              )}
+                  </div>
+                );
+              })}
+              <div className="text-xs text-muted-foreground">
+                商品候補はダミーです。将来的に Supabase の products テーブルから取得予定です。
+              </div>
             </div>
           </SectionCard>
 
