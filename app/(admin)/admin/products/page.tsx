@@ -101,6 +101,7 @@ export default function AdminProductsPage() {
               <TableHead>説明</TableHead>
               <TableHead>対象の悩み</TableHead>
               <TableHead>価格</TableHead>
+              <TableHead>在庫数</TableHead>
               <TableHead>商品URL</TableHead>
               <TableHead>ステータス</TableHead>
               <TableHead></TableHead>
@@ -116,6 +117,7 @@ export default function AdminProductsPage() {
                 <TableCell className="max-w-[220px] truncate">{product.description}</TableCell>
                 <TableCell className="max-w-[180px] truncate">{product.concerns}</TableCell>
                 <TableCell>¥{product.price.toLocaleString()}</TableCell>
+                <TableCell>{product.inventoryCount.toLocaleString()}</TableCell>
                 <TableCell>
                   <a
                     href={product.url}

@@ -20,6 +20,7 @@ export interface ProductFormValues {
   concerns: string;
   reasonTemplate: string;
   price: string;
+  inventoryCount: string;
   url: string;
   status: ProductMasterStatus;
 }
@@ -91,6 +92,16 @@ export function ProductForm({ values, onChange }: ProductFormProps) {
             min="0"
             value={values.price}
             onChange={(e) => onChange('price', e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="inventoryCount">在庫数</Label>
+          <Input
+            id="inventoryCount"
+            type="number"
+            min="0"
+            value={values.inventoryCount}
+            onChange={(e) => onChange('inventoryCount', e.target.value)}
           />
         </div>
         <div className="space-y-2">
