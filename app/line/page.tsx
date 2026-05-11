@@ -3,19 +3,60 @@
 import { useEffect, useState } from 'react';
 import liff from '@line/liff';
 
+/**
+ * LIFFから取得したLINEプロフィール。
+ */
 type LineProfile = {
   userId: string;
   displayName: string;
   pictureUrl?: string;
 };
 
+/**
+ * /api/line/me から返ってくる患者情報。
+ * まだ紐づいていない場合は null。
+ */
+type LinkedPatient = {
+  id: string;
+  name: string;
+  line_user_id: string | null;
+  line_display_name: string | null;
+  line_picture_url: string | null;
+  line_linked_at: string | null;
+};
+
+/**
+ * /api/line/me のレスポンス型。
+ *
+ * linked:
+ *   true  → patients.line_user_id に一致する患者がいる
+ *   false → まだ患者データとLINEが紐づいていない
+ */
+type LineMeResponse = {
+  lineProfile: {
+    userId: string;
+    displayName: string | null;
+    pictureUrl: string | null;
+  };
+  linked: boolean;
+  patient: LinkedPatient | null;
+  error?: string;
+  detail?: unknown;
+};
+
 export default function LineEntryPage() {
   const [status, setStatus] = useState('LIFFを初期化しています...');
   const [profile, setProfile] = useState<LineProfile | null>(null);
+  const [lineMeResult, setLineMeResult] = useState<LineMeResponse | null>(null);
 
   useEffect(() => {
     const initLiff = async () => {
       try {
+        /**
+         * Vercel / .env.local に設定した LIFF ID を取得。
+         *
+         * NEXT_PUBLIC_ が付いているので、ブラウザ側でも参照できる。
+         */
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
 
         if (!liffId) {
@@ -23,13 +64,25 @@ export default function LineEntryPage() {
           return;
         }
 
+        /**
+         * LIFF初期化。
+         * ここでLINEアプリ内のLIFFとして動く準備をする。
+         */
         await liff.init({ liffId });
 
+        /**
+         * 未ログインならLINEログインへ遷移。
+         * LINEアプリ内で開いた場合も、初回は認可画面が出る。
+         */
         if (!liff.isLoggedIn()) {
           liff.login();
           return;
         }
 
+        /**
+         * LINEプロフィール取得。
+         * これはフロント側で表示確認するために使う。
+         */
         const lineProfile = await liff.getProfile();
 
         setProfile({
@@ -38,10 +91,58 @@ export default function LineEntryPage() {
           pictureUrl: lineProfile.pictureUrl,
         });
 
-        setStatus('LINEプロフィールを取得できました。');
+        /**
+         * IDトークン取得。
+         *
+         * 重要：
+         * lineProfile.userId をそのまま信用してDB検索するのではなく、
+         * idToken をサーバー側APIへ送り、LINE公式APIで検証する。
+         */
+        const idToken = liff.getIDToken();
+
+        if (!idToken) {
+          setStatus('LINE IDトークンを取得できませんでした。');
+          return;
+        }
+
+        setStatus('LINEプロフィールを取得しました。患者情報を照合しています...');
+
+        /**
+         * サーバー側APIへIDトークンを送信。
+         *
+         * /api/line/me 側で：
+         * - LINE IDトークン検証
+         * - LINE userId取得
+         * - patients.line_user_id と照合
+         * を行う。
+         */
+        const response = await fetch('/api/line/me', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ idToken }),
+        });
+
+        const data = (await response.json()) as LineMeResponse;
+
+        if (!response.ok) {
+          console.error(data);
+          setStatus('患者情報の照合に失敗しました。');
+          setLineMeResult(data);
+          return;
+        }
+
+        setLineMeResult(data);
+
+        if (data.linked) {
+          setStatus('患者データとLINEアカウントが紐づいています。');
+        } else {
+          setStatus('まだ患者データとLINEアカウントが紐づいていません。');
+        }
       } catch (error) {
         console.error(error);
-        setStatus('LIFFの初期化またはプロフィール取得に失敗しました。');
+        setStatus('LIFFの初期化または患者情報の照合に失敗しました。');
       }
     };
 
@@ -85,6 +186,43 @@ export default function LineEntryPage() {
                   {profile.userId}
                 </dd>
               </div>
+            </dl>
+          </div>
+        )}
+
+        {lineMeResult && (
+          <div className="mt-6 rounded-xl border p-4">
+            <p className="text-sm font-medium">患者データ照合結果</p>
+
+            <dl className="mt-4 space-y-2 text-sm">
+              <div>
+                <dt className="font-medium">紐づけ状態</dt>
+                <dd>{lineMeResult.linked ? '紐づけ済み' : '未紐づけ'}</dd>
+              </div>
+
+              {lineMeResult.patient && (
+                <>
+                  <div>
+                    <dt className="font-medium">患者名</dt>
+                    <dd>{lineMeResult.patient.name}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-medium">患者ID</dt>
+                    <dd className="break-all text-xs text-muted-foreground">
+                      {lineMeResult.patient.id}
+                    </dd>
+                  </div>
+                </>
+              )}
+
+              {!lineMeResult.patient && (
+                <div>
+                  <dt className="font-medium">次の対応</dt>
+                  <dd className="text-muted-foreground">
+                    本人確認後、患者データとLINEアカウントを紐づけます。
+                  </dd>
+                </div>
+              )}
             </dl>
           </div>
         )}
