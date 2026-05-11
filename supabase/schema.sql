@@ -178,6 +178,8 @@ create table if not exists profiles (
 -- line_display_name：LINE表示名。本人確認・管理画面確認用。
 -- line_picture_url：LINEプロフィール画像URL。任意。
 -- line_linked_at：LINEアカウントと患者データを紐づけた日時。
+-- line_link_code：LINE連携時に患者本人確認で使う一時コード。
+-- line_link_code_expires_at：連携コードの有効期限。
 -- ------------------------------------------------------------
 create table if not exists patients (
   id uuid primary key default gen_random_uuid(),
@@ -188,6 +190,8 @@ create table if not exists patients (
   line_display_name text,
   line_picture_url text,
   line_linked_at timestamptz,
+  line_link_code text,
+  line_link_code_expires_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -699,6 +703,7 @@ create index if not exists idx_profiles_role on profiles(role);
 -- patients
 create index if not exists idx_patients_user_id on patients(user_id);
 create index if not exists idx_patients_line_user_id on patients(line_user_id);
+create index if not exists idx_patients_line_link_code on patients(line_link_code);
 create index if not exists idx_patients_created_at on patients(created_at desc);
 
 -- products
