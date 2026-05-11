@@ -57,22 +57,6 @@ function getRequiredEnv(key: string): string {
   return value;
 }
 
-const supabaseUrl = getRequiredEnv('NEXT_PUBLIC_SUPABASE_URL');
-const serviceRoleKey = getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
-const lineChannelId = getRequiredEnv('LINE_CHANNEL_ID');
-
-/**
- * 管理用Supabaseクライアント。
- *
- * service_role keyを使うため、サーバー側でのみ使う。
- * このファイルは API Route なのでブラウザには送られない。
- *
- * 用途：
- * - patients.line_user_id を検索する
- * - 将来的にはLINE連携情報の保存にも使う
- */
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-
 /**
  * POST /api/line/me
  *
@@ -90,6 +74,26 @@ const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
  */
 export async function POST(request: Request) {
   try {
+    /**
+     * APIが呼ばれたタイミングで環境変数を読む。
+     * build時にトップレベルでthrowしないようにするため。
+     */
+    const supabaseUrl = getRequiredEnv('NEXT_PUBLIC_SUPABASE_URL');
+    const serviceRoleKey = getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
+    const lineChannelId = getRequiredEnv('LINE_CHANNEL_ID');
+
+    /**
+     * 管理用Supabaseクライアント。
+     *
+     * service_role keyを使うため、サーバー側でのみ使う。
+     * このファイルは API Route なのでブラウザには送られない。
+     *
+     * 用途：
+     * - patients.line_user_id を検索する
+     * - 将来的にはLINE連携情報の保存にも使う
+     */
+
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
     /**
      * フロントから送られてくるJSONを取得。
      *
