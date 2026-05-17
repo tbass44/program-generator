@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import liff from '@line/liff';
+import { Button } from '@/components/ui/button';
 
 /**
  * LIFFから取得したLINEプロフィール。
@@ -221,6 +223,22 @@ export default function LineEntryPage() {
                   <dd className="text-muted-foreground">
                     本人確認後、患者データとLINEアカウントを紐づけます。
                   </dd>
+
+                  {/*
+                    未紐づけの場合は、LINE連携コード入力画面へ進む。
+
+                    /line/link では：
+                    1. LIFFでLINE IDトークンを取得
+                    2. 患者さんが連携コードを入力
+                    3. /api/line/link に送信
+                    4. patients.line_user_id にLINE userIdを保存
+                    という流れで紐づけを行う。
+                  */}
+                  <Link href="/line/link" className="mt-4 block">
+                    <Button className="w-full">
+                      連携コードを入力する
+                    </Button>
+                  </Link>
                 </div>
               )}
             </dl>
