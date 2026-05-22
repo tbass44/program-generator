@@ -8,9 +8,6 @@ import { Moon, Apple, Dumbbell, Sparkles } from 'lucide-react';
 
 /**
  * 患者ダッシュボードAPIから返ってくる患者情報。
- *
- * 現時点では、まず患者名を実データ表示するために使う。
- * 今後、改善プログラム・プラン・商品提案も同じAPIに追加していく予定。
  */
 type DashboardPatient = {
   id: string;
@@ -23,28 +20,46 @@ type DashboardPatient = {
 };
 
 /**
+ * 患者ダッシュボードAPIから返ってくる最新の改善プログラム。
+ *
+ * DBのカラム名は snake_case のまま受け取る。
+ * 画面表示時に ProgramCard が使いやすい形へ変換する。
+ */
+type DashboardCurrentProgram = {
+  id: string;
+  summary: string | null;
+  short_term_program: string | null;
+  long_term_program: string | null;
+  today_task: string | null;
+  created_at: string;
+};
+
+/**
  * /api/patient/dashboard のレスポンス型。
  */
 type DashboardResponse = {
   patient?: DashboardPatient;
+  currentProgram?: DashboardCurrentProgram | null;
   error?: string;
   detail?: unknown;
 };
 
 /**
- * 改善プログラムはまだDB連携前なので、MVP初期表示用のダミーデータを残す。
- * 次の工程で programs テーブルから取得する形に差し替える。
+ * ProgramCard に渡す表示用データ。
+ *
+ * APIから受け取ったDB形式の改善プログラムを、
+ * コンポーネントが受け取れる camelCase の形に変換して使う。
  */
-const currentProgram = {
-  id: '1',
-  title: '腰痛改善プログラム',
-  shortTerm: '姿勢改善とストレッチ集中期',
-  longTerm: '筋力強化と生活習慣の改善',
-  todayTask: '朝のストレッチ10分 + 夜の温熱パック',
+type ProgramCardViewModel = {
+  id: string;
+  title: string;
+  shortTerm: string;
+  longTerm: string;
+  todayTask: string;
 };
 
 /**
- * 商品サポートもまだDB連携前なので、MVP初期表示用のダミーデータを残す。
+ * 商品サポートはまだDB連携前なので、MVP初期表示用のダミーデータを残す。
  * 次の工程で patient_product_recommendations から取得する形に差し替える。
  */
 const supportCategories = [
@@ -101,13 +116,33 @@ const supportCategories = [
 ];
 
 /**
+ * APIから取得した改善プログラムを、ProgramCard表示用に変換する。
+ *
+ * summary は状態まとめなので、カードタイトルとして使うには長くなりやすい。
+ * そのため、タイトルは固定で「現在の改善プログラム」とし、
+ * 各本文は short_term_program / long_term_program / today_task から表示する。
+ */
+function toProgramCardViewModel(
+  program: DashboardCurrentProgram
+): ProgramCardViewModel {
+  return {
+    id: program.id,
+    title: '現在の改善プログラム',
+    shortTerm: program.short_term_program || '短期プログラムは未登録です。',
+    longTerm: program.long_term_program || '長期プログラムは未登録です。',
+    todayTask: program.today_task || '今日やることは未登録です。',
+  };
+}
+
+/**
  * 患者側ダッシュボード。
  *
  * 現在の役割：
  * 1. /line から渡された patientId をURLクエリから受け取る
- * 2. /api/patient/dashboard から患者基本情報を取得する
+ * 2. /api/patient/dashboard から患者基本情報と最新プログラムを取得する
  * 3. ヘッダーに患者名を表示する
- * 4. プラン・改善プログラム・商品サポートは一旦ダミー表示を維持する
+ * 4. 現在の改善プログラムを実データで表示する
+ * 5. プラン・商品サポートは一旦ダミー表示を維持する
  */
 export default function DashboardPage() {
   /**
@@ -122,6 +157,12 @@ export default function DashboardPage() {
   const [patient, setPatient] = useState<DashboardPatient | null>(null);
 
   /**
+   * APIから取得した最新の改善プログラム。
+   */
+  const [currentProgram, setCurrentProgram] =
+    useState<ProgramCardViewModel | null>(null);
+
+  /**
    * 患者情報取得中の状態管理。
    */
   const [isLoading, setIsLoading] = useState(Boolean(patientId));
@@ -134,7 +175,7 @@ export default function DashboardPage() {
   useEffect(() => {
     /**
      * patientId がない場合は、まだLINE導線から来ていない可能性がある。
-     * その場合はダミーデータ表示を維持し、エラーにはしない。
+     * その場合は患者別の実データ取得は行わない。
      */
     if (!patientId) {
       setIsLoading(false);
@@ -142,7 +183,7 @@ export default function DashboardPage() {
     }
 
     /**
-     * 患者ダッシュボードAPIから患者基本情報を取得する。
+     * 患者ダッシュボードAPIから患者基本情報と最新プログラムを取得する。
      */
     const fetchPatientDashboard = async () => {
       try {
@@ -159,6 +200,16 @@ export default function DashboardPage() {
         }
 
         setPatient(data.patient);
+
+        /**
+         * 最新プログラムがある場合だけカード表示用データに変換する。
+         * まだprogramsが登録されていない患者では null のままにする。
+         */
+        if (data.currentProgram) {
+          setCurrentProgram(toProgramCardViewModel(data.currentProgram));
+        } else {
+          setCurrentProgram(null);
+        }
       } catch (error) {
         console.error(error);
         setErrorMessage('患者情報の取得中にエラーが発生しました。');
@@ -211,7 +262,14 @@ export default function DashboardPage() {
             </Link>
           }
         />
-        <ProgramCard {...currentProgram} />
+
+        {currentProgram ? (
+          <ProgramCard {...currentProgram} />
+        ) : (
+          <div className="rounded-lg border bg-white p-4 text-sm text-gray-500">
+            まだ改善プログラムは登録されていません。
+          </div>
+        )}
       </section>
 
       <section>
