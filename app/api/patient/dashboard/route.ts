@@ -20,13 +20,13 @@ function getRequiredEnv(key: string): string {
 /**
  * GET /api/patient/dashboard?patientId=xxx
  *
- * 患者側ダッシュボードに表示するための患者基本情報を取得するAPI。
+ * 患者側ダッシュボードに表示するための情報を取得するAPI。
  *
- * 現時点のMVPでは、まず /line から渡された patientId を使って
- * 患者名を実データ表示するところまでを目的にする。
+ * 現時点のMVPでは、以下を返す。
+ * - 患者基本情報
+ * - 最新の改善プログラム1件
  *
  * 今後の拡張予定：
- * - 現在の改善プログラム
  * - 現在のプラン
  * - 商品サポート提案
  * - 通院履歴
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
 
     /**
      * 患者基本情報を取得する。
-     * まずはダッシュボードの見出しに使う name を中心に取得する。
+     * ダッシュボードの見出しや、本人情報確認に使う。
      */
     const { data: patient, error: patientError } = await supabaseAdmin
       .from('patients')
@@ -101,7 +101,43 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ patient });
+    /**
+     * 最新の改善プログラムを1件取得する。
+     * 患者側ダッシュボードの「現在の改善プログラム」に表示する。
+     *
+     * created_at の降順で1件だけ取得することで、直近作成されたプログラムを表示する。
+     */
+    const { data: currentProgram, error: programError } = await supabaseAdmin
+      .from('programs')
+      .select(
+        `
+        id,
+        summary,
+        short_term_program,
+        long_term_program,
+        today_task,
+        created_at
+      `
+      )
+      .eq('patient_id', patientId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (programError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to fetch current program',
+          detail: programError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      patient,
+      currentProgram,
+    });
   } catch (error) {
     console.error(error);
 
