@@ -46,17 +46,44 @@ type LineMeResponse = {
   detail?: unknown;
 };
 
+/**
+ * LINE公式アカウントから開く患者画面の入口。
+ *
+ * 役割：
+ * 1. LIFFを初期化する
+ * 2. LINEプロフィールとIDトークンを取得する
+ * 3. /api/line/me でLINE IDトークンを検証する
+ * 4. patients.line_user_id と照合する
+ * 5. 紐づけ済みなら患者ダッシュボードへ進めるボタンを出す
+ * 6. 未紐づけなら /line/link へ進めるボタンを出す
+ */
 export default function LineEntryPage() {
+  /**
+   * 画面上に表示する処理状況。
+   */
   const [status, setStatus] = useState('LIFFを初期化しています...');
+
+  /**
+   * LIFFから取得したLINEプロフィール。
+   * 画面上の確認表示に使う。
+   */
   const [profile, setProfile] = useState<LineProfile | null>(null);
+
+  /**
+   * /api/line/me で患者データ照合した結果。
+   */
   const [lineMeResult, setLineMeResult] = useState<LineMeResponse | null>(null);
 
   useEffect(() => {
+    /**
+     * LIFFを初期化して、LINEプロフィール取得と患者データ照合を行う。
+     *
+     * この処理は画面表示時に1回だけ実行する。
+     */
     const initLiff = async () => {
       try {
         /**
          * Vercel / .env.local に設定した LIFF ID を取得。
-         *
          * NEXT_PUBLIC_ が付いているので、ブラウザ側でも参照できる。
          */
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
@@ -170,11 +197,18 @@ export default function LineEntryPage() {
             <p className="text-sm font-medium">LINEプロフィール</p>
 
             {profile.pictureUrl && (
-              <img
-                src={profile.pictureUrl}
-                alt={profile.displayName}
-                className="mt-3 h-16 w-16 rounded-full"
-              />
+              <>
+                {/*
+                  LINEプロフィール画像は外部URLのため、MVPでは通常のimgで表示する。
+                  next/image に切り替える場合は、LINE画像ドメインの許可設定が必要。
+                */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={profile.pictureUrl}
+                  alt={profile.displayName}
+                  className="mt-3 h-16 w-16 rounded-full"
+                />
+              </>
             )}
 
             <dl className="mt-4 space-y-2 text-sm">
@@ -208,11 +242,25 @@ export default function LineEntryPage() {
                     <dt className="font-medium">患者名</dt>
                     <dd>{lineMeResult.patient.name}</dd>
                   </div>
+
                   <div>
                     <dt className="font-medium">患者ID</dt>
                     <dd className="break-all text-xs text-muted-foreground">
                       {lineMeResult.patient.id}
                     </dd>
+                  </div>
+
+                  {/*
+                    LINE連携済みの場合は、患者側ダッシュボードへ進む。
+
+                    現時点では /dashboard は既存の患者側ダッシュボードを利用する。
+                    次の工程で、/dashboard 側を line_user_id / patient_id に応じた
+                    実データ表示へ差し替える。
+                  */}
+                  <div className="pt-2">
+                    <Link href="/dashboard" className="block">
+                      <Button className="w-full">患者画面へ進む</Button>
+                    </Link>
                   </div>
                 </>
               )}
@@ -235,9 +283,7 @@ export default function LineEntryPage() {
                     という流れで紐づけを行う。
                   */}
                   <Link href="/line/link" className="mt-4 block">
-                    <Button className="w-full">
-                      連携コードを入力する
-                    </Button>
+                    <Button className="w-full">連携コードを入力する</Button>
                   </Link>
                 </div>
               )}
