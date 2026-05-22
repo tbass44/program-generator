@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
@@ -15,6 +15,32 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
+/**
+ * /api/admin/me から返ってくるレスポンス型。
+ *
+ * isAdmin:
+ *   true  → Supabase profiles.role が admin
+ *   false → ログイン済みでも管理者権限なし
+ */
+type AdminMeResponse = {
+  authenticated?: boolean;
+  clerkUserId?: string | null;
+  profile?: {
+    id: string;
+    clerk_user_id: string;
+    role: 'admin' | 'patient';
+    created_at: string;
+    updated_at: string;
+  } | null;
+  isAdmin?: boolean;
+  message?: string;
+  error?: string;
+  detail?: unknown;
+};
+
+/**
+ * 管理画面サイドバーのナビゲーション。
+ */
 const navItems = [
   {
     label: 'ダッシュボード',
@@ -43,13 +69,105 @@ const navItems = [
   },
 ];
 
+/**
+ * 管理画面共通レイアウト。
+ *
+ * 役割：
+ * 1. 管理画面のサイドバー・モバイルメニューを表示する
+ * 2. /api/admin/me で Supabase profiles.role を確認する
+ * 3. role が admin の場合だけ管理画面本体を表示する
+ * 4. admin でない場合はトップへ戻す
+ *
+ * 補足：
+ * Clerkログイン必須化は middleware.ts が担当する。
+ * このレイアウトでは「ログイン済みユーザーがadminかどうか」を確認する。
+ */
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  /**
+   * 管理者権限チェック中かどうか。
+   * true の間は管理画面本体を表示しない。
+   */
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(true);
+
+  /**
+   * 権限チェックに失敗した場合やadminでない場合のメッセージ。
+   */
+  const [adminErrorMessage, setAdminErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    /**
+     * ログイン中ユーザーの admin role を確認する。
+     *
+     * /api/admin/me 側で：
+     * - Clerk userId取得
+     * - Supabase profiles.clerk_user_id と照合
+     * - profiles.role === admin か判定
+     * を行っている。
+     */
+    const checkAdminRole = async () => {
+      try {
+        setIsCheckingAdmin(true);
+        setAdminErrorMessage(null);
+
+        const response = await fetch('/api/admin/me');
+        const data = (await response.json()) as AdminMeResponse;
+
+        /**
+         * middleware.ts により未ログインは基本的にClerk側で弾かれる。
+         * ただしAPIとして401が返る可能性もあるため、その場合はトップへ戻す。
+         */
+        if (!response.ok) {
+          console.error(data);
+          setAdminErrorMessage('管理者情報を確認できませんでした。');
+          router.replace('/');
+          return;
+        }
+
+        /**
+         * ログイン済みでも profiles.role が admin でない場合は管理画面へ入れない。
+         */
+        if (!data.isAdmin) {
+          console.warn('Admin role required:', data);
+          setAdminErrorMessage('管理者権限がありません。');
+          router.replace('/');
+          return;
+        }
+      } catch (error) {
+        console.error(error);
+        setAdminErrorMessage('管理者権限の確認中にエラーが発生しました。');
+        router.replace('/');
+      } finally {
+        setIsCheckingAdmin(false);
+      }
+    };
+
+    checkAdminRole();
+  }, [router]);
+
+  /**
+   * 管理者権限確認中は、管理画面の中身を表示しない。
+   * 一瞬でも非adminに管理画面を見せないため。
+   */
+  if (isCheckingAdmin) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="rounded-lg border bg-card p-6 text-center shadow-sm">
+          <p className="text-sm font-medium text-foreground">管理者権限を確認しています...</p>
+          {adminErrorMessage && (
+            <p className="mt-2 text-xs text-destructive">{adminErrorMessage}</p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
