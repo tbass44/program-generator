@@ -173,6 +173,8 @@ create table if not exists profiles (
 --
 -- user_id：患者本人の profiles.id。Clerk患者ログインを使う場合に利用。
 -- name：患者名
+-- kana：患者名のフリガナ。検索・一覧表示で使う。
+-- phone：電話番号。患者一覧・詳細・連絡先確認で使う。
 -- memo：管理者用メモ
 -- line_user_id：LINE userId。LIFFで取得して患者と紐づける。
 -- line_display_name：LINE表示名。本人確認・管理画面確認用。
@@ -185,6 +187,8 @@ create table if not exists patients (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references profiles(id) on delete set null,
   name text not null,
+  kana text,
+  phone text,
   memo text,
   line_user_id text unique,
   line_display_name text,
@@ -702,6 +706,8 @@ create index if not exists idx_profiles_role on profiles(role);
 
 -- patients
 create index if not exists idx_patients_user_id on patients(user_id);
+create index if not exists idx_patients_kana on patients(kana);
+create index if not exists idx_patients_phone on patients(phone);
 create index if not exists idx_patients_line_user_id on patients(line_user_id);
 create index if not exists idx_patients_line_link_code on patients(line_link_code);
 create index if not exists idx_patients_created_at on patients(created_at desc);
