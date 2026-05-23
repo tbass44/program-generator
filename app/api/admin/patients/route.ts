@@ -26,7 +26,7 @@ type AdminProfile = {
 };
 
 /**
- * 患者一覧で返す患者情報。
+ * 患者一覧・登録完了時に返す患者情報。
  */
 type AdminPatient = {
   id: string;
@@ -42,7 +42,18 @@ type AdminPatient = {
 };
 
 /**
+ * 新規患者登録APIで受け取るbody。
+ */
+type CreatePatientBody = {
+  name?: unknown;
+  kana?: unknown;
+  phone?: unknown;
+  memo?: unknown;
+};
+
+/**
  * サーバー側で使うSupabaseクライアントを作成する。
+ * service_role key はAPI Route内だけで使い、ブラウザには出さない。
  */
 function createSupabaseAdminClient() {
   const supabaseUrl = getRequiredEnv('NEXT_PUBLIC_SUPABASE_URL');
@@ -99,6 +110,19 @@ async function requireAdmin() {
     supabaseAdmin,
     profile,
   };
+}
+
+/**
+ * 空文字をDB保存用の null に変換する。
+ * 任意項目で空文字がそのまま溜まらないようにするため。
+ */
+function normalizeOptionalText(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
 }
 
 /**
@@ -170,6 +194,99 @@ export async function GET(request: Request) {
     return NextResponse.json({
       patients: patients ?? [],
     });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      { error: 'Unexpected server error' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST /api/admin/patients
+ *
+ * 管理画面から新規患者を登録するAPI。
+ * MVPではまず patients の基本項目だけを保存する。
+ *
+ * 保存対象：
+ * - name：必須
+ * - kana：任意
+ * - phone：任意
+ * - memo：任意
+ */
+export async function POST(request: Request) {
+  try {
+    const adminResult = await requireAdmin();
+
+    if (!adminResult.ok) {
+      return NextResponse.json(
+        {
+          error: adminResult.error,
+          detail: 'detail' in adminResult ? adminResult.detail : undefined,
+        },
+        { status: adminResult.status }
+      );
+    }
+
+    const body = (await request.json()) as CreatePatientBody;
+
+    /**
+     * 患者名は必須。
+     * 空白だけの入力も弾く。
+     */
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+
+    if (!name) {
+      return NextResponse.json(
+        { error: 'name is required' },
+        { status: 400 }
+      );
+    }
+
+    /**
+     * 任意項目は空文字なら null として保存する。
+     */
+    const kana = normalizeOptionalText(body.kana);
+    const phone = normalizeOptionalText(body.phone);
+    const memo = normalizeOptionalText(body.memo);
+
+    const { data: patient, error: createError } = await adminResult.supabaseAdmin
+      .from('patients')
+      .insert({
+        name,
+        kana,
+        phone,
+        memo,
+      })
+      .select(
+        `
+        id,
+        name,
+        kana,
+        phone,
+        memo,
+        line_user_id,
+        line_display_name,
+        line_linked_at,
+        created_at,
+        updated_at
+      `
+      )
+      .single<AdminPatient>();
+
+    if (createError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to create patient',
+          detail: createError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ patient }, { status: 201 });
   } catch (error) {
     console.error(error);
 
