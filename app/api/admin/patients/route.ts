@@ -1,0 +1,181 @@
+import { NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { createClient } from '@supabase/supabase-js';
+
+/**
+ * 必須の環境変数を取得する。
+ * undefined の可能性をここで弾き、以降は string として扱う。
+ */
+function getRequiredEnv(key: string): string {
+  const value = process.env[key];
+
+  if (!value) {
+    throw new Error(`${key} is not set`);
+  }
+
+  return value;
+}
+
+/**
+ * 管理者判定で使う profiles の最小型。
+ */
+type AdminProfile = {
+  id: string;
+  clerk_user_id: string;
+  role: 'admin' | 'patient';
+};
+
+/**
+ * 患者一覧で返す患者情報。
+ */
+type AdminPatient = {
+  id: string;
+  name: string;
+  kana: string | null;
+  phone: string | null;
+  memo: string | null;
+  line_user_id: string | null;
+  line_display_name: string | null;
+  line_linked_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
+ * サーバー側で使うSupabaseクライアントを作成する。
+ */
+function createSupabaseAdminClient() {
+  const supabaseUrl = getRequiredEnv('NEXT_PUBLIC_SUPABASE_URL');
+  const serviceRoleKey = getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
+
+  return createClient(supabaseUrl, serviceRoleKey);
+}
+
+/**
+ * ログイン中ユーザーが admin か確認する。
+ * 画面側だけでなく、API側でも権限確認する。
+ */
+async function requireAdmin() {
+  const { userId } = auth();
+
+  if (!userId) {
+    return {
+      ok: false as const,
+      status: 401,
+      error: 'Not signed in',
+      supabaseAdmin: null,
+    };
+  }
+
+  const supabaseAdmin = createSupabaseAdminClient();
+
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .select('id, clerk_user_id, role')
+    .eq('clerk_user_id', userId)
+    .maybeSingle<AdminProfile>();
+
+  if (profileError) {
+    return {
+      ok: false as const,
+      status: 500,
+      error: 'Failed to fetch profile',
+      detail: profileError.message,
+      supabaseAdmin: null,
+    };
+  }
+
+  if (!profile || profile.role !== 'admin') {
+    return {
+      ok: false as const,
+      status: 403,
+      error: 'Admin role required',
+      supabaseAdmin: null,
+    };
+  }
+
+  return {
+    ok: true as const,
+    supabaseAdmin,
+    profile,
+  };
+}
+
+/**
+ * GET /api/admin/patients
+ *
+ * 管理画面の患者一覧で使うAPI。
+ * q がある場合は、氏名・カナ・電話番号で部分一致検索する。
+ */
+export async function GET(request: Request) {
+  try {
+    const adminResult = await requireAdmin();
+
+    if (!adminResult.ok) {
+      return NextResponse.json(
+        {
+          error: adminResult.error,
+          detail: 'detail' in adminResult ? adminResult.detail : undefined,
+        },
+        { status: adminResult.status }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const query = searchParams.get('q')?.trim() ?? '';
+
+    /**
+     * 一覧表示に必要な患者基本情報を取得する。
+     */
+    let patientQuery = adminResult.supabaseAdmin
+      .from('patients')
+      .select(
+        `
+        id,
+        name,
+        kana,
+        phone,
+        memo,
+        line_user_id,
+        line_display_name,
+        line_linked_at,
+        created_at,
+        updated_at
+      `
+      )
+      .order('created_at', { ascending: false });
+
+    /**
+     * 検索文字列がある場合のみ絞り込む。
+     */
+    if (query) {
+      patientQuery = patientQuery.or(
+        `name.ilike.%${query}%,kana.ilike.%${query}%,phone.ilike.%${query}%`
+      );
+    }
+
+    const { data: patients, error: patientsError } =
+      await patientQuery.returns<AdminPatient[]>();
+
+    if (patientsError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to fetch patients',
+          detail: patientsError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      patients: patients ?? [],
+    });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      { error: 'Unexpected server error' },
+      { status: 500 }
+    );
+  }
+}
