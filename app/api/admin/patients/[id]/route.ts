@@ -45,6 +45,17 @@ type AdminPatientDetail = {
 };
 
 /**
+ * 患者更新APIで受け取るbody。
+ * unknownにしておき、API側で型と空文字を確認する。
+ */
+type UpdatePatientBody = {
+  name?: unknown;
+  kana?: unknown;
+  phone?: unknown;
+  memo?: unknown;
+};
+
+/**
  * サーバー側で使うSupabase管理クライアントを作成する。
  * service_role key はブラウザに出さず、API Route内だけで使う。
  */
@@ -106,6 +117,38 @@ async function requireAdmin() {
 }
 
 /**
+ * 任意テキスト項目をDB保存用に整える。
+ * 空文字は null として保存する。
+ */
+function normalizeOptionalText(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
+ * 患者詳細APIで共通利用するselect句。
+ */
+const patientDetailSelect = `
+  id,
+  name,
+  kana,
+  phone,
+  memo,
+  line_user_id,
+  line_display_name,
+  line_picture_url,
+  line_linked_at,
+  line_link_code,
+  line_link_code_expires_at,
+  created_at,
+  updated_at
+`;
+
+/**
  * GET /api/admin/patients/[id]
  *
  * 管理画面の患者詳細で使うAPI。
@@ -139,23 +182,7 @@ export async function GET(
 
     const { data: patient, error: patientError } = await adminResult.supabaseAdmin
       .from('patients')
-      .select(
-        `
-        id,
-        name,
-        kana,
-        phone,
-        memo,
-        line_user_id,
-        line_display_name,
-        line_picture_url,
-        line_linked_at,
-        line_link_code,
-        line_link_code_expires_at,
-        created_at,
-        updated_at
-      `
-      )
+      .select(patientDetailSelect)
       .eq('id', patientId)
       .maybeSingle<AdminPatientDetail>();
 
@@ -173,6 +200,94 @@ export async function GET(
       return NextResponse.json(
         { error: 'Patient not found' },
         { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ patient });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      { error: 'Unexpected server error' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/admin/patients/[id]
+ *
+ * 管理画面の患者詳細から基本情報を更新するAPI。
+ *
+ * 更新対象：
+ * - name：必須
+ * - kana：任意
+ * - phone：任意
+ * - memo：任意
+ */
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const adminResult = await requireAdmin();
+
+    if (!adminResult.ok) {
+      return NextResponse.json(
+        {
+          error: adminResult.error,
+          detail: 'detail' in adminResult ? adminResult.detail : undefined,
+        },
+        { status: adminResult.status }
+      );
+    }
+
+    const patientId = params.id;
+
+    if (!patientId) {
+      return NextResponse.json(
+        { error: 'patient id is required' },
+        { status: 400 }
+      );
+    }
+
+    const body = (await request.json()) as UpdatePatientBody;
+
+    /**
+     * 氏名は患者管理の主キーではないが、画面表示上の必須項目として扱う。
+     */
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+
+    if (!name) {
+      return NextResponse.json(
+        { error: 'name is required' },
+        { status: 400 }
+      );
+    }
+
+    const kana = normalizeOptionalText(body.kana);
+    const phone = normalizeOptionalText(body.phone);
+    const memo = normalizeOptionalText(body.memo);
+
+    const { data: patient, error: updateError } = await adminResult.supabaseAdmin
+      .from('patients')
+      .update({
+        name,
+        kana,
+        phone,
+        memo,
+      })
+      .eq('id', patientId)
+      .select(patientDetailSelect)
+      .single<AdminPatientDetail>();
+
+    if (updateError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to update patient',
+          detail: updateError.message,
+        },
+        { status: 500 }
       );
     }
 
