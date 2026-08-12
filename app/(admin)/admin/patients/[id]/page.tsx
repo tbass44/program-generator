@@ -15,7 +15,7 @@ import { PageHeader, SectionCard, EmptyState } from '@/components/admin';
  * /api/admin/patients/[id] から返る患者詳細情報。
  *
  * MVPでは、まず patients テーブルの基本項目を表示・編集・削除する。
- * visits / plans / programs / 商品提案は後続STEPで実データ化する。
+ * visits / plans / 商品提案は後続STEPで実データ化する。
  */
 type AdminPatientDetail = {
   id: string;
@@ -34,10 +34,36 @@ type AdminPatientDetail = {
 };
 
 /**
+ * 患者詳細画面に表示する最新改善プログラム。
+ */
+type LatestProgram = {
+  id: string;
+  patient_id: string;
+  create_mode: 'manual' | 'ai';
+  memo: string | null;
+  summary: string | null;
+  short_term_program: string | null;
+  long_term_program: string | null;
+  today_task: string | null;
+  program_text: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/**
  * 患者詳細APIのレスポンス型。
  */
 type PatientDetailResponse = {
   patient?: AdminPatientDetail;
+  error?: string;
+  detail?: unknown;
+};
+
+/**
+ * 最新改善プログラムAPIのレスポンス型。
+ */
+type LatestProgramResponse = {
+  program?: LatestProgram | null;
   error?: string;
   detail?: unknown;
 };
@@ -74,9 +100,10 @@ type PatientEditFormData = {
  * 3. 患者基本情報を表示する
  * 4. 編集モードで氏名・カナ・電話番号・備考を更新する
  * 5. 確認後に患者を削除する
+ * 6. 最新の改善プログラムを表示する
  *
  * 補足：
- * 現時点では、プラン・改善プログラム・通院履歴・商品サポートは未接続。
+ * 現時点では、プラン・通院履歴・商品サポートは未接続。
  */
 export default function AdminPatientDetailPage() {
   const params = useParams();
@@ -87,6 +114,11 @@ export default function AdminPatientDetailPage() {
    * APIから取得した患者詳細。
    */
   const [patient, setPatient] = useState<AdminPatientDetail | null>(null);
+
+  /**
+   * 患者に紐づく最新改善プログラム。
+   */
+  const [latestProgram, setLatestProgram] = useState<LatestProgram | null>(null);
 
   /**
    * 編集フォームの入力値。
@@ -143,9 +175,9 @@ export default function AdminPatientDetailPage() {
 
   useEffect(() => {
     /**
-     * 患者詳細を取得する。
+     * 患者詳細と最新改善プログラムを取得する。
      */
-    const fetchPatient = async () => {
+    const fetchPatientDetail = async () => {
       if (!patientId) {
         setErrorMessage('患者IDを取得できませんでした。');
         setIsLoading(false);
@@ -156,28 +188,45 @@ export default function AdminPatientDetailPage() {
         setIsLoading(true);
         setErrorMessage(null);
 
-        const response = await fetch(`/api/admin/patients/${patientId}`);
-        const data = (await response.json()) as PatientDetailResponse;
+        const patientResponse = await fetch(`/api/admin/patients/${patientId}`);
+        const patientData = (await patientResponse.json()) as PatientDetailResponse;
 
-        if (!response.ok || !data.patient) {
-          console.error(data);
+        if (!patientResponse.ok || !patientData.patient) {
+          console.error(patientData);
           setErrorMessage('患者情報を取得できませんでした。');
           setPatient(null);
+          setLatestProgram(null);
           return;
         }
 
-        setPatient(data.patient);
-        syncFormDataFromPatient(data.patient);
+        setPatient(patientData.patient);
+        syncFormDataFromPatient(patientData.patient);
+
+        /**
+         * 最新改善プログラムは未作成でも正常なので、取得失敗時だけエラー表示する。
+         */
+        const programResponse = await fetch(`/api/admin/patients/${patientId}/latest-program`);
+        const programData = (await programResponse.json()) as LatestProgramResponse;
+
+        if (!programResponse.ok) {
+          console.error(programData);
+          setErrorMessage('最新の改善プログラムを取得できませんでした。');
+          setLatestProgram(null);
+          return;
+        }
+
+        setLatestProgram(programData.program ?? null);
       } catch (error) {
         console.error(error);
         setErrorMessage('患者情報の取得中にエラーが発生しました。');
         setPatient(null);
+        setLatestProgram(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchPatient();
+    fetchPatientDetail();
   }, [patientId]);
 
   /**
@@ -494,16 +543,74 @@ export default function AdminPatientDetailPage() {
       </SectionCard>
 
       {/* Current Program */}
-      <SectionCard title="現在の改善プログラム" className="mb-6">
-        <EmptyState
-          title="改善プログラムは未接続です"
-          description="後続STEPで programs テーブルから取得します。"
-          action={
+      <SectionCard
+        title="現在の改善プログラム"
+        className="mb-6"
+        actions={
+          latestProgram ? (
             <Link href={`/admin/programs/new?patientId=${patient.id}`}>
-              <Button size="sm">プログラム作成</Button>
+              <Button size="sm" variant="outline">新しく作成</Button>
             </Link>
-          }
-        />
+          ) : undefined
+        }
+      >
+        {latestProgram ? (
+          <div className="space-y-5">
+            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <FileText className="h-4 w-4" />
+              <span>作成日: {new Date(latestProgram.created_at).toLocaleString('ja-JP')}</span>
+              <Badge variant="secondary">
+                {latestProgram.create_mode === 'manual' ? '手動入力' : 'AI生成'}
+              </Badge>
+            </div>
+
+            {latestProgram.memo && (
+              <div className="rounded-lg border p-3">
+                <p className="text-sm font-medium mb-1">状態・メモ</p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{latestProgram.memo}</p>
+              </div>
+            )}
+
+            <div>
+              <p className="text-sm font-medium mb-1">状態まとめ</p>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                {latestProgram.summary || '未入力'}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="rounded-lg border p-3">
+                <p className="text-sm font-medium mb-2">短期プログラム（3カ月）</p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  {latestProgram.short_term_program || '未入力'}
+                </p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-sm font-medium mb-2">長期プログラム</p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                  {latestProgram.long_term_program || '未入力'}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border p-3">
+              <p className="text-sm font-medium mb-2">今日やること</p>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                {latestProgram.today_task || '未入力'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <EmptyState
+            title="改善プログラムは未作成です"
+            description="この患者に紐づく改善プログラムはまだありません。"
+            action={
+              <Link href={`/admin/programs/new?patientId=${patient.id}`}>
+                <Button size="sm">プログラム作成</Button>
+              </Link>
+            }
+          />
+        )}
       </SectionCard>
 
       {/* Purchased Products */}
@@ -548,10 +655,29 @@ export default function AdminPatientDetailPage() {
 
         <TabsContent value="programs">
           <SectionCard>
-            <EmptyState
-              title="プログラム一覧は未接続です"
-              description="後続STEPで programs テーブルから取得します。"
-            />
+            {latestProgram ? (
+              <Link
+                href={`/admin/programs/new?patientId=${patient.id}`}
+                className="block rounded-lg border p-4 hover:bg-accent transition-colors"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-medium">
+                      作成日: {new Date(latestProgram.created_at).toLocaleString('ja-JP')}
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                      {latestProgram.summary || '状態まとめ未入力'}
+                    </p>
+                  </div>
+                  <Badge variant="secondary">最新</Badge>
+                </div>
+              </Link>
+            ) : (
+              <EmptyState
+                title="プログラム一覧は未接続です"
+                description="まずは改善プログラムを作成してください。"
+              />
+            )}
           </SectionCard>
         </TabsContent>
 
