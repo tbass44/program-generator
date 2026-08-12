@@ -301,3 +301,95 @@ export async function PATCH(
     );
   }
 }
+
+/**
+ * DELETE /api/admin/patients/[id]
+ *
+ * 管理画面から患者を削除するAPI。
+ *
+ * 注意：
+ * patients に紐づく programs / visits / plans などは schema.sql 側で
+ * on delete cascade を設定しているため、患者削除時に関連データも削除される。
+ * そのため、画面側では必ず確認してから実行する。
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const adminResult = await requireAdmin();
+
+    if (!adminResult.ok) {
+      return NextResponse.json(
+        {
+          error: adminResult.error,
+          detail: 'detail' in adminResult ? adminResult.detail : undefined,
+        },
+        { status: adminResult.status }
+      );
+    }
+
+    const patientId = params.id;
+
+    if (!patientId) {
+      return NextResponse.json(
+        { error: 'patient id is required' },
+        { status: 400 }
+      );
+    }
+
+    /**
+     * 削除前に存在確認する。
+     * 存在しないIDに対しても成功扱いにしないため。
+     */
+    const { data: existingPatient, error: fetchError } = await adminResult.supabaseAdmin
+      .from('patients')
+      .select('id, name')
+      .eq('id', patientId)
+      .maybeSingle<{ id: string; name: string }>();
+
+    if (fetchError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to fetch patient before delete',
+          detail: fetchError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!existingPatient) {
+      return NextResponse.json(
+        { error: 'Patient not found' },
+        { status: 404 }
+      );
+    }
+
+    const { error: deleteError } = await adminResult.supabaseAdmin
+      .from('patients')
+      .delete()
+      .eq('id', patientId);
+
+    if (deleteError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to delete patient',
+          detail: deleteError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      deleted: true,
+      patient: existingPatient,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      { error: 'Unexpected server error' },
+      { status: 500 }
+    );
+  }
+}
