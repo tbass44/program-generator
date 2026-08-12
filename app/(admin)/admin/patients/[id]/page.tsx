@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { Plus, FileText, ShoppingBag, Package, Calendar, Pencil } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { Plus, FileText, ShoppingBag, Package, Calendar, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import { PageHeader, SectionCard, EmptyState } from '@/components/admin';
 /**
  * /api/admin/patients/[id] から返る患者詳細情報。
  *
- * MVPでは、まず patients テーブルの基本項目を表示・編集する。
+ * MVPでは、まず patients テーブルの基本項目を表示・編集・削除する。
  * visits / plans / programs / 商品提案は後続STEPで実データ化する。
  */
 type AdminPatientDetail = {
@@ -43,6 +43,19 @@ type PatientDetailResponse = {
 };
 
 /**
+ * 患者削除APIのレスポンス型。
+ */
+type DeletePatientResponse = {
+  deleted?: boolean;
+  patient?: {
+    id: string;
+    name: string;
+  };
+  error?: string;
+  detail?: unknown;
+};
+
+/**
  * 患者編集フォームの入力値。
  */
 type PatientEditFormData = {
@@ -60,12 +73,14 @@ type PatientEditFormData = {
  * 2. /api/admin/patients/[id] から患者基本情報を取得する
  * 3. 患者基本情報を表示する
  * 4. 編集モードで氏名・カナ・電話番号・備考を更新する
+ * 5. 確認後に患者を削除する
  *
  * 補足：
  * 現時点では、プラン・改善プログラム・通院履歴・商品サポートは未接続。
  */
 export default function AdminPatientDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const patientId = typeof params.id === 'string' ? params.id : '';
 
   /**
@@ -99,7 +114,12 @@ export default function AdminPatientDetailPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   /**
-   * 取得・更新失敗時の表示メッセージ。
+   * 削除中フラグ。
+   */
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  /**
+   * 取得・更新・削除失敗時の表示メッセージ。
    */
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -215,6 +235,55 @@ export default function AdminPatientDetailPage() {
   };
 
   /**
+   * 患者を削除する。
+   *
+   * window.confirm で確認してからDELETE APIを呼ぶ。
+   * 誤操作で患者データを消さないように、表示名を含めて確認する。
+   */
+  const handleDeletePatient = async () => {
+    if (!patientId || !patient) {
+      setErrorMessage('削除対象の患者情報を取得できませんでした。');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `患者「${patient.name}」を削除します。\n関連するプログラム・通院履歴・プラン等も削除されます。\nこの操作は元に戻せません。削除してもよろしいですか？`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      const response = await fetch(`/api/admin/patients/${patientId}`, {
+        method: 'DELETE',
+      });
+
+      const data = (await response.json()) as DeletePatientResponse;
+
+      if (!response.ok || !data.deleted) {
+        console.error(data);
+        setErrorMessage('患者情報を削除できませんでした。');
+        return;
+      }
+
+      /**
+       * 削除成功後は一覧へ戻す。
+       */
+      router.push('/admin/patients');
+    } catch (error) {
+      console.error(error);
+      setErrorMessage('患者情報の削除中にエラーが発生しました。');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  /**
    * 編集をキャンセルして表示モードへ戻す。
    */
   const handleCancelEdit = () => {
@@ -278,13 +347,22 @@ export default function AdminPatientDetailPage() {
         description="患者詳細情報"
         backHref="/admin/patients"
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {!isEditing && (
               <Button type="button" variant="outline" onClick={() => setIsEditing(true)}>
                 <Pencil className="h-4 w-4 mr-2" />
                 基本情報を編集
               </Button>
             )}
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeletePatient}
+              disabled={isDeleting || isSaving}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {isDeleting ? '削除中...' : '削除'}
+            </Button>
             <Link href={`/admin/programs/new?patientId=${patient.id}`}>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
@@ -350,10 +428,10 @@ export default function AdminPatientDetailPage() {
             </div>
 
             <div className="flex gap-3">
-              <Button type="submit" disabled={isSaving}>
+              <Button type="submit" disabled={isSaving || isDeleting}>
                 {isSaving ? '保存中...' : '保存する'}
               </Button>
-              <Button type="button" variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
+              <Button type="button" variant="outline" onClick={handleCancelEdit} disabled={isSaving || isDeleting}>
                 キャンセル
               </Button>
             </div>
