@@ -3,16 +3,18 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Plus, FileText, ShoppingBag, Package, Calendar } from 'lucide-react';
+import { Plus, FileText, ShoppingBag, Package, Calendar, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHeader, SectionCard, EmptyState } from '@/components/admin';
 
 /**
  * /api/admin/patients/[id] から返る患者詳細情報。
  *
- * MVPでは、まず patients テーブルの基本項目を表示する。
+ * MVPでは、まず patients テーブルの基本項目を表示・編集する。
  * visits / plans / programs / 商品提案は後続STEPで実データ化する。
  */
 type AdminPatientDetail = {
@@ -41,16 +43,26 @@ type PatientDetailResponse = {
 };
 
 /**
+ * 患者編集フォームの入力値。
+ */
+type PatientEditFormData = {
+  name: string;
+  kana: string;
+  phone: string;
+  memo: string;
+};
+
+/**
  * 管理側：患者詳細ページ。
  *
  * 役割：
  * 1. URLの患者IDを取得する
  * 2. /api/admin/patients/[id] から患者基本情報を取得する
- * 3. 新規登録した患者情報を詳細画面に表示する
+ * 3. 患者基本情報を表示する
+ * 4. 編集モードで氏名・カナ・電話番号・備考を更新する
  *
  * 補足：
  * 現時点では、プラン・改善プログラム・通院履歴・商品サポートは未接続。
- * まず患者CRUDの「登録→詳細表示」までを確実に通す。
  */
 export default function AdminPatientDetailPage() {
   const params = useParams();
@@ -62,14 +74,52 @@ export default function AdminPatientDetailPage() {
   const [patient, setPatient] = useState<AdminPatientDetail | null>(null);
 
   /**
+   * 編集フォームの入力値。
+   */
+  const [formData, setFormData] = useState<PatientEditFormData>({
+    name: '',
+    kana: '',
+    phone: '',
+    memo: '',
+  });
+
+  /**
    * 読み込み中表示用。
    */
   const [isLoading, setIsLoading] = useState(true);
 
   /**
-   * 取得失敗時の表示メッセージ。
+   * 編集モードかどうか。
+   */
+  const [isEditing, setIsEditing] = useState(false);
+
+  /**
+   * 保存中フラグ。
+   */
+  const [isSaving, setIsSaving] = useState(false);
+
+  /**
+   * 取得・更新失敗時の表示メッセージ。
    */
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  /**
+   * 更新成功時の表示メッセージ。
+   */
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  /**
+   * 患者情報をフォームに反映する。
+   * 編集キャンセル時にも使う。
+   */
+  const syncFormDataFromPatient = (nextPatient: AdminPatientDetail) => {
+    setFormData({
+      name: nextPatient.name,
+      kana: nextPatient.kana ?? '',
+      phone: nextPatient.phone ?? '',
+      memo: nextPatient.memo ?? '',
+    });
+  };
 
   useEffect(() => {
     /**
@@ -97,6 +147,7 @@ export default function AdminPatientDetailPage() {
         }
 
         setPatient(data.patient);
+        syncFormDataFromPatient(data.patient);
       } catch (error) {
         console.error(error);
         setErrorMessage('患者情報の取得中にエラーが発生しました。');
@@ -108,6 +159,73 @@ export default function AdminPatientDetailPage() {
 
     fetchPatient();
   }, [patientId]);
+
+  /**
+   * 患者基本情報を保存する。
+   */
+  const handleSavePatient = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!patientId) {
+      setErrorMessage('患者IDを取得できませんでした。');
+      return;
+    }
+
+    if (!formData.name.trim()) {
+      setErrorMessage('氏名を入力してください。');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      const response = await fetch(`/api/admin/patients/${patientId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          kana: formData.kana,
+          phone: formData.phone,
+          memo: formData.memo,
+        }),
+      });
+
+      const data = (await response.json()) as PatientDetailResponse;
+
+      if (!response.ok || !data.patient) {
+        console.error(data);
+        setErrorMessage('患者情報を保存できませんでした。');
+        return;
+      }
+
+      setPatient(data.patient);
+      syncFormDataFromPatient(data.patient);
+      setIsEditing(false);
+      setSuccessMessage('患者情報を保存しました。');
+    } catch (error) {
+      console.error(error);
+      setErrorMessage('患者情報の保存中にエラーが発生しました。');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  /**
+   * 編集をキャンセルして表示モードへ戻す。
+   */
+  const handleCancelEdit = () => {
+    if (patient) {
+      syncFormDataFromPatient(patient);
+    }
+
+    setIsEditing(false);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+  };
 
   if (isLoading) {
     return (
@@ -124,7 +242,7 @@ export default function AdminPatientDetailPage() {
     );
   }
 
-  if (errorMessage || !patient) {
+  if (errorMessage && !patient) {
     return (
       <div>
         <PageHeader
@@ -133,9 +251,7 @@ export default function AdminPatientDetailPage() {
           backHref="/admin/patients"
         />
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6">
-          <p className="text-sm text-destructive">
-            {errorMessage || '患者情報が見つかりませんでした。'}
-          </p>
+          <p className="text-sm text-destructive">{errorMessage}</p>
           <div className="mt-4 flex gap-3">
             <Button type="button" onClick={() => window.location.reload()}>
               再読み込み
@@ -151,6 +267,10 @@ export default function AdminPatientDetailPage() {
     );
   }
 
+  if (!patient) {
+    return null;
+  }
+
   return (
     <div>
       <PageHeader
@@ -158,54 +278,127 @@ export default function AdminPatientDetailPage() {
         description="患者詳細情報"
         backHref="/admin/patients"
         actions={
-          <Link href={`/admin/programs/new?patientId=${patient.id}`}>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              プログラム作成
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            {!isEditing && (
+              <Button type="button" variant="outline" onClick={() => setIsEditing(true)}>
+                <Pencil className="h-4 w-4 mr-2" />
+                基本情報を編集
+              </Button>
+            )}
+            <Link href={`/admin/programs/new?patientId=${patient.id}`}>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                プログラム作成
+              </Button>
+            </Link>
+          </div>
         }
       />
 
+      {errorMessage && (
+        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          {errorMessage}
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
+          {successMessage}
+        </div>
+      )}
+
       {/* Basic Info */}
       <SectionCard title="基本情報" className="mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div>
-            <p className="text-sm text-muted-foreground">氏名</p>
-            <p className="font-medium">{patient.name}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">カナ</p>
-            <p className="font-medium">{patient.kana || '未登録'}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">電話番号</p>
-            <p className="font-medium">{patient.phone || '未登録'}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">LINE連携</p>
-            <div className="mt-1">
-              <Badge variant={patient.line_user_id ? 'default' : 'secondary'}>
-                {patient.line_user_id ? '連携済み' : '未連携'}
-              </Badge>
+        {isEditing ? (
+          <form onSubmit={handleSavePatient} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="name">氏名</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="kana">カナ</Label>
+                <Input
+                  id="kana"
+                  value={formData.kana}
+                  onChange={(e) => setFormData({ ...formData, kana: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">電話番号</Label>
+                <Input
+                  id="phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </div>
             </div>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">LINE表示名</p>
-            <p className="font-medium">{patient.line_display_name || '未登録'}</p>
-          </div>
-          <div>
-            <p className="text-sm text-muted-foreground">登録日</p>
-            <p className="font-medium">
-              {new Date(patient.created_at).toLocaleDateString('ja-JP')}
-            </p>
-          </div>
-        </div>
-        {patient.memo && (
-          <div className="mt-4 pt-4 border-t">
-            <p className="text-sm text-muted-foreground">備考</p>
-            <p className="mt-1 whitespace-pre-wrap">{patient.memo}</p>
-          </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="memo">備考</Label>
+              <textarea
+                id="memo"
+                className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={formData.memo}
+                onChange={(e) => setFormData({ ...formData, memo: e.target.value })}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? '保存中...' : '保存する'}
+              </Button>
+              <Button type="button" variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
+                キャンセル
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">氏名</p>
+                <p className="font-medium">{patient.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">カナ</p>
+                <p className="font-medium">{patient.kana || '未登録'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">電話番号</p>
+                <p className="font-medium">{patient.phone || '未登録'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">LINE連携</p>
+                <div className="mt-1">
+                  <Badge variant={patient.line_user_id ? 'default' : 'secondary'}>
+                    {patient.line_user_id ? '連携済み' : '未連携'}
+                  </Badge>
+                </div>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">LINE表示名</p>
+                <p className="font-medium">{patient.line_display_name || '未登録'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">登録日</p>
+                <p className="font-medium">
+                  {new Date(patient.created_at).toLocaleDateString('ja-JP')}
+                </p>
+              </div>
+            </div>
+            {patient.memo && (
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-sm text-muted-foreground">備考</p>
+                <p className="mt-1 whitespace-pre-wrap">{patient.memo}</p>
+              </div>
+            )}
+          </>
         )}
       </SectionCard>
 
