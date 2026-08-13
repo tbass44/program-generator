@@ -57,15 +57,23 @@ type AdminProgram = {
 };
 
 /**
+ * 一覧表示で使う患者の最小型。
+ */
+type ProgramPatient = {
+  id: string;
+  name: string;
+  kana: string | null;
+};
+
+/**
  * 改善プログラム一覧で返す型。
- * Supabaseのリレーション取得で patients を一緒に返す。
+ *
+ * 注意：
+ * Supabaseのリレーション取得に依存しすぎると、外部キー名や型推論で壊れやすいため、
+ * GETでは programs と patients を別々に取得して、API側で紐づける。
  */
 type AdminProgramListItem = AdminProgram & {
-  patients: {
-    id: string;
-    name: string;
-    kana: string | null;
-  } | null;
+  patient: ProgramPatient | null;
 };
 
 /**
@@ -194,7 +202,7 @@ function buildProgramText(params: {
  * GET /api/admin/programs
  *
  * 管理画面の改善プログラム一覧で使うAPI。
- * programsを新しい順に取得し、患者名も一緒に返す。
+ * programsを新しい順に取得し、患者情報は別クエリで取得してから紐づける。
  */
 export async function GET() {
   try {
@@ -212,19 +220,10 @@ export async function GET() {
 
     const { data: programs, error: programsError } = await adminResult.supabaseAdmin
       .from('programs')
-      .select(
-        `
-        ${programSelect},
-        patients (
-          id,
-          name,
-          kana
-        )
-      `
-      )
+      .select(programSelect)
       .order('created_at', { ascending: false })
       .limit(100)
-      .returns<AdminProgramListItem[]>();
+      .returns<AdminProgram[]>();
 
     if (programsError) {
       return NextResponse.json(
@@ -236,7 +235,41 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({ programs: programs ?? [] });
+    const programRows = programs ?? [];
+
+    /**
+     * プログラムが0件なら、患者取得は不要。
+     */
+    if (programRows.length === 0) {
+      return NextResponse.json({ programs: [] });
+    }
+
+    const patientIds = Array.from(new Set(programRows.map((program) => program.patient_id)));
+
+    const { data: patients, error: patientsError } = await adminResult.supabaseAdmin
+      .from('patients')
+      .select('id, name, kana')
+      .in('id', patientIds)
+      .returns<ProgramPatient[]>();
+
+    if (patientsError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to fetch program patients',
+          detail: patientsError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    const patientMap = new Map((patients ?? []).map((patient) => [patient.id, patient]));
+
+    const listItems: AdminProgramListItem[] = programRows.map((program) => ({
+      ...program,
+      patient: patientMap.get(program.patient_id) ?? null,
+    }));
+
+    return NextResponse.json({ programs: listItems });
   } catch (error) {
     console.error(error);
 
