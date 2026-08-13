@@ -1,119 +1,124 @@
 'use client';
 
-import { CreditCard as Edit, ArrowLeft } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, Edit } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { PageHeader, SectionCard, ProgramSection, SupportCategoryCard } from '@/components/admin';
-import type { SupportProposal } from '@/components/admin';
+import { PageHeader, SectionCard, ProgramSection } from '@/components/admin';
 
-const programData = {
-  id: '1',
-  patientName: '山田 太郎',
-  patientId: '1',
-  status: '提案済み',
-  createdAt: '2024-01-15',
-  memo: '腰痛あり、睡眠の質改善を希望。定期的なマッサージを受けている。',
-  summary: '腰痛（慢性）と睡眠の質低下を主訴として来院。定期的なマッサージで一時的改善あり。姿勢不良と寝環境の課題が根本原因と推定。',
-  shortTerm: `1ヶ月目: 姿勢評価と寝環境改善
-- 体圧分散マットレスの導入
-- 枕の高さ調整
-- 1日10分のストレッチ習慣化
-
-2ヶ月目: 栄養サポート開始
-- ビタミンD3 2000IU/日
-- マグネシウム 300mg/日
-- オメガ3脂肪酸 1000mg/日
-
-3ヶ月目: 運動療法の本格導入
-- バランスボール 15分/日
-- チューブエクササイズ 10分/日
-- 週1回の施術継続`,
-  longTerm: `3カ月以降:
-- 継続的なコアトレーニング
-- 月1回の姿勢評価
-- サプリメントの効果測定と調整
-- 睡眠の質の定期チェック
-
-6カ月目標:
-- 腰痛の頻度を50%以上減少
-- 睡眠の質スコアの改善
-- 自立したセルフケア習慣の確立`,
-  todayTask: `1. 現在のマットレス・枕の状況をヒアリング
-2. 姿勢の写真記録（正面・側面）
-3. 体圧分散マットレスのカタログ提示
-4. ビタミンD3のサンプル提供
-5. ストレッチ指導（基本3種目）
-6. 次回予約の確認`,
-  supportProposals: [
-    {
-      id: '1',
-      category: '物理療法（睡眠）',
-      name: '体圧分散マットレス',
-      description: '中硬・厚み20cm以上の体圧分散機能付きマットレス',
-      reason: '腰痛緩和のため、適切な寝姿勢を維持できる体圧分散機能付きマットレスを推奨します。',
-      status: '提案中' as const,
-    },
-    {
-      id: '2',
-      category: '物理療法（睡眠）',
-      name: '高さ調整可能な枕',
-      description: '首の高さに合わせて調整できる枕',
-      reason: '頸部・腰椎のアライメント改善のため。',
-      status: '検討中' as const,
-    },
-    {
-      id: '3',
-      category: '栄養療法',
-      name: 'ビタミンD3サプリメント',
-      description: '1日2000IUのビタミンD3',
-      reason: '骨密度の維持と免疫サポートのため。',
-      status: '購入済み' as const,
-    },
-    {
-      id: '4',
-      category: '栄養療法',
-      name: 'マグネシウムサプリメント',
-      description: '1日300mgのマグネシウム',
-      reason: '筋肉のリラックスと睡眠の質改善のため。',
-      status: '提案中' as const,
-    },
-    {
-      id: '5',
-      category: '運動療法',
-      name: 'バランスボール',
-      description: '65cm径のバランスボール',
-      reason: 'コア筋肉の強化と姿勢改善に効果的です。',
-      status: '提案中' as const,
-    },
-    {
-      id: '6',
-      category: '運動療法',
-      name: 'トレーニングチューブ',
-      description: '軽・中の2段階チューブセット',
-      reason: '自宅での肩甲骨周り強化のため。',
-      status: '見送り' as const,
-    },
-    {
-      id: '7',
-      category: 'スキンケア',
-      name: 'ボディローション',
-      description: '保湿重視のボディローション',
-      reason: 'マッサージ時の保湿ケアとして。',
-      status: '提案中' as const,
-    },
-  ] as SupportProposal[],
+type ProgramDetail = {
+  id: string;
+  patient_id: string;
+  create_mode: 'manual' | 'ai';
+  memo: string | null;
+  summary: string | null;
+  short_term_program: string | null;
+  long_term_program: string | null;
+  today_task: string | null;
+  program_text: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
-export default function AdminProgramDetailPage() {
+type ProgramPatient = {
+  id: string;
+  name: string;
+  kana: string | null;
+  phone: string | null;
+};
+
+type ProgramDetailResponse = {
+  program?: ProgramDetail;
+  patient?: ProgramPatient | null;
+  error?: string;
+  detail?: unknown;
+};
+
+function formatApiError(status: number, data: ProgramDetailResponse) {
+  const detail = typeof data.detail === 'string' ? ` / detail: ${data.detail}` : '';
+  return `改善プログラムを取得できませんでした（HTTP ${status} / error: ${data.error ?? 'unknown'}${detail}）`;
+}
+
+export default function AdminProgramDetailPage({ params }: { params: { id: string } }) {
+  const [program, setProgram] = useState<ProgramDetail | null>(null);
+  const [patient, setPatient] = useState<ProgramPatient | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProgram = async () => {
+      try {
+        setIsLoading(true);
+        setErrorMessage(null);
+
+        const response = await fetch(`/api/admin/programs/${params.id}`);
+        const data = (await response.json()) as ProgramDetailResponse;
+
+        if (!response.ok || !data.program) {
+          setErrorMessage(formatApiError(response.status, data));
+          setProgram(null);
+          setPatient(null);
+          return;
+        }
+
+        setProgram(data.program);
+        setPatient(data.patient ?? null);
+      } catch (error) {
+        console.error(error);
+        setErrorMessage('改善プログラムの取得中にエラーが発生しました。');
+        setProgram(null);
+        setPatient(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProgram();
+  }, [params.id]);
+
+  if (isLoading) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <PageHeader
+          title="改善プログラム詳細"
+          description="改善プログラムを読み込み中です"
+          backHref="/admin/programs"
+        />
+        <SectionCard>
+          <p className="text-sm text-muted-foreground">読み込み中です...</p>
+        </SectionCard>
+      </div>
+    );
+  }
+
+  if (errorMessage || !program) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <PageHeader
+          title="改善プログラム詳細"
+          description="改善プログラムを取得できませんでした"
+          backHref="/admin/programs"
+        />
+        <SectionCard>
+          <p className="text-sm text-destructive">
+            {errorMessage ?? '改善プログラムが見つかりませんでした。'}
+          </p>
+        </SectionCard>
+      </div>
+    );
+  }
+
+  const patientName = patient?.name ?? '患者情報なし';
+  const createdAt = new Date(program.created_at).toLocaleDateString('ja-JP');
+
   return (
     <div className="max-w-4xl mx-auto">
       <PageHeader
         title="改善プログラム詳細"
-        description={`${programData.patientName} - ${programData.createdAt}`}
-        backHref={`/admin/patients/${programData.patientId}`}
+        description={`${patientName} - ${createdAt}`}
+        backHref="/admin/programs"
         actions={
-          <Link href={`/admin/programs/${programData.id}/edit`}>
+          <Link href={`/admin/programs/${program.id}/edit`}>
             <Button>
               <Edit className="h-4 w-4 mr-2" />
               編集
@@ -122,62 +127,73 @@ export default function AdminProgramDetailPage() {
         }
       />
 
-      {/* Patient & Status */}
       <SectionCard className="mb-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm text-muted-foreground">患者名</p>
-            <Link
-              href={`/admin/patients/${programData.patientId}`}
-              className="font-medium text-primary hover:underline"
-            >
-              {programData.patientName}
-            </Link>
+            {patient ? (
+              <Link
+                href={`/admin/patients/${patient.id}`}
+                className="font-medium text-primary hover:underline"
+              >
+                {patient.name}
+              </Link>
+            ) : (
+              <p className="font-medium">患者情報なし</p>
+            )}
+            {patient?.kana && (
+              <p className="text-xs text-muted-foreground">カナ: {patient.kana}</p>
+            )}
           </div>
-          <div className="text-right">
+
+          <div className="md:text-right">
             <p className="text-sm text-muted-foreground">作成日</p>
-            <p className="font-medium">{programData.createdAt}</p>
+            <p className="font-medium">{createdAt}</p>
+            <p className="text-xs text-muted-foreground">
+              作成方法: {program.create_mode === 'manual' ? '手動作成' : 'AI作成'}
+            </p>
           </div>
         </div>
       </SectionCard>
 
-      {/* Memo */}
       <SectionCard title="状態メモ" className="mb-6">
-        <p className="whitespace-pre-wrap text-sm">{programData.memo}</p>
+        <p className="whitespace-pre-wrap text-sm">
+          {program.memo || '状態メモは未入力です。'}
+        </p>
       </SectionCard>
 
-      {/* Program Sections */}
       <div className="space-y-4 mb-6">
-        <ProgramSection title="状態まとめ" content={programData.summary} />
-        <ProgramSection title="短期プログラム（3カ月）" content={programData.shortTerm} />
-        <ProgramSection title="長期プログラム" content={programData.longTerm} />
-        <ProgramSection title="今日やること" content={programData.todayTask} />
+        <ProgramSection
+          title="状態まとめ"
+          content={program.summary || '状態まとめは未入力です。'}
+        />
+        <ProgramSection
+          title="短期プログラム（3カ月）"
+          content={program.short_term_program || '短期プログラムは未入力です。'}
+        />
+        <ProgramSection
+          title="長期プログラム"
+          content={program.long_term_program || '長期プログラムは未入力です。'}
+        />
+        <ProgramSection
+          title="今日やること"
+          content={program.today_task || '今日やることは未入力です。'}
+        />
       </div>
 
-      {/* Support Proposals */}
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-4">商品サポート提案</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {programData.supportProposals.map((proposal) => (
-            <SupportCategoryCard key={proposal.id} proposal={proposal} />
-          ))}
-        </div>
-      </div>
-
-      {/* Actions */}
       <div className="flex items-center gap-4">
-        <Link href={`/admin/patients/${programData.patientId}`}>
+        <Link href="/admin/programs">
           <Button variant="outline">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            患者詳細へ
+            一覧へ戻る
           </Button>
         </Link>
-        <Link href={`/admin/programs/${programData.id}/edit`}>
-          <Button variant="outline">
-            <Edit className="h-4 w-4 mr-2" />
-            編集
-          </Button>
-        </Link>
+
+        {patient && (
+          <Link href={`/admin/patients/${patient.id}`}>
+            <Button variant="outline">患者詳細へ</Button>
+          </Link>
+        )}
       </div>
     </div>
   );
