@@ -57,6 +57,18 @@ type AdminProgram = {
 };
 
 /**
+ * 改善プログラム一覧で返す型。
+ * Supabaseのリレーション取得で patients を一緒に返す。
+ */
+type AdminProgramListItem = AdminProgram & {
+  patients: {
+    id: string;
+    name: string;
+    kana: string | null;
+  } | null;
+};
+
+/**
  * サーバー側で使うSupabase管理クライアントを作成する。
  * service_role key はブラウザに出さず、API Route内だけで使う。
  */
@@ -138,6 +150,23 @@ function normalizeRequiredText(value: unknown): string {
 }
 
 /**
+ * programsテーブル共通のselect句。
+ */
+const programSelect = `
+  id,
+  patient_id,
+  create_mode,
+  memo,
+  summary,
+  short_term_program,
+  long_term_program,
+  today_task,
+  program_text,
+  created_at,
+  updated_at
+`;
+
+/**
  * LINE送信・コピー用に、入力内容を1つの文章へまとめる。
  * DB上は各カラムにも分けて保存するが、全文表示用として program_text も持たせる。
  */
@@ -159,6 +188,63 @@ function buildProgramText(params: {
   ]
     .filter(Boolean)
     .join('\n\n');
+}
+
+/**
+ * GET /api/admin/programs
+ *
+ * 管理画面の改善プログラム一覧で使うAPI。
+ * programsを新しい順に取得し、患者名も一緒に返す。
+ */
+export async function GET() {
+  try {
+    const adminResult = await requireAdmin();
+
+    if (!adminResult.ok) {
+      return NextResponse.json(
+        {
+          error: adminResult.error,
+          detail: 'detail' in adminResult ? adminResult.detail : undefined,
+        },
+        { status: adminResult.status }
+      );
+    }
+
+    const { data: programs, error: programsError } = await adminResult.supabaseAdmin
+      .from('programs')
+      .select(
+        `
+        ${programSelect},
+        patients (
+          id,
+          name,
+          kana
+        )
+      `
+      )
+      .order('created_at', { ascending: false })
+      .limit(100)
+      .returns<AdminProgramListItem[]>();
+
+    if (programsError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to fetch programs',
+          detail: programsError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ programs: programs ?? [] });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      { error: 'Unexpected server error' },
+      { status: 500 }
+    );
+  }
 }
 
 /**
@@ -270,21 +356,7 @@ export async function POST(request: Request) {
         today_task: todayTask,
         program_text: programText,
       })
-      .select(
-        `
-        id,
-        patient_id,
-        create_mode,
-        memo,
-        summary,
-        short_term_program,
-        long_term_program,
-        today_task,
-        program_text,
-        created_at,
-        updated_at
-      `
-      )
+      .select(programSelect)
       .single<AdminProgram>();
 
     if (insertError) {
