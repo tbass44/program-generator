@@ -17,6 +17,16 @@ function getRequiredEnv(key: string): string {
 }
 
 /**
+ * Supabase/PostgreSQLのuuid形式かを判定する。
+ *
+ * /admin/patients/1/latest-program のような不正URLで、
+ * DB問い合わせ前に400として返すために使う。
+ */
+function isValidUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+/**
  * 管理者判定で使う profiles の最小型。
  */
 type AdminProfile = {
@@ -131,6 +141,16 @@ export async function GET(
     if (!patientId) {
       return NextResponse.json(
         { error: 'patient id is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!isValidUuid(patientId)) {
+      return NextResponse.json(
+        {
+          error: 'Invalid patient id',
+          detail: '患者IDの形式が不正です。患者詳細URLにはUUID形式のIDが必要です。',
+        },
         { status: 400 }
       );
     }
