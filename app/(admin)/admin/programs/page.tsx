@@ -10,8 +10,8 @@ import { PageHeader, SectionCard, EmptyState } from '@/components/admin';
 /**
  * /api/admin/programs から返る改善プログラム一覧の1件分。
  *
- * 一覧画面ではまず programs テーブルの情報だけを表示する。
- * 患者名のJOIN表示は、ルーティングとAPI取得が安定してから段階的に戻す。
+ * 患者情報はAPI側でprogramsとpatientsを別々に取得して紐づけたものを受け取る。
+ * SupabaseのリレーションJOINに依存しないことで、一覧ページを安定させる。
  */
 type AdminProgramListItem = {
   id: string;
@@ -25,7 +25,7 @@ type AdminProgramListItem = {
   program_text: string | null;
   created_at: string;
   updated_at: string;
-  patients?: {
+  patient: {
     id: string;
     name: string;
     kana: string | null;
@@ -54,6 +54,7 @@ function formatApiError(status: number, data: ProgramsResponse) {
  *
  * 役割：
  * - Supabaseのprogramsを新しい順に表示する
+ * - 患者名、作成日、状態まとめを一覧で確認できるようにする
  * - 詳細ページ、患者詳細ページへ移動できるようにする
  */
 export default function AdminProgramsPage() {
@@ -141,7 +142,8 @@ export default function AdminProgramsPage() {
         ) : (
           <div className="space-y-3">
             {programs.map((program) => {
-              const patientName = program.patients?.name ?? '患者IDで表示';
+              const patientName = program.patient?.name ?? '患者情報なし';
+              const patientKana = program.patient?.kana ?? '';
               const createdAt = new Date(program.created_at).toLocaleDateString('ja-JP');
 
               return (
@@ -164,9 +166,15 @@ export default function AdminProgramsPage() {
                         </Badge>
                       </div>
 
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        患者ID: {program.patient_id}
-                      </p>
+                      {patientKana && (
+                        <p className="mt-1 text-xs text-muted-foreground">カナ: {patientKana}</p>
+                      )}
+
+                      {!program.patient && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          患者ID: {program.patient_id}
+                        </p>
+                      )}
 
                       <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
                         {program.summary || '状態まとめは未入力です。'}
