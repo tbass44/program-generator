@@ -17,6 +17,51 @@ function getRequiredEnv(key: string): string {
 }
 
 /**
+ * Supabase/PostgreSQLのuuid形式かを判定する。
+ *
+ * /admin/patients/1 のようなURLが来た場合、DBへ投げる前に止める。
+ * これをしないと PostgreSQL 側で
+ * invalid input syntax for type uuid
+ * となり、画面上はHTTP 500に見えてしまう。
+ */
+function isValidUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+/**
+ * 患者IDをAPI入力値として検証する。
+ * 空文字・UUID形式ではない文字列を、DB問い合わせ前に400で返す。
+ */
+function validatePatientId(patientId: string) {
+  if (!patientId) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        { error: 'patient id is required' },
+        { status: 400 }
+      ),
+    };
+  }
+
+  if (!isValidUuid(patientId)) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
+        {
+          error: 'Invalid patient id',
+          detail: '患者IDの形式が不正です。患者詳細URLにはUUID形式のIDが必要です。',
+        },
+        { status: 400 }
+      ),
+    };
+  }
+
+  return {
+    ok: true as const,
+  };
+}
+
+/**
  * 管理者判定で使う profiles の最小型。
  */
 type AdminProfile = {
@@ -172,12 +217,10 @@ export async function GET(
     }
 
     const patientId = params.id;
+    const patientIdValidation = validatePatientId(patientId);
 
-    if (!patientId) {
-      return NextResponse.json(
-        { error: 'patient id is required' },
-        { status: 400 }
-      );
+    if (!patientIdValidation.ok) {
+      return patientIdValidation.response;
     }
 
     const { data: patient, error: patientError } = await adminResult.supabaseAdmin
@@ -243,12 +286,10 @@ export async function PATCH(
     }
 
     const patientId = params.id;
+    const patientIdValidation = validatePatientId(patientId);
 
-    if (!patientId) {
-      return NextResponse.json(
-        { error: 'patient id is required' },
-        { status: 400 }
-      );
+    if (!patientIdValidation.ok) {
+      return patientIdValidation.response;
     }
 
     const body = (await request.json()) as UpdatePatientBody;
@@ -330,12 +371,10 @@ export async function DELETE(
     }
 
     const patientId = params.id;
+    const patientIdValidation = validatePatientId(patientId);
 
-    if (!patientId) {
-      return NextResponse.json(
-        { error: 'patient id is required' },
-        { status: 400 }
-      );
+    if (!patientIdValidation.ok) {
+      return patientIdValidation.response;
     }
 
     /**
