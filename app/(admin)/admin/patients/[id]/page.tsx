@@ -50,27 +50,18 @@ type LatestProgram = {
   updated_at: string;
 };
 
-/**
- * 患者詳細APIのレスポンス型。
- */
 type PatientDetailResponse = {
   patient?: AdminPatientDetail;
   error?: string;
   detail?: unknown;
 };
 
-/**
- * 最新改善プログラムAPIのレスポンス型。
- */
 type LatestProgramResponse = {
   program?: LatestProgram | null;
   error?: string;
   detail?: unknown;
 };
 
-/**
- * 患者削除APIのレスポンス型。
- */
 type DeletePatientResponse = {
   deleted?: boolean;
   patient?: {
@@ -81,9 +72,6 @@ type DeletePatientResponse = {
   detail?: unknown;
 };
 
-/**
- * 患者編集フォームの入力値。
- */
 type PatientEditFormData = {
   name: string;
   kana: string;
@@ -92,37 +80,28 @@ type PatientEditFormData = {
 };
 
 /**
+ * APIレスポンスのエラー情報を画面表示用に整形する。
+ *
+ * 本番確認時に「何が失敗したか」が見えないと切り分けできないため、
+ * error / detail / HTTP status をまとめて表示する。
+ */
+function buildApiErrorMessage(prefix: string, status: number, data: { error?: string; detail?: unknown }) {
+  const detailText = data.detail ? ` / detail: ${String(data.detail)}` : '';
+  const errorText = data.error ? ` / error: ${data.error}` : '';
+
+  return `${prefix}（HTTP ${status}${errorText}${detailText}）`;
+}
+
+/**
  * 管理側：患者詳細ページ。
- *
- * 役割：
- * 1. URLの患者IDを取得する
- * 2. /api/admin/patients/[id] から患者基本情報を取得する
- * 3. 患者基本情報を表示する
- * 4. 編集モードで氏名・カナ・電話番号・備考を更新する
- * 5. 確認後に患者を削除する
- * 6. 最新の改善プログラムを表示する
- *
- * 補足：
- * 現時点では、プラン・通院履歴・商品サポートは未接続。
  */
 export default function AdminPatientDetailPage() {
   const params = useParams();
   const router = useRouter();
   const patientId = typeof params.id === 'string' ? params.id : '';
 
-  /**
-   * APIから取得した患者詳細。
-   */
   const [patient, setPatient] = useState<AdminPatientDetail | null>(null);
-
-  /**
-   * 患者に紐づく最新改善プログラム。
-   */
   const [latestProgram, setLatestProgram] = useState<LatestProgram | null>(null);
-
-  /**
-   * 編集フォームの入力値。
-   */
   const [formData, setFormData] = useState<PatientEditFormData>({
     name: '',
     kana: '',
@@ -130,39 +109,16 @@ export default function AdminPatientDetailPage() {
     memo: '',
   });
 
-  /**
-   * 読み込み中表示用。
-   */
   const [isLoading, setIsLoading] = useState(true);
-
-  /**
-   * 編集モードかどうか。
-   */
   const [isEditing, setIsEditing] = useState(false);
-
-  /**
-   * 保存中フラグ。
-   */
   const [isSaving, setIsSaving] = useState(false);
-
-  /**
-   * 削除中フラグ。
-   */
   const [isDeleting, setIsDeleting] = useState(false);
-
-  /**
-   * 取得・更新・削除失敗時の表示メッセージ。
-   */
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  /**
-   * 更新成功時の表示メッセージ。
-   */
+  const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   /**
    * 患者情報をフォームに反映する。
-   * 編集キャンセル時にも使う。
    */
   const syncFormDataFromPatient = (nextPatient: AdminPatientDetail) => {
     setFormData({
@@ -176,6 +132,10 @@ export default function AdminPatientDetailPage() {
   useEffect(() => {
     /**
      * 患者詳細と最新改善プログラムを取得する。
+     *
+     * 重要：
+     * 最新プログラム取得に失敗しても、患者基本情報が取れていれば画面は表示する。
+     * 患者基本情報と改善プログラム表示は切り分けて扱う。
      */
     const fetchPatientDetail = async () => {
       if (!patientId) {
@@ -187,13 +147,16 @@ export default function AdminPatientDetailPage() {
       try {
         setIsLoading(true);
         setErrorMessage(null);
+        setWarningMessage(null);
 
         const patientResponse = await fetch(`/api/admin/patients/${patientId}`);
         const patientData = (await patientResponse.json()) as PatientDetailResponse;
 
         if (!patientResponse.ok || !patientData.patient) {
           console.error(patientData);
-          setErrorMessage('患者情報を取得できませんでした。');
+          setErrorMessage(
+            buildApiErrorMessage('患者情報を取得できませんでした', patientResponse.status, patientData)
+          );
           setPatient(null);
           setLatestProgram(null);
           return;
@@ -202,15 +165,14 @@ export default function AdminPatientDetailPage() {
         setPatient(patientData.patient);
         syncFormDataFromPatient(patientData.patient);
 
-        /**
-         * 最新改善プログラムは未作成でも正常なので、取得失敗時だけエラー表示する。
-         */
         const programResponse = await fetch(`/api/admin/patients/${patientId}/latest-program`);
         const programData = (await programResponse.json()) as LatestProgramResponse;
 
         if (!programResponse.ok) {
           console.error(programData);
-          setErrorMessage('最新の改善プログラムを取得できませんでした。');
+          setWarningMessage(
+            buildApiErrorMessage('最新の改善プログラムを取得できませんでした', programResponse.status, programData)
+          );
           setLatestProgram(null);
           return;
         }
@@ -218,7 +180,7 @@ export default function AdminPatientDetailPage() {
         setLatestProgram(programData.program ?? null);
       } catch (error) {
         console.error(error);
-        setErrorMessage('患者情報の取得中にエラーが発生しました。');
+        setErrorMessage(`患者情報の取得中にエラーが発生しました。${String(error)}`);
         setPatient(null);
         setLatestProgram(null);
       } finally {
@@ -267,7 +229,7 @@ export default function AdminPatientDetailPage() {
 
       if (!response.ok || !data.patient) {
         console.error(data);
-        setErrorMessage('患者情報を保存できませんでした。');
+        setErrorMessage(buildApiErrorMessage('患者情報を保存できませんでした', response.status, data));
         return;
       }
 
@@ -277,7 +239,7 @@ export default function AdminPatientDetailPage() {
       setSuccessMessage('患者情報を保存しました。');
     } catch (error) {
       console.error(error);
-      setErrorMessage('患者情報の保存中にエラーが発生しました。');
+      setErrorMessage(`患者情報の保存中にエラーが発生しました。${String(error)}`);
     } finally {
       setIsSaving(false);
     }
@@ -285,9 +247,6 @@ export default function AdminPatientDetailPage() {
 
   /**
    * 患者を削除する。
-   *
-   * window.confirm で確認してからDELETE APIを呼ぶ。
-   * 誤操作で患者データを消さないように、表示名を含めて確認する。
    */
   const handleDeletePatient = async () => {
     if (!patientId || !patient) {
@@ -316,17 +275,14 @@ export default function AdminPatientDetailPage() {
 
       if (!response.ok || !data.deleted) {
         console.error(data);
-        setErrorMessage('患者情報を削除できませんでした。');
+        setErrorMessage(buildApiErrorMessage('患者情報を削除できませんでした', response.status, data));
         return;
       }
 
-      /**
-       * 削除成功後は一覧へ戻す。
-       */
       router.push('/admin/patients');
     } catch (error) {
       console.error(error);
-      setErrorMessage('患者情報の削除中にエラーが発生しました。');
+      setErrorMessage(`患者情報の削除中にエラーが発生しました。${String(error)}`);
     } finally {
       setIsDeleting(false);
     }
@@ -369,7 +325,8 @@ export default function AdminPatientDetailPage() {
           backHref="/admin/patients"
         />
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6">
-          <p className="text-sm text-destructive">{errorMessage}</p>
+          <p className="text-sm text-destructive whitespace-pre-wrap">{errorMessage}</p>
+          <p className="mt-3 text-xs text-muted-foreground">患者ID: {patientId || '取得不可'}</p>
           <div className="mt-4 flex gap-3">
             <Button type="button" onClick={() => window.location.reload()}>
               再読み込み
@@ -423,8 +380,14 @@ export default function AdminPatientDetailPage() {
       />
 
       {errorMessage && (
-        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive whitespace-pre-wrap">
           {errorMessage}
+        </div>
+      )}
+
+      {warningMessage && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700 whitespace-pre-wrap">
+          {warningMessage}
         </div>
       )}
 
@@ -434,7 +397,6 @@ export default function AdminPatientDetailPage() {
         </div>
       )}
 
-      {/* Basic Info */}
       <SectionCard title="基本情報" className="mb-6">
         {isEditing ? (
           <form onSubmit={handleSavePatient} className="space-y-6">
@@ -529,7 +491,6 @@ export default function AdminPatientDetailPage() {
         )}
       </SectionCard>
 
-      {/* Current Plan */}
       <SectionCard title="現在のプラン" className="mb-6">
         <EmptyState
           title="プラン情報は未接続です"
@@ -542,7 +503,6 @@ export default function AdminPatientDetailPage() {
         />
       </SectionCard>
 
-      {/* Current Program */}
       <SectionCard
         title="現在の改善プログラム"
         className="mb-6"
@@ -555,55 +515,49 @@ export default function AdminPatientDetailPage() {
         }
       >
         {latestProgram ? (
-          <div className="space-y-5">
-            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <FileText className="h-4 w-4" />
-              <span>作成日: {new Date(latestProgram.created_at).toLocaleString('ja-JP')}</span>
-              <Badge variant="secondary">
-                {latestProgram.create_mode === 'manual' ? '手動入力' : 'AI生成'}
-              </Badge>
+              <span>作成日: {new Date(latestProgram.created_at).toLocaleDateString('ja-JP')}</span>
+              <Badge variant="secondary">{latestProgram.create_mode === 'manual' ? '手動入力' : 'AI生成'}</Badge>
             </div>
-
             {latestProgram.memo && (
-              <div className="rounded-lg border p-3">
-                <p className="text-sm font-medium mb-1">状態・メモ</p>
+              <div>
+                <p className="text-sm font-medium mb-1">状態メモ</p>
                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">{latestProgram.memo}</p>
               </div>
             )}
-
-            <div>
-              <p className="text-sm font-medium mb-1">状態まとめ</p>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                {latestProgram.summary || '未入力'}
-              </p>
-            </div>
-
+            {latestProgram.summary && (
+              <div>
+                <p className="text-sm font-medium mb-1">状態まとめ</p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{latestProgram.summary}</p>
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-lg border p-3">
-                <p className="text-sm font-medium mb-2">短期プログラム（3カ月）</p>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {latestProgram.short_term_program || '未入力'}
-                </p>
-              </div>
-              <div className="rounded-lg border p-3">
-                <p className="text-sm font-medium mb-2">長期プログラム</p>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {latestProgram.long_term_program || '未入力'}
-                </p>
-              </div>
+              {latestProgram.short_term_program && (
+                <div className="p-3 rounded-lg border">
+                  <p className="text-sm font-medium mb-2">短期プログラム（3カ月）</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{latestProgram.short_term_program}</p>
+                </div>
+              )}
+              {latestProgram.long_term_program && (
+                <div className="p-3 rounded-lg border">
+                  <p className="text-sm font-medium mb-2">長期プログラム</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{latestProgram.long_term_program}</p>
+                </div>
+              )}
             </div>
-
-            <div className="rounded-lg border p-3">
-              <p className="text-sm font-medium mb-2">今日やること</p>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                {latestProgram.today_task || '未入力'}
-              </p>
-            </div>
+            {latestProgram.today_task && (
+              <div className="p-3 rounded-lg border">
+                <p className="text-sm font-medium mb-2">今日やること</p>
+                <p className="text-xs text-muted-foreground whitespace-pre-wrap">{latestProgram.today_task}</p>
+              </div>
+            )}
           </div>
         ) : (
           <EmptyState
             title="改善プログラムは未作成です"
-            description="この患者に紐づく改善プログラムはまだありません。"
+            description="この患者に対して、手動で改善プログラムを作成できます。"
             action={
               <Link href={`/admin/programs/new?patientId=${patient.id}`}>
                 <Button size="sm">プログラム作成</Button>
@@ -613,17 +567,14 @@ export default function AdminPatientDetailPage() {
         )}
       </SectionCard>
 
-      {/* Purchased Products */}
       <SectionCard title="購入済み商品" className="mb-6">
         <EmptyState title="購入済み商品はありません" />
       </SectionCard>
 
-      {/* Rental Products */}
       <SectionCard title="レンタル中の商品" className="mb-6">
         <EmptyState title="レンタル中の商品はありません" />
       </SectionCard>
 
-      {/* Tabs for History */}
       <Tabs defaultValue="visits" className="space-y-4">
         <TabsList>
           <TabsTrigger value="visits" className="gap-2">
@@ -662,11 +613,9 @@ export default function AdminPatientDetailPage() {
               >
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="font-medium">
-                      作成日: {new Date(latestProgram.created_at).toLocaleString('ja-JP')}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                      {latestProgram.summary || '状態まとめ未入力'}
+                    <p className="font-medium">作成日: {new Date(latestProgram.created_at).toLocaleDateString('ja-JP')}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">
+                      {latestProgram.summary || latestProgram.memo || '内容未入力'}
                     </p>
                   </div>
                   <Badge variant="secondary">最新</Badge>
@@ -675,7 +624,7 @@ export default function AdminPatientDetailPage() {
             ) : (
               <EmptyState
                 title="プログラム一覧は未接続です"
-                description="まずは改善プログラムを作成してください。"
+                description="まずは最新プログラムの表示のみ対応しています。"
               />
             )}
           </SectionCard>
