@@ -1,18 +1,109 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
+import { FileText, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { PageHeader, SectionCard } from '@/components/admin';
+import { Badge } from '@/components/ui/badge';
+import { PageHeader, SectionCard, EmptyState } from '@/components/admin';
+
+/**
+ * /api/admin/programs から返る改善プログラム一覧の1件分。
+ *
+ * 一覧画面ではまず programs テーブルの情報だけを表示する。
+ * 患者名のJOIN表示は、ルーティングとAPI取得が安定してから段階的に戻す。
+ */
+type AdminProgramListItem = {
+  id: string;
+  patient_id: string;
+  create_mode: 'manual' | 'ai';
+  memo: string | null;
+  summary: string | null;
+  short_term_program: string | null;
+  long_term_program: string | null;
+  today_task: string | null;
+  program_text: string | null;
+  created_at: string;
+  updated_at: string;
+  patients?: {
+    id: string;
+    name: string;
+    kana: string | null;
+  } | null;
+};
+
+/**
+ * 改善プログラム一覧APIのレスポンス型。
+ */
+type ProgramsResponse = {
+  programs?: AdminProgramListItem[];
+  error?: string;
+  detail?: unknown;
+};
+
+/**
+ * エラー内容を画面確認しやすい文字列に整える。
+ */
+function formatApiError(status: number, data: ProgramsResponse) {
+  const detail = typeof data.detail === 'string' ? ` / detail: ${data.detail}` : '';
+  return `改善プログラム一覧を取得できませんでした（HTTP ${status} / error: ${data.error ?? 'unknown'}${detail}）`;
+}
 
 /**
  * 管理側：改善プログラム一覧ページ。
  *
- * まず /admin/programs のルートがVercel上で確実に認識されるかを確認するため、
- * 一時的にシンプルな画面にしている。
- * ルート表示が確認できた後で、Supabase実データ一覧を戻す。
+ * 役割：
+ * - Supabaseのprogramsを新しい順に表示する
+ * - 詳細ページ、患者詳細ページへ移動できるようにする
  */
 export default function AdminProgramsPage() {
+  /**
+   * APIから取得した改善プログラム一覧。
+   */
+  const [programs, setPrograms] = useState<AdminProgramListItem[]>([]);
+
+  /**
+   * 読み込み中表示用。
+   */
+  const [isLoading, setIsLoading] = useState(true);
+
+  /**
+   * 取得失敗時のメッセージ。
+   */
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    /**
+     * 改善プログラム一覧を取得する。
+     */
+    const fetchPrograms = async () => {
+      try {
+        setIsLoading(true);
+        setErrorMessage(null);
+
+        const response = await fetch('/api/admin/programs');
+        const data = (await response.json()) as ProgramsResponse;
+
+        if (!response.ok || !data.programs) {
+          console.error(data);
+          setErrorMessage(formatApiError(response.status, data));
+          setPrograms([]);
+          return;
+        }
+
+        setPrograms(data.programs);
+      } catch (error) {
+        console.error(error);
+        setErrorMessage('改善プログラム一覧の取得中にエラーが発生しました。');
+        setPrograms([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPrograms();
+  }, []);
+
   return (
     <div>
       <PageHeader
@@ -28,13 +119,87 @@ export default function AdminProgramsPage() {
         }
       />
 
-      <SectionCard title="改善プログラム一覧">
-        <div className="space-y-3 text-sm">
-          <p>このページが表示されれば、/admin/programs のルーティングは正常です。</p>
-          <p className="text-muted-foreground">
-            次の修正で、Supabaseに保存済みの改善プログラム一覧をここに表示します。
-          </p>
+      {errorMessage && (
+        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          {errorMessage}
         </div>
+      )}
+
+      <SectionCard title="改善プログラム一覧">
+        {isLoading ? (
+          <div className="text-sm text-muted-foreground">改善プログラムを読み込み中です...</div>
+        ) : programs.length === 0 ? (
+          <EmptyState
+            title="改善プログラムはまだありません"
+            description="患者詳細ページ、または新規作成ボタンから改善プログラムを作成してください。"
+            action={
+              <Link href="/admin/programs/new">
+                <Button size="sm">新規作成</Button>
+              </Link>
+            }
+          />
+        ) : (
+          <div className="space-y-3">
+            {programs.map((program) => {
+              const patientName = program.patients?.name ?? '患者IDで表示';
+              const createdAt = new Date(program.created_at).toLocaleDateString('ja-JP');
+
+              return (
+                <div
+                  key={program.id}
+                  className="rounded-lg border p-4 transition-colors hover:bg-accent/40"
+                >
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <Link
+                          href={`/admin/programs/${program.id}`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {patientName} の改善プログラム
+                        </Link>
+                        <Badge variant="secondary">
+                          {program.create_mode === 'manual' ? '手動作成' : 'AI作成'}
+                        </Badge>
+                      </div>
+
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        患者ID: {program.patient_id}
+                      </p>
+
+                      <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
+                        {program.summary || '状態まとめは未入力です。'}
+                      </p>
+
+                      {program.short_term_program && (
+                        <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
+                          短期：{program.short_term_program}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex shrink-0 flex-col gap-2 md:items-end">
+                      <p className="text-xs text-muted-foreground">作成日: {createdAt}</p>
+                      <div className="flex flex-wrap gap-2">
+                        <Link href={`/admin/programs/${program.id}`}>
+                          <Button variant="outline" size="sm">
+                            詳細
+                          </Button>
+                        </Link>
+                        <Link href={`/admin/patients/${program.patient_id}`}>
+                          <Button variant="outline" size="sm">
+                            患者詳細
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </SectionCard>
     </div>
   );
