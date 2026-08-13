@@ -61,6 +61,18 @@ type AdminProgramPatient = {
 };
 
 /**
+ * 改善プログラム更新APIで受け取るbody。
+ * 画面から来る値は信用せず、API側で型と必須項目を確認する。
+ */
+type UpdateProgramBody = {
+  memo?: unknown;
+  summary?: unknown;
+  shortTermProgram?: unknown;
+  longTermProgram?: unknown;
+  todayTask?: unknown;
+};
+
+/**
  * サーバー側で使うSupabase管理クライアントを作成する。
  * service_role key はブラウザに出さず、API Route内だけで使う。
  */
@@ -119,6 +131,48 @@ async function requireAdmin() {
     supabaseAdmin,
     profile,
   };
+}
+
+/**
+ * 任意テキスト項目をDB保存用に整える。
+ * 空文字は null として保存する。
+ */
+function normalizeOptionalText(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+/**
+ * 必須テキスト項目を取り出す。
+ */
+function normalizeRequiredText(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+/**
+ * LINE送信・コピー用に、入力内容を1つの文章へまとめる。
+ * DB上は各カラムにも分けて保存するが、全文表示用として program_text も更新する。
+ */
+function buildProgramText(params: {
+  memo: string | null;
+  summary: string;
+  shortTermProgram: string;
+  longTermProgram: string | null;
+  todayTask: string | null;
+}) {
+  return [
+    params.memo ? ['【メモ】', params.memo].join('\n') : '',
+    ['【状態まとめ】', params.summary].join('\n'),
+    ['【短期プログラム（3カ月）】', params.shortTermProgram].join('\n'),
+    params.longTermProgram ? ['【長期プログラム】', params.longTermProgram].join('\n') : '',
+    params.todayTask ? ['【今日やること】', params.todayTask].join('\n') : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 /**
@@ -227,6 +281,142 @@ export async function GET(
       program,
       patient: patient ?? null,
     });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      { error: 'Unexpected server error' },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/admin/programs/[id]
+ *
+ * 改善プログラム編集ページから、既存プログラムを更新するAPI。
+ * MVPでは商品提案はまだ更新せず、プログラム本文だけを更新する。
+ */
+export async function PATCH(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const adminResult = await requireAdmin();
+
+    if (!adminResult.ok) {
+      return NextResponse.json(
+        {
+          error: adminResult.error,
+          detail: 'detail' in adminResult ? adminResult.detail : undefined,
+        },
+        { status: adminResult.status }
+      );
+    }
+
+    const programId = params.id;
+
+    if (!programId) {
+      return NextResponse.json(
+        { error: 'program id is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!isUuid(programId)) {
+      return NextResponse.json(
+        {
+          error: 'Invalid program id format',
+          detail: 'program id must be UUID',
+        },
+        { status: 400 }
+      );
+    }
+
+    const body = (await request.json()) as UpdateProgramBody;
+
+    const memo = normalizeOptionalText(body.memo);
+    const summary = normalizeRequiredText(body.summary);
+    const shortTermProgram = normalizeRequiredText(body.shortTermProgram);
+    const longTermProgram = normalizeOptionalText(body.longTermProgram);
+    const todayTask = normalizeOptionalText(body.todayTask);
+
+    if (!summary) {
+      return NextResponse.json(
+        { error: 'summary is required' },
+        { status: 400 }
+      );
+    }
+
+    if (!shortTermProgram) {
+      return NextResponse.json(
+        { error: 'shortTermProgram is required' },
+        { status: 400 }
+      );
+    }
+
+    /**
+     * 更新前に対象プログラムが存在するか確認する。
+     * 存在しないIDに対してupdateを投げても分かりにくいため、先に404を返す。
+     */
+    const { data: existingProgram, error: existingProgramError } =
+      await adminResult.supabaseAdmin
+        .from('programs')
+        .select('id')
+        .eq('id', programId)
+        .maybeSingle<{ id: string }>();
+
+    if (existingProgramError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to confirm program',
+          detail: existingProgramError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!existingProgram) {
+      return NextResponse.json(
+        { error: 'Program not found' },
+        { status: 404 }
+      );
+    }
+
+    const programText = buildProgramText({
+      memo,
+      summary,
+      shortTermProgram,
+      longTermProgram,
+      todayTask,
+    });
+
+    const { data: program, error: updateError } = await adminResult.supabaseAdmin
+      .from('programs')
+      .update({
+        memo,
+        summary,
+        short_term_program: shortTermProgram,
+        long_term_program: longTermProgram,
+        today_task: todayTask,
+        program_text: programText,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', programId)
+      .select(programSelect)
+      .single<AdminProgramDetail>();
+
+    if (updateError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to update program',
+          detail: updateError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ program });
   } catch (error) {
     console.error(error);
 
