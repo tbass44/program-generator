@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Edit } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { PageHeader, SectionCard, ProgramSection } from '@/components/admin';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 type ProgramDetail = {
   id: string;
@@ -40,10 +42,12 @@ function formatApiError(status: number, data: ProgramDetailResponse) {
 }
 
 export default function AdminProgramDetailPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const [program, setProgram] = useState<ProgramDetail | null>(null);
   const [patient, setPatient] = useState<ProgramPatient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchProgram = async () => {
@@ -75,6 +79,63 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
 
     fetchProgram();
   }, [params.id]);
+
+    /**
+   * 改善プログラム削除処理。
+   *
+   * 削除は元に戻しにくい操作なので、
+   * APIを呼ぶ前にブラウザ標準の確認ダイアログを出す。
+   */
+  const handleDelete = async () => {
+    const ok = window.confirm(
+      'この改善プログラムを削除します。削除すると元に戻せません。よろしいですか？'
+    );
+
+    if (!ok) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+
+      /**
+       * 詳細表示中のprogram idを使ってDELETE APIを呼ぶ。
+       * 権限確認・UUIDチェック・存在確認はAPI側で行う。
+       */
+      const response = await fetch(`/api/admin/programs/${params.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      /**
+       * API側は削除成功時に deleted: true を返す。
+       * これが無い場合は、HTTP 200でも想定外としてエラー扱いにする。
+       */
+      if (!response.ok || !data.deleted) {
+        toast.error('改善プログラムを削除できませんでした');
+        setErrorMessage(
+          `削除に失敗しました（HTTP ${response.status} / error: ${data.error ?? 'unknown'}）`
+        );
+        return;
+      }
+
+      toast.success('改善プログラムを削除しました');
+
+      /**
+       * 削除後は詳細ページに残れないため、一覧へ戻す。
+       * refreshも呼び、一覧側のキャッシュが残る可能性を下げる。
+       */
+      router.push('/admin/programs');
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      toast.error('改善プログラムを削除できませんでした');
+      setErrorMessage('改善プログラムの削除中にエラーが発生しました。');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -118,12 +179,27 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
         description={`${patientName} - ${createdAt}`}
         backHref="/admin/programs"
         actions={
-          <Link href={`/admin/programs/${program.id}/edit`}>
-            <Button>
-              <Edit className="h-4 w-4 mr-2" />
-              編集
+          <div className="flex items-center gap-2">
+            <Link href={`/admin/programs/${program.id}/edit`}>
+              <Button>
+                <Edit className="h-4 w-4 mr-2" />
+                編集
+              </Button>
+            </Link>
+
+            {/*
+              削除ボタン。
+              削除処理中はdisabledにして、二重削除を防ぐ。
+            */}
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={isDeleting}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {isDeleting ? '削除中...' : '削除'}
             </Button>
-          </Link>
+          </div>
         }
       />
 

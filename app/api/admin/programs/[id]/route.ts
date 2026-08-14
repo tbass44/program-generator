@@ -356,6 +356,128 @@ export async function PATCH(
     }
 
     /**
+     * DELETE /api/admin/programs/[id]
+     *
+     * 改善プログラム詳細ページから、既存プログラムを削除するAPI。
+     *
+     * 注意：
+     * - 削除は元に戻しにくい操作なので、必ず管理者確認・ID形式確認・存在確認を行う。
+     * - service_role key を使うため、この処理は必ずサーバー側のAPI Route内だけで実行する。
+     * - MVP段階では、programs本体のみ削除する。商品提案など別テーブル連携は後続対応とする。
+     */
+    export async function DELETE(
+      _request: Request,
+      { params }: { params: { id: string } }
+    ) {
+      try {
+        /**
+         * 管理画面APIなので、画面側のログイン制御だけに頼らず、
+         * API側でも必ずadmin権限を確認する。
+         */
+        const adminResult = await requireAdmin();
+
+        if (!adminResult.ok) {
+          return NextResponse.json(
+            {
+              error: adminResult.error,
+              detail: 'detail' in adminResult ? adminResult.detail : undefined,
+            },
+            { status: adminResult.status }
+          );
+        }
+
+        const programId = params.id;
+
+        /**
+         * URLパラメータにIDが無い場合は、DBへ問い合わせず400を返す。
+         */
+        if (!programId) {
+          return NextResponse.json(
+            { error: 'program id is required' },
+            { status: 400 }
+          );
+        }
+
+        /**
+         * UUID形式ではないIDをSupabaseへ投げると、
+         * DB側エラーになって原因が分かりづらいため、API側で先に弾く。
+         */
+        if (!isUuid(programId)) {
+          return NextResponse.json(
+            {
+              error: 'Invalid program id format',
+              detail: 'program id must be UUID',
+            },
+            { status: 400 }
+          );
+        }
+
+        /**
+         * 削除前に対象プログラムが存在するか確認する。
+         * 存在しないIDに対してdeleteを実行しても画面側で判断しづらいため、
+         * 先に404を返して「対象なし」と分かるようにする。
+         */
+        const { data: existingProgram, error: existingProgramError } =
+          await adminResult.supabaseAdmin
+            .from('programs')
+            .select('id')
+            .eq('id', programId)
+            .maybeSingle<{ id: string }>();
+
+        if (existingProgramError) {
+          return NextResponse.json(
+            {
+              error: 'Failed to confirm program',
+              detail: existingProgramError.message,
+            },
+            { status: 500 }
+          );
+        }
+
+        if (!existingProgram) {
+          return NextResponse.json(
+            { error: 'Program not found' },
+            { status: 404 }
+          );
+        }
+
+        /**
+         * 存在確認が取れたプログラムのみ削除する。
+         * patient_id単位ではなくprogram id単位で削除し、他のプログラム履歴へ影響しないようにする。
+         */
+        const { error: deleteError } = await adminResult.supabaseAdmin
+          .from('programs')
+          .delete()
+          .eq('id', programId);
+
+        if (deleteError) {
+          return NextResponse.json(
+            {
+              error: 'Failed to delete program',
+              detail: deleteError.message,
+            },
+            { status: 500 }
+          );
+        }
+
+        /**
+         * 画面側で削除成功を判定しやすいように、deleted: true を返す。
+         */
+        return NextResponse.json({
+          deleted: true,
+          id: programId,
+        });
+      } catch (error) {
+        console.error(error);
+
+        return NextResponse.json(
+          { error: 'Unexpected server error' },
+          { status: 500 }
+        );
+      }
+    }
+
+    /**
      * 更新前に対象プログラムが存在するか確認する。
      * 存在しないIDに対してupdateを投げても分かりにくいため、先に404を返す。
      */
