@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -23,17 +23,63 @@ import {
 import {
   PageHeader,
   SectionCard,
-  dummyProducts,
   productCategories,
   productStatusColors,
   productStatusOptions,
 } from '@/components/admin';
+import type { ProductMaster } from '@/components/admin';
+
+type ProductsResponse = {
+  products?: ProductMaster[];
+  error?: string;
+  detail?: unknown;
+};
+
+function formatApiError(status: number, data: ProductsResponse) {
+  const detail = typeof data.detail === 'string' ? ` / detail: ${data.detail}` : '';
+  return `商品一覧を取得できませんでした（HTTP ${status} / error: ${data.error ?? 'unknown'}${detail}）`;
+}
 
 export default function AdminProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState('すべて');
   const [statusFilter, setStatusFilter] = useState('すべて');
+  const [products, setProducts] = useState<ProductMaster[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const filteredProducts = dummyProducts.filter((product) => {
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setIsLoading(true);
+        setErrorMessage(null);
+
+        /**
+         * 商品マスタ一覧をAPIから取得する。
+         * MVPでは検索条件をAPIへ渡さず、画面側でカテゴリ・ステータスを絞り込む。
+         */
+        const response = await fetch('/api/admin/products');
+        const data = (await response.json()) as ProductsResponse;
+
+        if (!response.ok || !data.products) {
+          setErrorMessage(formatApiError(response.status, data));
+          setProducts([]);
+          return;
+        }
+
+        setProducts(data.products);
+      } catch (error) {
+        console.error(error);
+        setErrorMessage('商品一覧の取得中にエラーが発生しました。');
+        setProducts([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  const filteredProducts = products.filter((product) => {
     if (categoryFilter !== 'すべて' && product.category !== categoryFilter) return false;
     if (statusFilter !== 'すべて' && product.status !== statusFilter) return false;
     return true;
@@ -53,6 +99,12 @@ export default function AdminProductsPage() {
           </Link>
         }
       />
+
+      {errorMessage && (
+        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+          {errorMessage}
+        </div>
+      )}
 
       <SectionCard title="フィルター" className="mb-6">
         <div className="flex flex-col sm:flex-row gap-4">
@@ -108,25 +160,45 @@ export default function AdminProductsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredProducts.map((product) => (
+            {isLoading && (
+              <TableRow>
+                <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                  商品一覧を読み込み中です...
+                </TableCell>
+              </TableRow>
+            )}
+
+            {!isLoading && filteredProducts.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={9} className="py-8 text-center text-sm text-muted-foreground">
+                  商品が登録されていません。
+                </TableCell>
+              </TableRow>
+            )}
+
+            {!isLoading && filteredProducts.map((product) => (
               <TableRow key={product.id}>
                 <TableCell className="font-medium">{product.name}</TableCell>
                 <TableCell>
                   <Badge variant="secondary">{product.category}</Badge>
                 </TableCell>
-                <TableCell className="max-w-[220px] truncate">{product.description}</TableCell>
-                <TableCell className="max-w-[180px] truncate">{product.concerns}</TableCell>
+                <TableCell className="max-w-[220px] truncate">{product.description || '-'}</TableCell>
+                <TableCell className="max-w-[180px] truncate">{product.concerns || '-'}</TableCell>
                 <TableCell>¥{product.price.toLocaleString()}</TableCell>
                 <TableCell>{product.inventoryCount.toLocaleString()}</TableCell>
                 <TableCell>
-                  <a
-                    href={product.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-primary hover:underline text-sm"
-                  >
-                    商品リンク
-                  </a>
+                  {product.url ? (
+                    <a
+                      href={product.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary hover:underline text-sm"
+                    >
+                      商品リンク
+                    </a>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">-</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className={productStatusColors[product.status]}>
