@@ -11,9 +11,6 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHeader, SectionCard, EmptyState } from '@/components/admin';
 
-/**
- * /api/admin/patients/[id] から返る患者詳細情報。
- */
 type AdminPatientDetail = {
   id: string;
   name: string;
@@ -30,9 +27,6 @@ type AdminPatientDetail = {
   updated_at: string;
 };
 
-/**
- * 患者詳細画面に表示する最新改善プログラム。
- */
 type LatestProgram = {
   id: string;
   patient_id: string;
@@ -47,9 +41,6 @@ type LatestProgram = {
   updated_at: string;
 };
 
-/**
- * 患者に紐づく商品提案履歴。
- */
 type PatientProductRecommendation = {
   id: string;
   patientId: string;
@@ -66,9 +57,6 @@ type PatientProductRecommendation = {
   updatedAt: string;
 };
 
-/**
- * 患者に紐づくプラン情報。
- */
 type PatientPlan = {
   id: string;
   patientId: string;
@@ -125,14 +113,19 @@ type PatientEditFormData = {
   memo: string;
 };
 
-/**
- * APIレスポンスのエラー情報を画面表示用に整形する。
- */
 function buildApiErrorMessage(prefix: string, status: number, data: { error?: string; detail?: unknown }) {
   const detailText = data.detail ? ` / detail: ${String(data.detail)}` : '';
   const errorText = data.error ? ` / error: ${data.error}` : '';
 
   return `${prefix}（HTTP ${status}${errorText}${detailText}）`;
+}
+
+function formatDate(value: string | null) {
+  if (!value) {
+    return '未設定';
+  }
+
+  return new Date(value).toLocaleDateString('ja-JP');
 }
 
 function statusBadgeVariant(status: string): 'default' | 'secondary' | 'outline' {
@@ -159,9 +152,6 @@ function planStatusBadgeVariant(status: string): 'default' | 'secondary' | 'outl
   return 'outline';
 }
 
-/**
- * 管理側：患者詳細ページ。
- */
 export default function AdminPatientDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -187,9 +177,6 @@ export default function AdminPatientDetailPage() {
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  /**
-   * 患者情報をフォームに反映する。
-   */
   const syncFormDataFromPatient = (nextPatient: AdminPatientDetail) => {
     setFormData({
       name: nextPatient.name,
@@ -200,10 +187,6 @@ export default function AdminPatientDetailPage() {
   };
 
   useEffect(() => {
-    /**
-     * 患者詳細・最新改善プログラム・商品提案履歴・プラン情報を取得する。
-     * 患者基本情報が取れていれば、関連情報の取得失敗は警告として扱う。
-     */
     const fetchPatientDetail = async () => {
       if (!patientId) {
         setErrorMessage('患者IDを取得できませんでした。');
@@ -301,9 +284,6 @@ export default function AdminPatientDetailPage() {
     fetchPatientDetail();
   }, [patientId]);
 
-  /**
-   * 患者基本情報を保存する。
-   */
   const handleSavePatient = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -355,9 +335,6 @@ export default function AdminPatientDetailPage() {
     }
   };
 
-  /**
-   * 患者を削除する。
-   */
   const handleDeletePatient = async () => {
     if (!patientId || !patient) {
       setErrorMessage('削除対象の患者情報を取得できませんでした。');
@@ -398,9 +375,6 @@ export default function AdminPatientDetailPage() {
     }
   };
 
-  /**
-   * 編集をキャンセルして表示モードへ戻す。
-   */
   const handleCancelEdit = () => {
     if (patient) {
       syncFormDataFromPatient(patient);
@@ -455,6 +429,11 @@ export default function AdminPatientDetailPage() {
   if (!patient) {
     return null;
   }
+
+  const rentalRecommendations = productRecommendations.filter(
+    (item) => item.status === 'レンタル希望' || item.status === 'レンタル中'
+  );
+  const purchaseRecommendations = productRecommendations.filter((item) => item.status === '購入希望');
 
   return (
     <div>
@@ -586,9 +565,7 @@ export default function AdminPatientDetailPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">登録日</p>
-                <p className="font-medium">
-                  {new Date(patient.created_at).toLocaleDateString('ja-JP')}
-                </p>
+                <p className="font-medium">{formatDate(patient.created_at)}</p>
               </div>
             </div>
             {patient.memo && (
@@ -625,8 +602,8 @@ export default function AdminPatientDetailPage() {
                 </p>
               </div>
 
-              <Link href="/admin/plans">
-                <Button size="sm" variant="outline">プラン一覧</Button>
+              <Link href={`/admin/plans/${currentPlan.id}`}>
+                <Button size="sm" variant="outline">プラン詳細</Button>
               </Link>
             </div>
 
@@ -641,15 +618,11 @@ export default function AdminPatientDetailPage() {
               )}
               <div className="rounded-lg border p-3">
                 <p className="text-sm text-muted-foreground">開始日</p>
-                <p className="mt-1 font-medium">
-                  {currentPlan.startDate ? new Date(currentPlan.startDate).toLocaleDateString('ja-JP') : '未設定'}
-                </p>
+                <p className="mt-1 font-medium">{formatDate(currentPlan.startDate)}</p>
               </div>
               <div className="rounded-lg border p-3">
                 <p className="text-sm text-muted-foreground">終了日</p>
-                <p className="mt-1 font-medium">
-                  {currentPlan.endDate ? new Date(currentPlan.endDate).toLocaleDateString('ja-JP') : '未設定'}
-                </p>
+                <p className="mt-1 font-medium">{formatDate(currentPlan.endDate)}</p>
               </div>
             </div>
           </div>
@@ -681,7 +654,7 @@ export default function AdminPatientDetailPage() {
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <FileText className="h-4 w-4" />
-              <span>作成日: {new Date(latestProgram.created_at).toLocaleDateString('ja-JP')}</span>
+              <span>作成日: {formatDate(latestProgram.created_at)}</span>
               <Badge variant="secondary">{latestProgram.create_mode === 'manual' ? '手動入力' : 'AI生成'}</Badge>
             </div>
             {latestProgram.memo && (
@@ -731,31 +704,29 @@ export default function AdminPatientDetailPage() {
       </SectionCard>
 
       <SectionCard title="購入希望・購入関連の商品" className="mb-6">
-        {productRecommendations.filter((item) => item.status === '購入希望').length > 0 ? (
+        {purchaseRecommendations.length > 0 ? (
           <div className="space-y-3">
-            {productRecommendations
-              .filter((item) => item.status === '購入希望')
-              .map((item) => (
-                <div key={item.id} className="rounded-lg border p-4">
-                  <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium">{item.productName}</p>
-                        <Badge variant="secondary">{item.category}</Badge>
-                        <Badge variant={statusBadgeVariant(item.status)}>{item.status}</Badge>
-                      </div>
-                      <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
-                        {item.reason || '提案理由は未入力です。'}
-                      </p>
+            {purchaseRecommendations.map((item) => (
+              <div key={item.id} className="rounded-lg border p-4">
+                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">{item.productName}</p>
+                      <Badge variant="secondary">{item.category}</Badge>
+                      <Badge variant={statusBadgeVariant(item.status)}>{item.status}</Badge>
                     </div>
-                    {item.programId && (
-                      <Link href={`/admin/programs/${item.programId}`}>
-                        <Button size="sm" variant="outline">プログラム詳細</Button>
-                      </Link>
-                    )}
+                    <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
+                      {item.reason || '提案理由は未入力です。'}
+                    </p>
                   </div>
+                  {item.programId && (
+                    <Link href={`/admin/programs/${item.programId}`}>
+                      <Button size="sm" variant="outline">プログラム詳細</Button>
+                    </Link>
+                  )}
                 </div>
-              ))}
+              </div>
+            ))}
           </div>
         ) : (
           <EmptyState title="購入希望の商品はありません" />
@@ -804,6 +775,10 @@ export default function AdminPatientDetailPage() {
             <FileText className="h-4 w-4" />
             プログラム一覧
           </TabsTrigger>
+          <TabsTrigger value="plans" className="gap-2">
+            <CreditCard className="h-4 w-4" />
+            プラン履歴
+          </TabsTrigger>
           <TabsTrigger value="products" className="gap-2">
             <ShoppingBag className="h-4 w-4" />
             商品サポート履歴
@@ -832,7 +807,7 @@ export default function AdminPatientDetailPage() {
               >
                 <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="font-medium">作成日: {new Date(latestProgram.created_at).toLocaleDateString('ja-JP')}</p>
+                    <p className="font-medium">作成日: {formatDate(latestProgram.created_at)}</p>
                     <p className="text-sm text-muted-foreground line-clamp-2">
                       {latestProgram.summary || latestProgram.memo || '内容未入力'}
                     </p>
@@ -844,6 +819,52 @@ export default function AdminPatientDetailPage() {
               <EmptyState
                 title="プログラム一覧は未接続です"
                 description="まずは最新プログラムの表示のみ対応しています。"
+              />
+            )}
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="plans">
+          <SectionCard>
+            {patientPlans.length > 0 ? (
+              <div className="space-y-3">
+                {patientPlans.map((plan) => (
+                  <div key={plan.id} className="rounded-lg border p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{plan.name}</p>
+                          <Badge variant="secondary">{plan.type}</Badge>
+                          <Badge variant={planStatusBadgeVariant(plan.status)}>{plan.status}</Badge>
+                        </div>
+                        <div className="mt-3 grid gap-3 text-sm text-muted-foreground md:grid-cols-3">
+                          {plan.type === '回数券' && (
+                            <span>残回数: {plan.remainingCount ?? '-'} / {plan.totalCount ?? '-'}</span>
+                          )}
+                          <span>開始日: {formatDate(plan.startDate)}</span>
+                          <span>終了日: {formatDate(plan.endDate)}</span>
+                        </div>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          作成日: {formatDate(plan.createdAt)}
+                        </p>
+                      </div>
+
+                      <Link href={`/admin/plans/${plan.id}`}>
+                        <Button size="sm" variant="outline">プラン詳細</Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="プラン履歴はありません"
+                description="この患者に回数券・サブスクを作成すると、ここに表示されます。"
+                action={
+                  <Link href="/admin/plans/new">
+                    <Button size="sm">プラン作成</Button>
+                  </Link>
+                }
               />
             )}
           </SectionCard>
@@ -866,9 +887,9 @@ export default function AdminPatientDetailPage() {
                           {item.reason || '提案理由は未入力です。'}
                         </p>
                         <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                          <span>提案日: {new Date(item.createdAt).toLocaleDateString('ja-JP')}</span>
+                          <span>提案日: {formatDate(item.createdAt)}</span>
                           {item.programCreatedAt && (
-                            <span>プログラム作成日: {new Date(item.programCreatedAt).toLocaleDateString('ja-JP')}</span>
+                            <span>プログラム作成日: {formatDate(item.programCreatedAt)}</span>
                           )}
                         </div>
                         {item.programSummary && (
@@ -905,31 +926,29 @@ export default function AdminPatientDetailPage() {
 
         <TabsContent value="rentals">
           <SectionCard>
-            {productRecommendations.filter((item) => item.status === 'レンタル希望' || item.status === 'レンタル中').length > 0 ? (
+            {rentalRecommendations.length > 0 ? (
               <div className="space-y-3">
-                {productRecommendations
-                  .filter((item) => item.status === 'レンタル希望' || item.status === 'レンタル中')
-                  .map((item) => (
-                    <div key={item.id} className="rounded-lg border p-4">
-                      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium">{item.productName}</p>
-                            <Badge variant="secondary">{item.category}</Badge>
-                            <Badge variant={statusBadgeVariant(item.status)}>{item.status}</Badge>
-                          </div>
-                          <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
-                            {item.reason || '提案理由は未入力です。'}
-                          </p>
+                {rentalRecommendations.map((item) => (
+                  <div key={item.id} className="rounded-lg border p-4">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{item.productName}</p>
+                          <Badge variant="secondary">{item.category}</Badge>
+                          <Badge variant={statusBadgeVariant(item.status)}>{item.status}</Badge>
                         </div>
-                        {item.programId && (
-                          <Link href={`/admin/programs/${item.programId}`}>
-                            <Button size="sm" variant="outline">プログラム詳細</Button>
-                          </Link>
-                        )}
+                        <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
+                          {item.reason || '提案理由は未入力です。'}
+                        </p>
                       </div>
+                      {item.programId && (
+                        <Link href={`/admin/programs/${item.programId}`}>
+                          <Button size="sm" variant="outline">プログラム詳細</Button>
+                        </Link>
+                      )}
                     </div>
-                  ))}
+                  </div>
+                ))}
               </div>
             ) : (
               <EmptyState
