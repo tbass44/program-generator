@@ -71,6 +71,15 @@ type PatientPlan = {
   updatedAt: string;
 };
 
+type PatientVisit = {
+  id: string;
+  patientId: string;
+  visitDate: string;
+  note: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type PatientDetailResponse = {
   patient?: AdminPatientDetail;
   error?: string;
@@ -96,6 +105,13 @@ type PatientPlansResponse = {
   detail?: unknown;
 };
 
+type PatientVisitsResponse = {
+  visits?: PatientVisit[];
+  visit?: PatientVisit;
+  error?: string;
+  detail?: unknown;
+};
+
 type DeletePatientResponse = {
   deleted?: boolean;
   patient?: {
@@ -113,11 +129,20 @@ type PatientEditFormData = {
   memo: string;
 };
 
+type VisitFormData = {
+  visitDate: string;
+  note: string;
+};
+
 function buildApiErrorMessage(prefix: string, status: number, data: { error?: string; detail?: unknown }) {
   const detailText = data.detail ? ` / detail: ${String(data.detail)}` : '';
   const errorText = data.error ? ` / error: ${data.error}` : '';
 
   return `${prefix}（HTTP ${status}${errorText}${detailText}）`;
+}
+
+function getTodayDateString() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function formatDate(value: string | null) {
@@ -162,17 +187,23 @@ export default function AdminPatientDetailPage() {
   const [productRecommendations, setProductRecommendations] = useState<PatientProductRecommendation[]>([]);
   const [patientPlans, setPatientPlans] = useState<PatientPlan[]>([]);
   const [currentPlan, setCurrentPlan] = useState<PatientPlan | null>(null);
+  const [visits, setVisits] = useState<PatientVisit[]>([]);
   const [formData, setFormData] = useState<PatientEditFormData>({
     name: '',
     kana: '',
     phone: '',
     memo: '',
   });
+  const [visitFormData, setVisitFormData] = useState<VisitFormData>({
+    visitDate: getTodayDateString(),
+    note: '',
+  });
 
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isSavingVisit, setIsSavingVisit] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -212,22 +243,25 @@ export default function AdminPatientDetailPage() {
           setProductRecommendations([]);
           setPatientPlans([]);
           setCurrentPlan(null);
+          setVisits([]);
           return;
         }
 
         setPatient(patientData.patient);
         syncFormDataFromPatient(patientData.patient);
 
-        const [programResponse, recommendationsResponse, plansResponse] = await Promise.all([
+        const [programResponse, recommendationsResponse, plansResponse, visitsResponse] = await Promise.all([
           fetch(`/api/admin/patients/${patientId}/latest-program`),
           fetch(`/api/admin/patients/${patientId}/recommendations`),
           fetch(`/api/admin/patients/${patientId}/plans`),
+          fetch(`/api/admin/patients/${patientId}/visits`),
         ]);
 
         const programData = (await programResponse.json()) as LatestProgramResponse;
         const recommendationsData =
           (await recommendationsResponse.json()) as PatientRecommendationsResponse;
         const plansData = (await plansResponse.json()) as PatientPlansResponse;
+        const visitsData = (await visitsResponse.json()) as PatientVisitsResponse;
 
         const warnings: string[] = [];
 
@@ -267,6 +301,16 @@ export default function AdminPatientDetailPage() {
           setCurrentPlan(plansData.currentPlan ?? null);
         }
 
+        if (!visitsResponse.ok || !visitsData.visits) {
+          console.error(visitsData);
+          warnings.push(
+            buildApiErrorMessage('通院履歴を取得できませんでした', visitsResponse.status, visitsData)
+          );
+          setVisits([]);
+        } else {
+          setVisits(visitsData.visits);
+        }
+
         setWarningMessage(warnings.length > 0 ? warnings.join('\n') : null);
       } catch (error) {
         console.error(error);
@@ -276,6 +320,7 @@ export default function AdminPatientDetailPage() {
         setProductRecommendations([]);
         setPatientPlans([]);
         setCurrentPlan(null);
+        setVisits([]);
       } finally {
         setIsLoading(false);
       }
@@ -332,6 +377,54 @@ export default function AdminPatientDetailPage() {
       setErrorMessage(`患者情報の保存中にエラーが発生しました。${String(error)}`);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleCreateVisit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!patientId) {
+      setErrorMessage('患者IDを取得できませんでした。');
+      return;
+    }
+
+    if (!visitFormData.visitDate) {
+      setErrorMessage('来院日を入力してください。');
+      return;
+    }
+
+    try {
+      setIsSavingVisit(true);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      const response = await fetch(`/api/admin/patients/${patientId}/visits`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          visitDate: visitFormData.visitDate,
+          note: visitFormData.note,
+        }),
+      });
+
+      const data = (await response.json()) as PatientVisitsResponse;
+
+      if (!response.ok || !data.visit) {
+        console.error(data);
+        setErrorMessage(buildApiErrorMessage('通院履歴を追加できませんでした', response.status, data));
+        return;
+      }
+
+      setVisits((current) => [data.visit as PatientVisit, ...current]);
+      setVisitFormData({ visitDate: getTodayDateString(), note: '' });
+      setSuccessMessage('通院履歴を追加しました。');
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(`通院履歴の追加中にエラーが発生しました。${String(error)}`);
+    } finally {
+      setIsSavingVisit(false);
     }
   };
 
@@ -639,17 +732,7 @@ export default function AdminPatientDetailPage() {
         )}
       </SectionCard>
 
-      <SectionCard
-        title="現在の改善プログラム"
-        className="mb-6"
-        actions={
-          latestProgram ? (
-            <Link href={`/admin/programs/new?patientId=${patient.id}`}>
-              <Button size="sm" variant="outline">新しく作成</Button>
-            </Link>
-          ) : undefined
-        }
-      >
+      <SectionCard title="現在の改善プログラム" className="mb-6">
         {latestProgram ? (
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -657,38 +740,12 @@ export default function AdminPatientDetailPage() {
               <span>作成日: {formatDate(latestProgram.created_at)}</span>
               <Badge variant="secondary">{latestProgram.create_mode === 'manual' ? '手動入力' : 'AI生成'}</Badge>
             </div>
-            {latestProgram.memo && (
-              <div>
-                <p className="text-sm font-medium mb-1">状態メモ</p>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{latestProgram.memo}</p>
-              </div>
-            )}
             {latestProgram.summary && (
-              <div>
-                <p className="text-sm font-medium mb-1">状態まとめ</p>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{latestProgram.summary}</p>
-              </div>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{latestProgram.summary}</p>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {latestProgram.short_term_program && (
-                <div className="p-3 rounded-lg border">
-                  <p className="text-sm font-medium mb-2">短期プログラム（3カ月）</p>
-                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{latestProgram.short_term_program}</p>
-                </div>
-              )}
-              {latestProgram.long_term_program && (
-                <div className="p-3 rounded-lg border">
-                  <p className="text-sm font-medium mb-2">長期プログラム</p>
-                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{latestProgram.long_term_program}</p>
-                </div>
-              )}
-            </div>
-            {latestProgram.today_task && (
-              <div className="p-3 rounded-lg border">
-                <p className="text-sm font-medium mb-2">今日やること</p>
-                <p className="text-xs text-muted-foreground whitespace-pre-wrap">{latestProgram.today_task}</p>
-              </div>
-            )}
+            <Link href={`/admin/programs/${latestProgram.id}`}>
+              <Button size="sm" variant="outline">プログラム詳細</Button>
+            </Link>
           </div>
         ) : (
           <EmptyState
@@ -790,11 +847,63 @@ export default function AdminPatientDetailPage() {
         </TabsList>
 
         <TabsContent value="visits">
-          <SectionCard>
-            <EmptyState
-              title="通院履歴は未接続です"
-              description="後続STEPで visits テーブルから取得します。"
-            />
+          <SectionCard title="通院履歴">
+            <form onSubmit={handleCreateVisit} className="mb-6 rounded-lg border p-4">
+              <div className="grid gap-4 md:grid-cols-[180px_1fr]">
+                <div className="space-y-2">
+                  <Label htmlFor="visit-date">来院日</Label>
+                  <Input
+                    id="visit-date"
+                    type="date"
+                    value={visitFormData.visitDate}
+                    onChange={(event) => setVisitFormData({ ...visitFormData, visitDate: event.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="visit-note">施術メモ</Label>
+                  <textarea
+                    id="visit-note"
+                    className="flex min-h-[84px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={visitFormData.note}
+                    onChange={(event) => setVisitFormData({ ...visitFormData, note: event.target.value })}
+                    placeholder="例：首肩こり、腰痛、施術内容、次回確認事項など"
+                  />
+                </div>
+              </div>
+              <div className="mt-4">
+                <Button type="submit" disabled={isSavingVisit}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  {isSavingVisit ? '追加中...' : '通院履歴を追加'}
+                </Button>
+              </div>
+            </form>
+
+            {visits.length > 0 ? (
+              <div className="space-y-3">
+                {visits.map((visit) => (
+                  <div key={visit.id} className="rounded-lg border p-4">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <p className="font-medium">{formatDate(visit.visitDate)}</p>
+                        </div>
+                        <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
+                          {visit.note || '施術メモは未入力です。'}
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">登録日: {formatDate(visit.createdAt)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="通院履歴はありません"
+                description="来院日と施術メモを追加すると、ここに表示されます。"
+              />
+            )}
           </SectionCard>
         </TabsContent>
 
