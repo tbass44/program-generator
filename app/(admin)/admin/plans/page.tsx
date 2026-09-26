@@ -158,7 +158,14 @@ export default function AdminPlansPage() {
                   <TableCell>
                     <Badge variant="secondary">{plan.type}</Badge>
                   </TableCell>
-                  <TableCell className="font-medium">{plan.name}</TableCell>
+                  <TableCell>
+                    <Link
+                      href={`/admin/plans/${plan.id}`}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      {plan.name}
+                    </Link>
+                  </TableCell>
                   <TableCell>
                     {plan.type === '回数券' ? (
                       <span className="font-medium">
