@@ -481,3 +481,95 @@ export async function PATCH(
     );
   }
 }
+
+/**
+ * DELETE /api/admin/products/[id]
+ *
+ * 商品マスタを削除するAPI。
+ * 商品提案や購入履歴から参照されている場合は、DBの外部キー設定に従って product_id は null になる。
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const adminResult = await requireAdmin();
+
+    if (!adminResult.ok) {
+      return NextResponse.json(
+        {
+          error: adminResult.error,
+          detail: 'detail' in adminResult ? adminResult.detail : undefined,
+        },
+        { status: adminResult.status }
+      );
+    }
+
+    const productId = params.id;
+
+    /**
+     * UUID以外のIDはDBへ投げず、API側で400として返す。
+     */
+    if (!isUuid(productId)) {
+      return NextResponse.json(
+        {
+          error: 'Invalid product id format',
+          detail: 'product id must be UUID',
+        },
+        { status: 400 }
+      );
+    }
+
+    /**
+     * 削除前に対象商品が存在するか確認する。
+     * 存在しないIDに対する削除は404として扱う。
+     */
+    const { data: existingProduct, error: existingProductError } =
+      await adminResult.supabaseAdmin
+        .from('products')
+        .select('id')
+        .eq('id', productId)
+        .maybeSingle<{ id: string }>();
+
+    if (existingProductError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to confirm product',
+          detail: existingProductError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!existingProduct) {
+      return NextResponse.json(
+        { error: 'Product not found' },
+        { status: 404 }
+      );
+    }
+
+    const { error: deleteError } = await adminResult.supabaseAdmin
+      .from('products')
+      .delete()
+      .eq('id', productId);
+
+    if (deleteError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to delete product',
+          detail: deleteError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      { error: 'Unexpected server error' },
+      { status: 500 }
+    );
+  }
+}
