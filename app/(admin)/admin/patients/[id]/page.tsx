@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { Plus, FileText, ShoppingBag, Package, Calendar, Pencil, Trash2 } from 'lucide-react';
+import { Plus, FileText, ShoppingBag, Package, Calendar, Pencil, Trash2, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -66,6 +66,23 @@ type PatientProductRecommendation = {
   updatedAt: string;
 };
 
+/**
+ * 患者に紐づくプラン情報。
+ */
+type PatientPlan = {
+  id: string;
+  patientId: string;
+  type: '回数券' | 'サブスク';
+  name: string;
+  totalCount: number | null;
+  remainingCount: number | null;
+  startDate: string | null;
+  endDate: string | null;
+  status: '有効' | '期限切れ' | '停止';
+  createdAt: string;
+  updatedAt: string;
+};
+
 type PatientDetailResponse = {
   patient?: AdminPatientDetail;
   error?: string;
@@ -80,6 +97,13 @@ type LatestProgramResponse = {
 
 type PatientRecommendationsResponse = {
   recommendations?: PatientProductRecommendation[];
+  error?: string;
+  detail?: unknown;
+};
+
+type PatientPlansResponse = {
+  plans?: PatientPlan[];
+  currentPlan?: PatientPlan | null;
   error?: string;
   detail?: unknown;
 };
@@ -123,6 +147,18 @@ function statusBadgeVariant(status: string): 'default' | 'secondary' | 'outline'
   return 'outline';
 }
 
+function planStatusBadgeVariant(status: string): 'default' | 'secondary' | 'outline' {
+  if (status === '有効') {
+    return 'default';
+  }
+
+  if (status === '期限切れ') {
+    return 'secondary';
+  }
+
+  return 'outline';
+}
+
 /**
  * 管理側：患者詳細ページ。
  */
@@ -134,6 +170,8 @@ export default function AdminPatientDetailPage() {
   const [patient, setPatient] = useState<AdminPatientDetail | null>(null);
   const [latestProgram, setLatestProgram] = useState<LatestProgram | null>(null);
   const [productRecommendations, setProductRecommendations] = useState<PatientProductRecommendation[]>([]);
+  const [patientPlans, setPatientPlans] = useState<PatientPlan[]>([]);
+  const [currentPlan, setCurrentPlan] = useState<PatientPlan | null>(null);
   const [formData, setFormData] = useState<PatientEditFormData>({
     name: '',
     kana: '',
@@ -163,7 +201,7 @@ export default function AdminPatientDetailPage() {
 
   useEffect(() => {
     /**
-     * 患者詳細・最新改善プログラム・商品提案履歴を取得する。
+     * 患者詳細・最新改善プログラム・商品提案履歴・プラン情報を取得する。
      * 患者基本情報が取れていれば、関連情報の取得失敗は警告として扱う。
      */
     const fetchPatientDetail = async () => {
@@ -189,20 +227,24 @@ export default function AdminPatientDetailPage() {
           setPatient(null);
           setLatestProgram(null);
           setProductRecommendations([]);
+          setPatientPlans([]);
+          setCurrentPlan(null);
           return;
         }
 
         setPatient(patientData.patient);
         syncFormDataFromPatient(patientData.patient);
 
-        const [programResponse, recommendationsResponse] = await Promise.all([
+        const [programResponse, recommendationsResponse, plansResponse] = await Promise.all([
           fetch(`/api/admin/patients/${patientId}/latest-program`),
           fetch(`/api/admin/patients/${patientId}/recommendations`),
+          fetch(`/api/admin/patients/${patientId}/plans`),
         ]);
 
         const programData = (await programResponse.json()) as LatestProgramResponse;
         const recommendationsData =
           (await recommendationsResponse.json()) as PatientRecommendationsResponse;
+        const plansData = (await plansResponse.json()) as PatientPlansResponse;
 
         const warnings: string[] = [];
 
@@ -230,6 +272,18 @@ export default function AdminPatientDetailPage() {
           setProductRecommendations(recommendationsData.recommendations);
         }
 
+        if (!plansResponse.ok || !plansData.plans) {
+          console.error(plansData);
+          warnings.push(
+            buildApiErrorMessage('プラン情報を取得できませんでした', plansResponse.status, plansData)
+          );
+          setPatientPlans([]);
+          setCurrentPlan(null);
+        } else {
+          setPatientPlans(plansData.plans);
+          setCurrentPlan(plansData.currentPlan ?? null);
+        }
+
         setWarningMessage(warnings.length > 0 ? warnings.join('\n') : null);
       } catch (error) {
         console.error(error);
@@ -237,6 +291,8 @@ export default function AdminPatientDetailPage() {
         setPatient(null);
         setLatestProgram(null);
         setProductRecommendations([]);
+        setPatientPlans([]);
+        setCurrentPlan(null);
       } finally {
         setIsLoading(false);
       }
@@ -545,16 +601,69 @@ export default function AdminPatientDetailPage() {
         )}
       </SectionCard>
 
-      <SectionCard title="現在のプラン" className="mb-6">
-        <EmptyState
-          title="プラン情報は未接続です"
-          description="後続STEPで plans テーブルから取得します。"
-          action={
-            <Link href="/admin/plans/new">
-              <Button size="sm">プラン作成</Button>
-            </Link>
-          }
-        />
+      <SectionCard
+        title="現在のプラン"
+        className="mb-6"
+        actions={
+          <Link href="/admin/plans/new">
+            <Button size="sm" variant="outline">プラン作成</Button>
+          </Link>
+        }
+      >
+        {currentPlan ? (
+          <div className="space-y-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-muted-foreground" />
+                  <p className="font-medium">{currentPlan.name}</p>
+                  <Badge variant="secondary">{currentPlan.type}</Badge>
+                  <Badge variant={planStatusBadgeVariant(currentPlan.status)}>{currentPlan.status}</Badge>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  登録プラン数: {patientPlans.length}件
+                </p>
+              </div>
+
+              <Link href="/admin/plans">
+                <Button size="sm" variant="outline">プラン一覧</Button>
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              {currentPlan.type === '回数券' && (
+                <div className="rounded-lg border p-3">
+                  <p className="text-sm text-muted-foreground">残回数</p>
+                  <p className="mt-1 text-lg font-semibold">
+                    {currentPlan.remainingCount ?? '-'} / {currentPlan.totalCount ?? '-'}
+                  </p>
+                </div>
+              )}
+              <div className="rounded-lg border p-3">
+                <p className="text-sm text-muted-foreground">開始日</p>
+                <p className="mt-1 font-medium">
+                  {currentPlan.startDate ? new Date(currentPlan.startDate).toLocaleDateString('ja-JP') : '未設定'}
+                </p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-sm text-muted-foreground">終了日</p>
+                <p className="mt-1 font-medium">
+                  {currentPlan.endDate ? new Date(currentPlan.endDate).toLocaleDateString('ja-JP') : '未設定'}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <EmptyState
+            title="現在のプランはありません"
+            description="この患者に回数券・サブスクを作成すると、ここに表示されます。"
+            action={
+              <Link href="/admin/plans/new">
+                <Button size="sm">プラン作成</Button>
+              </Link>
+            }
+          />
+        )}
       </SectionCard>
 
       <SectionCard
