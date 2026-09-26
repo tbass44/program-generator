@@ -19,12 +19,18 @@ type PatientProductStatusDb =
   | 'recommended'
   | 'rental_requested'
   | 'renting'
+  | 'rental_returned'
   | 'purchase_requested';
 
 /**
  * 管理画面で表示する商品提案ステータス。
  */
-type PatientProductStatusLabel = '提案中' | 'レンタル希望' | 'レンタル中' | '購入希望';
+type PatientProductStatusLabel =
+  | '提案中'
+  | 'レンタル希望'
+  | 'レンタル中'
+  | 'レンタル終了'
+  | '購入希望';
 
 type AdminProfile = {
   id: string;
@@ -146,6 +152,8 @@ function toLabelStatus(status: PatientProductStatusDb): PatientProductStatusLabe
       return 'レンタル希望';
     case 'renting':
       return 'レンタル中';
+    case 'rental_returned':
+      return 'レンタル終了';
     case 'purchase_requested':
       return '購入希望';
   }
