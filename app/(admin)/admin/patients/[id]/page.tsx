@@ -13,9 +13,6 @@ import { PageHeader, SectionCard, EmptyState } from '@/components/admin';
 
 /**
  * /api/admin/patients/[id] から返る患者詳細情報。
- *
- * MVPでは、まず patients テーブルの基本項目を表示・編集・削除する。
- * visits / plans / 商品提案は後続STEPで実データ化する。
  */
 type AdminPatientDetail = {
   id: string;
@@ -50,6 +47,25 @@ type LatestProgram = {
   updated_at: string;
 };
 
+/**
+ * 患者に紐づく商品提案履歴。
+ */
+type PatientProductRecommendation = {
+  id: string;
+  patientId: string;
+  programId: string | null;
+  productId: string | null;
+  productName: string;
+  productUrl: string;
+  category: string;
+  reason: string;
+  status: string;
+  programSummary: string;
+  programCreatedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type PatientDetailResponse = {
   patient?: AdminPatientDetail;
   error?: string;
@@ -58,6 +74,12 @@ type PatientDetailResponse = {
 
 type LatestProgramResponse = {
   program?: LatestProgram | null;
+  error?: string;
+  detail?: unknown;
+};
+
+type PatientRecommendationsResponse = {
+  recommendations?: PatientProductRecommendation[];
   error?: string;
   detail?: unknown;
 };
@@ -81,15 +103,24 @@ type PatientEditFormData = {
 
 /**
  * APIレスポンスのエラー情報を画面表示用に整形する。
- *
- * 本番確認時に「何が失敗したか」が見えないと切り分けできないため、
- * error / detail / HTTP status をまとめて表示する。
  */
 function buildApiErrorMessage(prefix: string, status: number, data: { error?: string; detail?: unknown }) {
   const detailText = data.detail ? ` / detail: ${String(data.detail)}` : '';
   const errorText = data.error ? ` / error: ${data.error}` : '';
 
   return `${prefix}（HTTP ${status}${errorText}${detailText}）`;
+}
+
+function statusBadgeVariant(status: string): 'default' | 'secondary' | 'outline' {
+  if (status === 'レンタル中' || status === '購入希望') {
+    return 'default';
+  }
+
+  if (status === 'レンタル希望') {
+    return 'secondary';
+  }
+
+  return 'outline';
 }
 
 /**
@@ -102,6 +133,7 @@ export default function AdminPatientDetailPage() {
 
   const [patient, setPatient] = useState<AdminPatientDetail | null>(null);
   const [latestProgram, setLatestProgram] = useState<LatestProgram | null>(null);
+  const [productRecommendations, setProductRecommendations] = useState<PatientProductRecommendation[]>([]);
   const [formData, setFormData] = useState<PatientEditFormData>({
     name: '',
     kana: '',
@@ -131,11 +163,8 @@ export default function AdminPatientDetailPage() {
 
   useEffect(() => {
     /**
-     * 患者詳細と最新改善プログラムを取得する。
-     *
-     * 重要：
-     * 最新プログラム取得に失敗しても、患者基本情報が取れていれば画面は表示する。
-     * 患者基本情報と改善プログラム表示は切り分けて扱う。
+     * 患者詳細・最新改善プログラム・商品提案履歴を取得する。
+     * 患者基本情報が取れていれば、関連情報の取得失敗は警告として扱う。
      */
     const fetchPatientDetail = async () => {
       if (!patientId) {
@@ -159,30 +188,55 @@ export default function AdminPatientDetailPage() {
           );
           setPatient(null);
           setLatestProgram(null);
+          setProductRecommendations([]);
           return;
         }
 
         setPatient(patientData.patient);
         syncFormDataFromPatient(patientData.patient);
 
-        const programResponse = await fetch(`/api/admin/patients/${patientId}/latest-program`);
+        const [programResponse, recommendationsResponse] = await Promise.all([
+          fetch(`/api/admin/patients/${patientId}/latest-program`),
+          fetch(`/api/admin/patients/${patientId}/recommendations`),
+        ]);
+
         const programData = (await programResponse.json()) as LatestProgramResponse;
+        const recommendationsData =
+          (await recommendationsResponse.json()) as PatientRecommendationsResponse;
+
+        const warnings: string[] = [];
 
         if (!programResponse.ok) {
           console.error(programData);
-          setWarningMessage(
+          warnings.push(
             buildApiErrorMessage('最新の改善プログラムを取得できませんでした', programResponse.status, programData)
           );
           setLatestProgram(null);
-          return;
+        } else {
+          setLatestProgram(programData.program ?? null);
         }
 
-        setLatestProgram(programData.program ?? null);
+        if (!recommendationsResponse.ok || !recommendationsData.recommendations) {
+          console.error(recommendationsData);
+          warnings.push(
+            buildApiErrorMessage(
+              '商品提案履歴を取得できませんでした',
+              recommendationsResponse.status,
+              recommendationsData
+            )
+          );
+          setProductRecommendations([]);
+        } else {
+          setProductRecommendations(recommendationsData.recommendations);
+        }
+
+        setWarningMessage(warnings.length > 0 ? warnings.join('\n') : null);
       } catch (error) {
         console.error(error);
         setErrorMessage(`患者情報の取得中にエラーが発生しました。${String(error)}`);
         setPatient(null);
         setLatestProgram(null);
+        setProductRecommendations([]);
       } finally {
         setIsLoading(false);
       }
@@ -567,12 +621,68 @@ export default function AdminPatientDetailPage() {
         )}
       </SectionCard>
 
-      <SectionCard title="購入済み商品" className="mb-6">
-        <EmptyState title="購入済み商品はありません" />
+      <SectionCard title="購入希望・購入関連の商品" className="mb-6">
+        {productRecommendations.filter((item) => item.status === '購入希望').length > 0 ? (
+          <div className="space-y-3">
+            {productRecommendations
+              .filter((item) => item.status === '購入希望')
+              .map((item) => (
+                <div key={item.id} className="rounded-lg border p-4">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">{item.productName}</p>
+                        <Badge variant="secondary">{item.category}</Badge>
+                        <Badge variant={statusBadgeVariant(item.status)}>{item.status}</Badge>
+                      </div>
+                      <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
+                        {item.reason || '提案理由は未入力です。'}
+                      </p>
+                    </div>
+                    {item.programId && (
+                      <Link href={`/admin/programs/${item.programId}`}>
+                        <Button size="sm" variant="outline">プログラム詳細</Button>
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              ))}
+          </div>
+        ) : (
+          <EmptyState title="購入希望の商品はありません" />
+        )}
       </SectionCard>
 
       <SectionCard title="レンタル中の商品" className="mb-6">
-        <EmptyState title="レンタル中の商品はありません" />
+        {productRecommendations.filter((item) => item.status === 'レンタル中').length > 0 ? (
+          <div className="space-y-3">
+            {productRecommendations
+              .filter((item) => item.status === 'レンタル中')
+              .map((item) => (
+                <div key={item.id} className="rounded-lg border p-4">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">{item.productName}</p>
+                        <Badge variant="secondary">{item.category}</Badge>
+                        <Badge variant={statusBadgeVariant(item.status)}>{item.status}</Badge>
+                      </div>
+                      <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
+                        {item.reason || '提案理由は未入力です。'}
+                      </p>
+                    </div>
+                    {item.programId && (
+                      <Link href={`/admin/programs/${item.programId}`}>
+                        <Button size="sm" variant="outline">プログラム詳細</Button>
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              ))}
+          </div>
+        ) : (
+          <EmptyState title="レンタル中の商品はありません" />
+        )}
       </SectionCard>
 
       <Tabs defaultValue="visits" className="space-y-4">
@@ -608,7 +718,7 @@ export default function AdminPatientDetailPage() {
           <SectionCard>
             {latestProgram ? (
               <Link
-                href={`/admin/programs/new?patientId=${patient.id}`}
+                href={`/admin/programs/${latestProgram.id}`}
                 className="block rounded-lg border p-4 hover:bg-accent transition-colors"
               >
                 <div className="flex items-center justify-between gap-4">
@@ -632,19 +742,92 @@ export default function AdminPatientDetailPage() {
 
         <TabsContent value="products">
           <SectionCard>
-            <EmptyState
-              title="商品サポート履歴は未接続です"
-              description="後続STEPで patient_product_recommendations から取得します。"
-            />
+            {productRecommendations.length > 0 ? (
+              <div className="space-y-3">
+                {productRecommendations.map((item) => (
+                  <div key={item.id} className="rounded-lg border p-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{item.productName}</p>
+                          <Badge variant="secondary">{item.category}</Badge>
+                          <Badge variant={statusBadgeVariant(item.status)}>{item.status}</Badge>
+                        </div>
+                        <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
+                          {item.reason || '提案理由は未入力です。'}
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                          <span>提案日: {new Date(item.createdAt).toLocaleDateString('ja-JP')}</span>
+                          {item.programCreatedAt && (
+                            <span>プログラム作成日: {new Date(item.programCreatedAt).toLocaleDateString('ja-JP')}</span>
+                          )}
+                        </div>
+                        {item.programSummary && (
+                          <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
+                            関連プログラム: {item.programSummary}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        {item.productUrl && (
+                          <a href={item.productUrl} target="_blank" rel="noreferrer">
+                            <Button size="sm" variant="outline">商品リンク</Button>
+                          </a>
+                        )}
+                        {item.programId && (
+                          <Link href={`/admin/programs/${item.programId}`}>
+                            <Button size="sm" variant="outline">プログラム詳細</Button>
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="商品サポート履歴はありません"
+                description="改善プログラム詳細から商品提案を追加すると、ここに表示されます。"
+              />
+            )}
           </SectionCard>
         </TabsContent>
 
         <TabsContent value="rentals">
           <SectionCard>
-            <EmptyState
-              title="レンタル履歴は未接続です"
-              description="後続STEPで rentals テーブルから取得します。"
-            />
+            {productRecommendations.filter((item) => item.status === 'レンタル希望' || item.status === 'レンタル中').length > 0 ? (
+              <div className="space-y-3">
+                {productRecommendations
+                  .filter((item) => item.status === 'レンタル希望' || item.status === 'レンタル中')
+                  .map((item) => (
+                    <div key={item.id} className="rounded-lg border p-4">
+                      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium">{item.productName}</p>
+                            <Badge variant="secondary">{item.category}</Badge>
+                            <Badge variant={statusBadgeVariant(item.status)}>{item.status}</Badge>
+                          </div>
+                          <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
+                            {item.reason || '提案理由は未入力です。'}
+                          </p>
+                        </div>
+                        {item.programId && (
+                          <Link href={`/admin/programs/${item.programId}`}>
+                            <Button size="sm" variant="outline">プログラム詳細</Button>
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="レンタル履歴はありません"
+                description="ステータスが「レンタル希望」または「レンタル中」の商品提案が表示されます。"
+              />
+            )}
           </SectionCard>
         </TabsContent>
       </Tabs>
