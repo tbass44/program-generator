@@ -51,6 +51,8 @@ type ProductOption = {
   status: '有効' | '無効';
 };
 
+type RecommendationStatus = '提案中' | 'レンタル希望' | 'レンタル中' | '購入希望';
+
 type ProgramRecommendation = {
   id: string;
   patientId: string;
@@ -59,7 +61,7 @@ type ProgramRecommendation = {
   productName: string;
   category: string;
   reason: string;
-  status: string;
+  status: RecommendationStatus;
   createdAt: string;
   updatedAt: string;
 };
@@ -84,6 +86,16 @@ type ProgramRecommendationsResponse = {
   detail?: unknown;
 };
 
+type RecommendationMutationResponse = {
+  recommendation?: Partial<ProgramRecommendation> & {
+    id: string;
+    status?: RecommendationStatus;
+    updatedAt?: string;
+  };
+  error?: string;
+  detail?: unknown;
+};
+
 type DeleteRecommendationResponse = {
   deleted?: boolean;
   id?: string;
@@ -91,12 +103,22 @@ type DeleteRecommendationResponse = {
   detail?: unknown;
 };
 
+const recommendationStatusOptions: RecommendationStatus[] = [
+  '提案中',
+  'レンタル希望',
+  'レンタル中',
+  '購入希望',
+];
+
 function formatApiError(status: number, data: ProgramDetailResponse) {
   const detail = typeof data.detail === 'string' ? ` / detail: ${data.detail}` : '';
   return `改善プログラムを取得できませんでした（HTTP ${status} / error: ${data.error ?? 'unknown'}${detail}）`;
 }
 
-function formatRecommendationApiError(status: number, data: ProgramRecommendationsResponse | DeleteRecommendationResponse) {
+function formatRecommendationApiError(
+  status: number,
+  data: ProgramRecommendationsResponse | RecommendationMutationResponse | DeleteRecommendationResponse
+) {
   const detail = typeof data.detail === 'string' ? ` / detail: ${data.detail}` : '';
   return `商品提案を処理できませんでした（HTTP ${status} / error: ${data.error ?? 'unknown'}${detail}）`;
 }
@@ -112,6 +134,7 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(true);
   const [isSavingRecommendation, setIsSavingRecommendation] = useState(false);
+  const [updatingRecommendationId, setUpdatingRecommendationId] = useState<string | null>(null);
   const [deletingRecommendationId, setDeletingRecommendationId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [recommendationErrorMessage, setRecommendationErrorMessage] = useState<string | null>(null);
@@ -125,10 +148,6 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
         setErrorMessage(null);
         setRecommendationErrorMessage(null);
 
-        /**
-         * 改善プログラム本体を取得する。
-         * 商品提案は後続APIで別途取得する。
-         */
         const programResponse = await fetch(`/api/admin/programs/${params.id}`);
         const programData = (await programResponse.json()) as ProgramDetailResponse;
 
@@ -143,9 +162,6 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
         setProgram(programData.program);
         setPatient(programData.patient ?? null);
 
-        /**
-         * 商品マスタと、このプログラムに紐づく商品提案を並行取得する。
-         */
         const [productsResponse, recommendationsResponse] = await Promise.all([
           fetch('/api/admin/products'),
           fetch(`/api/admin/programs/${params.id}/recommendations`),
@@ -159,9 +175,6 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
           setRecommendationErrorMessage('商品マスタを取得できませんでした。');
           setProducts([]);
         } else {
-          /**
-           * 提案候補は有効な商品だけに絞る。
-           */
           setProducts(productsData.products.filter((product) => product.status === '有効'));
         }
 
@@ -188,9 +201,6 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
     fetchPageData();
   }, [params.id]);
 
-  /**
-   * 商品選択時に、商品マスタの提案理由テンプレートを入力欄へ反映する。
-   */
   const handleProductChange = (productId: string) => {
     setSelectedProductId(productId);
 
@@ -198,12 +208,6 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
     setRecommendationReason(selectedProduct?.reasonTemplate ?? '');
   };
 
-  /**
-   * 改善プログラム削除処理。
-   *
-   * 削除は元に戻しにくい操作なので、
-   * APIを呼ぶ前にブラウザ標準の確認ダイアログを出す。
-   */
   const handleDelete = async () => {
     const ok = window.confirm(
       'この改善プログラムを削除します。削除すると元に戻せません。よろしいですか？'
@@ -216,20 +220,12 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
     try {
       setIsDeleting(true);
 
-      /**
-       * 詳細表示中のprogram idを使ってDELETE APIを呼ぶ。
-       * 権限確認・UUIDチェック・存在確認はAPI側で行う。
-       */
       const response = await fetch(`/api/admin/programs/${params.id}`, {
         method: 'DELETE',
       });
 
       const data = await response.json();
 
-      /**
-       * API側は削除成功時に deleted: true を返す。
-       * これが無い場合は、HTTP 200でも想定外としてエラー扱いにする。
-       */
       if (!response.ok || !data.deleted) {
         toast.error('改善プログラムを削除できませんでした');
         setErrorMessage(
@@ -239,11 +235,6 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
       }
 
       toast.success('改善プログラムを削除しました');
-
-      /**
-       * 削除後は詳細ページに残れないため、一覧へ戻す。
-       * refreshも呼び、一覧側のキャッシュが残る可能性を下げる。
-       */
       router.push('/admin/programs');
       router.refresh();
     } catch (error) {
@@ -255,9 +246,6 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
     }
   };
 
-  /**
-   * 改善プログラムへ商品提案を追加する。
-   */
   const handleAddRecommendation = async () => {
     if (selectedProductId === 'none') {
       toast.error('提案する商品を選択してください');
@@ -301,9 +289,56 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
     }
   };
 
-  /**
-   * 改善プログラムに紐づく商品提案を1件削除する。
-   */
+  const handleUpdateRecommendationStatus = async (
+    recommendation: ProgramRecommendation,
+    status: RecommendationStatus
+  ) => {
+    try {
+      setUpdatingRecommendationId(recommendation.id);
+      setRecommendationErrorMessage(null);
+
+      const response = await fetch(
+        `/api/admin/programs/${params.id}/recommendations/${recommendation.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status }),
+        }
+      );
+
+      const data = (await response.json()) as RecommendationMutationResponse;
+
+      if (!response.ok || !data.recommendation?.status) {
+        const message = formatRecommendationApiError(response.status, data);
+        setRecommendationErrorMessage(message);
+        toast.error('商品提案ステータスを更新できませんでした');
+        return;
+      }
+
+      setRecommendations((prev) =>
+        prev.map((item) =>
+          item.id === recommendation.id
+            ? {
+                ...item,
+                status: data.recommendation?.status ?? status,
+                updatedAt: data.recommendation?.updatedAt ?? item.updatedAt,
+              }
+            : item
+        )
+      );
+
+      toast.success('商品提案ステータスを更新しました');
+    } catch (error) {
+      console.error(error);
+      setRecommendationErrorMessage('商品提案ステータスの更新中にエラーが発生しました。');
+      toast.error('商品提案ステータスを更新できませんでした');
+    } finally {
+      setUpdatingRecommendationId(null);
+    }
+  };
+
   const handleDeleteRecommendation = async (recommendation: ProgramRecommendation) => {
     const ok = window.confirm(
       `「${recommendation.productName}」の商品提案を削除します。よろしいですか？`
@@ -394,10 +429,6 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
               </Button>
             </Link>
 
-            {/*
-              削除ボタン。
-              削除処理中はdisabledにして、二重削除を防ぐ。
-            */}
             <Button
               variant="destructive"
               onClick={handleDelete}
@@ -524,21 +555,46 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
 
             {!isLoadingRecommendations && recommendations.map((recommendation) => (
               <div key={recommendation.id} className="rounded-lg border p-4">
-                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                  <div>
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium">{recommendation.productName}</p>
                       <Badge variant="secondary">{recommendation.category}</Badge>
-                      <Badge variant="outline">{recommendation.status}</Badge>
                     </div>
                     <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
                       {recommendation.reason || '提案理由は未入力です。'}
                     </p>
-                  </div>
-                  <div className="flex items-center gap-2 md:flex-col md:items-end">
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(recommendation.createdAt).toLocaleDateString('ja-JP')}
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      追加日: {new Date(recommendation.createdAt).toLocaleDateString('ja-JP')}
                     </p>
+                  </div>
+
+                  <div className="flex flex-col gap-2 md:w-[190px]">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">ステータス</p>
+                      <Select
+                        value={recommendation.status}
+                        onValueChange={(value) =>
+                          handleUpdateRecommendationStatus(
+                            recommendation,
+                            value as RecommendationStatus
+                          )
+                        }
+                        disabled={updatingRecommendationId === recommendation.id}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {recommendationStatusOptions.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     <Button
                       variant="outline"
                       size="sm"
