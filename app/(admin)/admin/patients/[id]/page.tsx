@@ -658,7 +658,10 @@ export default function AdminPatientDetailPage() {
   }
 
   const rentalRecommendations = productRecommendations.filter(
-    (item) => item.status === 'レンタル希望' || item.status === 'レンタル中'
+    (item) =>
+      item.status === 'レンタル希望' ||
+      item.status === 'レンタル中' ||
+      item.status === 'レンタル終了'
   );
   const purchaseRecommendations = productRecommendations.filter((item) => item.status === '購入希望');
 
@@ -1237,6 +1240,10 @@ export default function AdminPatientDetailPage() {
                         <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
                           {item.reason || '提案理由は未入力です。'}
                         </p>
+                        <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                          <span>提案日: {formatDate(item.createdAt)}</span>
+                          <span>更新日: {formatDate(item.updatedAt)}</span>
+                        </div>
                       </div>
                       {item.programId && (
                         <Link href={`/admin/programs/${item.programId}`}>
@@ -1250,7 +1257,7 @@ export default function AdminPatientDetailPage() {
             ) : (
               <EmptyState
                 title="レンタル履歴はありません"
-                description="ステータスが「レンタル希望」または「レンタル中」の商品提案が表示されます。"
+                description="ステータスが「レンタル希望」「レンタル中」「レンタル終了」の商品提案が表示されます。"
               />
             )}
           </SectionCard>
