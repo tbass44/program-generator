@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Save } from 'lucide-react';
+import { Save, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader, ProductForm, SectionCard } from '@/components/admin';
 import type { ProductFormValues } from '@/components/admin/ProductForm';
@@ -23,9 +23,18 @@ type ProductResponse = {
 };
 
 /**
+ * 商品削除APIで扱うレスポンスの型。
+ */
+type DeleteProductResponse = {
+  ok?: boolean;
+  error?: string;
+  detail?: unknown;
+};
+
+/**
  * APIエラーを画面表示しやすい文字列に整える。
  */
-function formatApiError(status: number, data: ProductResponse) {
+function formatApiError(status: number, data: ProductResponse | DeleteProductResponse) {
   const detail = typeof data.detail === 'string' ? ` / detail: ${data.detail}` : '';
   return `商品情報を取得できませんでした（HTTP ${status} / error: ${data.error ?? 'unknown'}${detail}）`;
 }
@@ -51,6 +60,7 @@ export default function AdminProductEditPage({ params }: { params: { id: string 
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -139,6 +149,47 @@ export default function AdminProductEditPage({ params }: { params: { id: string 
     }
   };
 
+  const handleDelete = async () => {
+    const confirmed = window.confirm(
+      `「${values.name || 'この商品'}」を削除します。よろしいですか？`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      setErrorMessage(null);
+
+      /**
+       * 商品マスタを削除する。
+       * 削除後は商品一覧へ戻し、一覧を再取得できるようにする。
+       */
+      const response = await fetch(`/api/admin/products/${params.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = (await response.json()) as DeleteProductResponse;
+
+      if (!response.ok || !data.ok) {
+        setErrorMessage(formatApiError(response.status, data));
+        toast.error('商品を削除できませんでした');
+        return;
+      }
+
+      toast.success('商品を削除しました');
+      router.push('/admin/products');
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      setErrorMessage('商品の削除中にエラーが発生しました。');
+      toast.error('商品を削除できませんでした');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="max-w-3xl mx-auto">
@@ -162,13 +213,24 @@ export default function AdminProductEditPage({ params }: { params: { id: string 
 
       <SectionCard>
         <ProductForm values={values} onChange={updateField} />
-        <div className="mt-6 flex items-center gap-4 border-t pt-4">
-          <Button onClick={handleSave} disabled={isSaving}>
-            <Save className="h-4 w-4 mr-2" />
-            {isSaving ? '保存中...' : '保存'}
-          </Button>
-          <Button variant="outline" onClick={() => router.push('/admin/products')} disabled={isSaving}>
-            キャンセル
+        <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <Button onClick={handleSave} disabled={isSaving || isDeleting}>
+              <Save className="h-4 w-4 mr-2" />
+              {isSaving ? '保存中...' : '保存'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push('/admin/products')}
+              disabled={isSaving || isDeleting}
+            >
+              キャンセル
+            </Button>
+          </div>
+
+          <Button variant="destructive" onClick={handleDelete} disabled={isSaving || isDeleting}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            {isDeleting ? '削除中...' : '削除'}
           </Button>
         </div>
       </SectionCard>
