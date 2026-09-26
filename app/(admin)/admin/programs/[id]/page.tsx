@@ -84,12 +84,19 @@ type ProgramRecommendationsResponse = {
   detail?: unknown;
 };
 
+type DeleteRecommendationResponse = {
+  deleted?: boolean;
+  id?: string;
+  error?: string;
+  detail?: unknown;
+};
+
 function formatApiError(status: number, data: ProgramDetailResponse) {
   const detail = typeof data.detail === 'string' ? ` / detail: ${data.detail}` : '';
   return `改善プログラムを取得できませんでした（HTTP ${status} / error: ${data.error ?? 'unknown'}${detail}）`;
 }
 
-function formatRecommendationApiError(status: number, data: ProgramRecommendationsResponse) {
+function formatRecommendationApiError(status: number, data: ProgramRecommendationsResponse | DeleteRecommendationResponse) {
   const detail = typeof data.detail === 'string' ? ` / detail: ${data.detail}` : '';
   return `商品提案を処理できませんでした（HTTP ${status} / error: ${data.error ?? 'unknown'}${detail}）`;
 }
@@ -105,6 +112,7 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(true);
   const [isSavingRecommendation, setIsSavingRecommendation] = useState(false);
+  const [deletingRecommendationId, setDeletingRecommendationId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [recommendationErrorMessage, setRecommendationErrorMessage] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -290,6 +298,49 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
       toast.error('商品提案を追加できませんでした');
     } finally {
       setIsSavingRecommendation(false);
+    }
+  };
+
+  /**
+   * 改善プログラムに紐づく商品提案を1件削除する。
+   */
+  const handleDeleteRecommendation = async (recommendation: ProgramRecommendation) => {
+    const ok = window.confirm(
+      `「${recommendation.productName}」の商品提案を削除します。よろしいですか？`
+    );
+
+    if (!ok) {
+      return;
+    }
+
+    try {
+      setDeletingRecommendationId(recommendation.id);
+      setRecommendationErrorMessage(null);
+
+      const response = await fetch(
+        `/api/admin/programs/${params.id}/recommendations/${recommendation.id}`,
+        {
+          method: 'DELETE',
+        }
+      );
+
+      const data = (await response.json()) as DeleteRecommendationResponse;
+
+      if (!response.ok || !data.deleted) {
+        const message = formatRecommendationApiError(response.status, data);
+        setRecommendationErrorMessage(message);
+        toast.error('商品提案を削除できませんでした');
+        return;
+      }
+
+      setRecommendations((prev) => prev.filter((item) => item.id !== recommendation.id));
+      toast.success('商品提案を削除しました');
+    } catch (error) {
+      console.error(error);
+      setRecommendationErrorMessage('商品提案の削除中にエラーが発生しました。');
+      toast.error('商品提案を削除できませんでした');
+    } finally {
+      setDeletingRecommendationId(null);
     }
   };
 
@@ -484,9 +535,20 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
                       {recommendation.reason || '提案理由は未入力です。'}
                     </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(recommendation.createdAt).toLocaleDateString('ja-JP')}
-                  </p>
+                  <div className="flex items-center gap-2 md:flex-col md:items-end">
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(recommendation.createdAt).toLocaleDateString('ja-JP')}
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeleteRecommendation(recommendation)}
+                      disabled={deletingRecommendationId === recommendation.id}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {deletingRecommendationId === recommendation.id ? '削除中...' : '削除'}
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
