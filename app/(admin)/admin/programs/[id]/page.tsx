@@ -51,7 +51,7 @@ type ProductOption = {
   status: '有効' | '無効';
 };
 
-type RecommendationStatus = '提案中' | 'レンタル希望' | 'レンタル中' | '購入希望';
+type RecommendationStatus = '提案中' | 'レンタル希望' | 'レンタル中' | 'レンタル終了' | '購入希望';
 
 type ProgramRecommendation = {
   id: string;
@@ -107,6 +107,7 @@ const recommendationStatusOptions: RecommendationStatus[] = [
   '提案中',
   'レンタル希望',
   'レンタル中',
+  'レンタル終了',
   '購入希望',
 ];
 
@@ -488,10 +489,6 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
         <ProgramSection
           title="長期プログラム"
           content={program.long_term_program || '長期プログラムは未入力です。'}
-        />
-        <ProgramSection
-          title="今日やること"
-          content={program.today_task || '今日やることは未入力です。'}
         />
       </div>
 
