@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Calendar, Clock, Edit, Save, Trash2 } from 'lucide-react';
+import { Calendar, Clock, Edit, Save, Trash2, MinusCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { PageHeader, SectionCard } from '@/components/admin';
+import { PageHeader, SectionCard, EmptyState } from '@/components/admin';
 import { toast } from 'sonner';
 
 type PlanDetail = {
@@ -34,7 +34,23 @@ type PlanDetail = {
   updatedAt: string;
 };
 
+type TicketUsage = {
+  id: string;
+  planId: string;
+  usedAt: string;
+  note: string;
+  createdAt: string;
+};
+
 type PlanDetailResponse = {
+  plan?: PlanDetail;
+  error?: string;
+  detail?: unknown;
+};
+
+type TicketUsagesResponse = {
+  usages?: TicketUsage[];
+  usage?: TicketUsage;
   plan?: PlanDetail;
   error?: string;
   detail?: unknown;
@@ -64,7 +80,7 @@ const statusConfig: Record<PlanDetail['status'], string> = {
   '停止': 'bg-red-50 text-red-700 border-red-200',
 };
 
-function formatApiError(status: number, data: PlanDetailResponse | DeletePlanResponse) {
+function formatApiError(status: number, data: PlanDetailResponse | TicketUsagesResponse | DeletePlanResponse) {
   const detail = typeof data.detail === 'string' ? ` / detail: ${data.detail}` : '';
   return `プラン情報を処理できませんでした（HTTP ${status} / error: ${data.error ?? 'unknown'}${detail}）`;
 }
@@ -92,6 +108,7 @@ function toFormData(plan: PlanDetail): PlanFormData {
 export default function AdminPlanDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [plan, setPlan] = useState<PlanDetail | null>(null);
+  const [usages, setUsages] = useState<TicketUsage[]>([]);
   const [formData, setFormData] = useState<PlanFormData>({
     type: '回数券',
     name: '',
@@ -101,29 +118,45 @@ export default function AdminPlanDetailPage({ params }: { params: { id: string }
     endDate: '',
     status: '有効',
   });
+  const [usageNote, setUsageNote] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUsingTicket, setIsUsingTicket] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [usageErrorMessage, setUsageErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPlan = async () => {
       try {
         setIsLoading(true);
         setErrorMessage(null);
+        setUsageErrorMessage(null);
 
-        const response = await fetch(`/api/admin/plans/${params.id}`);
-        const data = (await response.json()) as PlanDetailResponse;
+        const [planResponse, usagesResponse] = await Promise.all([
+          fetch(`/api/admin/plans/${params.id}`),
+          fetch(`/api/admin/plans/${params.id}/usages`),
+        ]);
 
-        if (!response.ok || !data.plan) {
+        const planData = (await planResponse.json()) as PlanDetailResponse;
+        const usagesData = (await usagesResponse.json()) as TicketUsagesResponse;
+
+        if (!planResponse.ok || !planData.plan) {
           setPlan(null);
-          setErrorMessage(formatApiError(response.status, data));
+          setErrorMessage(formatApiError(planResponse.status, planData));
           return;
         }
 
-        setPlan(data.plan);
-        setFormData(toFormData(data.plan));
+        setPlan(planData.plan);
+        setFormData(toFormData(planData.plan));
+
+        if (!usagesResponse.ok || !usagesData.usages) {
+          setUsageErrorMessage(formatApiError(usagesResponse.status, usagesData));
+          setUsages([]);
+        } else {
+          setUsages(usagesData.usages);
+        }
       } catch (error) {
         console.error(error);
         setPlan(null);
@@ -191,6 +224,58 @@ export default function AdminPlanDetailPage({ params }: { params: { id: string }
       toast.error('プランを保存できませんでした');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleUseTicket = async () => {
+    if (!plan || plan.type !== '回数券') {
+      return;
+    }
+
+    if ((plan.remainingCount ?? 0) <= 0) {
+      toast.error('残回数がありません');
+      return;
+    }
+
+    const ok = window.confirm(`「${plan.name}」を1回使用します。よろしいですか？`);
+
+    if (!ok) {
+      return;
+    }
+
+    try {
+      setIsUsingTicket(true);
+      setUsageErrorMessage(null);
+
+      const response = await fetch(`/api/admin/plans/${plan.id}/usages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          note: usageNote,
+        }),
+      });
+
+      const data = (await response.json()) as TicketUsagesResponse;
+
+      if (!response.ok || !data.usage || !data.plan) {
+        setUsageErrorMessage(formatApiError(response.status, data));
+        toast.error('回数券を使用できませんでした');
+        return;
+      }
+
+      setPlan(data.plan);
+      setFormData(toFormData(data.plan));
+      setUsages((prev) => [data.usage!, ...prev]);
+      setUsageNote('');
+      toast.success('回数券を1回使用しました');
+    } catch (error) {
+      console.error(error);
+      setUsageErrorMessage('回数券の使用処理中にエラーが発生しました。');
+      toast.error('回数券を使用できませんでした');
+    } finally {
+      setIsUsingTicket(false);
     }
   };
 
@@ -280,7 +365,7 @@ export default function AdminPlanDetailPage({ params }: { params: { id: string }
                 編集
               </Button>
             )}
-            <Button type="button" variant="destructive" onClick={handleDelete} disabled={isDeleting || isSaving}>
+            <Button type="button" variant="destructive" onClick={handleDelete} disabled={isDeleting || isSaving || isUsingTicket}>
               <Trash2 className="h-4 w-4 mr-2" />
               {isDeleting ? '削除中...' : '削除'}
             </Button>
@@ -291,6 +376,12 @@ export default function AdminPlanDetailPage({ params }: { params: { id: string }
       {errorMessage && (
         <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive whitespace-pre-wrap">
           {errorMessage}
+        </div>
+      )}
+
+      {usageErrorMessage && (
+        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive whitespace-pre-wrap">
+          {usageErrorMessage}
         </div>
       )}
 
@@ -425,11 +516,11 @@ export default function AdminPlanDetailPage({ params }: { params: { id: string }
           </SectionCard>
 
           <div className="flex gap-3">
-            <Button type="submit" disabled={isSaving || isDeleting}>
+            <Button type="submit" disabled={isSaving || isDeleting || isUsingTicket}>
               <Save className="h-4 w-4 mr-2" />
               {isSaving ? '保存中...' : '保存する'}
             </Button>
-            <Button type="button" variant="outline" onClick={handleCancelEdit} disabled={isSaving || isDeleting}>
+            <Button type="button" variant="outline" onClick={handleCancelEdit} disabled={isSaving || isDeleting || isUsingTicket}>
               キャンセル
             </Button>
           </div>
@@ -452,36 +543,87 @@ export default function AdminPlanDetailPage({ params }: { params: { id: string }
                   <p className="mt-1 text-sm text-muted-foreground">残り回数</p>
                 </div>
               </div>
+
+              <div className="mt-5 rounded-lg border bg-muted/20 p-4">
+                <div className="space-y-2">
+                  <Label htmlFor="usage-note">使用メモ</Label>
+                  <textarea
+                    id="usage-note"
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    value={usageNote}
+                    onChange={(event) => setUsageNote(event.target.value)}
+                    placeholder="例：通常施術で1回使用"
+                    disabled={isUsingTicket || (plan.remainingCount ?? 0) <= 0}
+                  />
+                </div>
+                <div className="mt-3 flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={handleUseTicket}
+                    disabled={isUsingTicket || (plan.remainingCount ?? 0) <= 0 || isDeleting || isSaving}
+                  >
+                    <MinusCircle className="h-4 w-4 mr-2" />
+                    {isUsingTicket ? '使用処理中...' : '1回使用する'}
+                  </Button>
+                </div>
+              </div>
             </SectionCard>
           ) : (
             <SectionCard title="サブスク情報" className="mb-6">
-              <p className="text-sm text-muted-foreground">
-                期間とステータスで管理します。回数は持たせません。
-              </p>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="rounded-lg bg-primary/5 p-4">
+                  <p className="text-sm text-muted-foreground">開始日</p>
+                  <p className="mt-1 text-xl font-semibold">{formatDate(plan.startDate)}</p>
+                </div>
+                <div className="rounded-lg bg-primary/5 p-4">
+                  <p className="text-sm text-muted-foreground">終了日</p>
+                  <p className="mt-1 text-xl font-semibold">{formatDate(plan.endDate)}</p>
+                </div>
+              </div>
             </SectionCard>
           )}
 
-          <SectionCard title="期間" className="mb-6">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="rounded-lg border p-4">
+          <SectionCard title="期間情報" className="mb-6">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
                 <p className="text-sm text-muted-foreground">開始日</p>
-                <p className="mt-1 font-medium">{formatDate(plan.startDate)}</p>
+                <p className="font-medium">{formatDate(plan.startDate)}</p>
               </div>
-              <div className="rounded-lg border p-4">
+              <div>
                 <p className="text-sm text-muted-foreground">終了日</p>
-                <p className="mt-1 font-medium">{formatDate(plan.endDate)}</p>
+                <p className="font-medium">{formatDate(plan.endDate)}</p>
               </div>
             </div>
           </SectionCard>
 
-          <div className="flex flex-wrap gap-3">
-            <Link href={`/admin/patients/${plan.patientId}`}>
-              <Button variant="outline">患者詳細へ</Button>
-            </Link>
-            <Link href="/admin/plans">
-              <Button variant="outline">プラン一覧へ</Button>
-            </Link>
-          </div>
+          {isTicket && (
+            <SectionCard title="使用履歴">
+              {usages.length > 0 ? (
+                <div className="space-y-3">
+                  {usages.map((usage) => (
+                    <div key={usage.id} className="rounded-lg border p-4">
+                      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <p className="font-medium">
+                            {new Date(usage.usedAt).toLocaleString('ja-JP')}
+                          </p>
+                          <p className="mt-1 text-sm text-muted-foreground whitespace-pre-wrap">
+                            {usage.note || 'メモなし'}
+                          </p>
+                        </div>
+                        <Badge variant="secondary">1回使用</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  title="使用履歴はありません"
+                  description="この回数券を使用すると、ここに履歴が表示されます。"
+                />
+              )}
+            </SectionCard>
+          )}
         </>
       )}
     </div>
