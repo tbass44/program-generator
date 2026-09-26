@@ -9,12 +9,18 @@ type PatientProductStatusDb =
   | 'recommended'
   | 'rental_requested'
   | 'renting'
+  | 'rental_returned'
   | 'purchase_requested';
 
 /**
  * 管理画面で表示する商品提案ステータス。
  */
-type PatientProductStatusLabel = '提案中' | 'レンタル希望' | 'レンタル中' | '購入希望';
+type PatientProductStatusLabel =
+  | '提案中'
+  | 'レンタル希望'
+  | 'レンタル中'
+  | 'レンタル終了'
+  | '購入希望';
 
 /**
  * 管理者判定で使う profiles の最小型。
@@ -75,6 +81,8 @@ function toDbStatus(status: unknown): PatientProductStatusDb | null {
       return 'rental_requested';
     case 'レンタル中':
       return 'renting';
+    case 'レンタル終了':
+      return 'rental_returned';
     case '購入希望':
       return 'purchase_requested';
     default:
@@ -93,6 +101,8 @@ function toLabelStatus(status: PatientProductStatusDb): PatientProductStatusLabe
       return 'レンタル希望';
     case 'renting':
       return 'レンタル中';
+    case 'rental_returned':
+      return 'レンタル終了';
     case 'purchase_requested':
       return '購入希望';
   }
@@ -263,7 +273,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           error: 'Invalid recommendation status',
-          detail: 'status must be one of 提案中 / レンタル希望 / レンタル中 / 購入希望',
+          detail: 'status must be one of 提案中 / レンタル希望 / レンタル中 / レンタル終了 / 購入希望',
         },
         { status: 400 }
       );
