@@ -56,7 +56,7 @@ const navItems = [
   },
   {
     label: '改善プログラム',
-    href: '/admin/programs/new',
+    href: '/admin/programs',
     icon: FileText,
   },
   {
