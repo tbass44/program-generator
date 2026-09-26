@@ -3,7 +3,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { Plus, FileText, ShoppingBag, Package, Calendar, Pencil, Trash2, CreditCard } from 'lucide-react';
+import {
+  Plus,
+  FileText,
+  ShoppingBag,
+  Package,
+  Calendar,
+  Pencil,
+  Trash2,
+  CreditCard,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -122,6 +131,13 @@ type DeletePatientResponse = {
   detail?: unknown;
 };
 
+type DeleteVisitResponse = {
+  deleted?: boolean;
+  id?: string;
+  error?: string;
+  detail?: unknown;
+};
+
 type PatientEditFormData = {
   name: string;
   kana: string;
@@ -198,12 +214,19 @@ export default function AdminPatientDetailPage() {
     visitDate: getTodayDateString(),
     note: '',
   });
+  const [visitEditFormData, setVisitEditFormData] = useState<VisitFormData>({
+    visitDate: '',
+    note: '',
+  });
 
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSavingVisit, setIsSavingVisit] = useState(false);
+  const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
+  const [savingVisitId, setSavingVisitId] = useState<string | null>(null);
+  const [deletingVisitId, setDeletingVisitId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -425,6 +448,117 @@ export default function AdminPatientDetailPage() {
       setErrorMessage(`通院履歴の追加中にエラーが発生しました。${String(error)}`);
     } finally {
       setIsSavingVisit(false);
+    }
+  };
+
+  const handleStartEditVisit = (visit: PatientVisit) => {
+    setEditingVisitId(visit.id);
+    setVisitEditFormData({
+      visitDate: visit.visitDate,
+      note: visit.note,
+    });
+    setErrorMessage(null);
+    setSuccessMessage(null);
+  };
+
+  const handleCancelEditVisit = () => {
+    setEditingVisitId(null);
+    setVisitEditFormData({ visitDate: '', note: '' });
+    setErrorMessage(null);
+  };
+
+  const handleUpdateVisit = async (event: React.FormEvent, visitId: string) => {
+    event.preventDefault();
+
+    if (!patientId) {
+      setErrorMessage('患者IDを取得できませんでした。');
+      return;
+    }
+
+    if (!visitEditFormData.visitDate) {
+      setErrorMessage('来院日を入力してください。');
+      return;
+    }
+
+    try {
+      setSavingVisitId(visitId);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      const response = await fetch(`/api/admin/patients/${patientId}/visits/${visitId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          visitDate: visitEditFormData.visitDate,
+          note: visitEditFormData.note,
+        }),
+      });
+
+      const data = (await response.json()) as PatientVisitsResponse;
+
+      if (!response.ok || !data.visit) {
+        console.error(data);
+        setErrorMessage(buildApiErrorMessage('通院履歴を保存できませんでした', response.status, data));
+        return;
+      }
+
+      setVisits((current) =>
+        current.map((visit) => (visit.id === visitId ? (data.visit as PatientVisit) : visit))
+      );
+      setEditingVisitId(null);
+      setVisitEditFormData({ visitDate: '', note: '' });
+      setSuccessMessage('通院履歴を保存しました。');
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(`通院履歴の保存中にエラーが発生しました。${String(error)}`);
+    } finally {
+      setSavingVisitId(null);
+    }
+  };
+
+  const handleDeleteVisit = async (visit: PatientVisit) => {
+    if (!patientId) {
+      setErrorMessage('患者IDを取得できませんでした。');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `${formatDate(visit.visitDate)} の通院履歴を削除します。\nこの操作は元に戻せません。削除してもよろしいですか？`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingVisitId(visit.id);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      const response = await fetch(`/api/admin/patients/${patientId}/visits/${visit.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = (await response.json()) as DeleteVisitResponse;
+
+      if (!response.ok || !data.deleted) {
+        console.error(data);
+        setErrorMessage(buildApiErrorMessage('通院履歴を削除できませんでした', response.status, data));
+        return;
+      }
+
+      setVisits((current) => current.filter((item) => item.id !== visit.id));
+      if (editingVisitId === visit.id) {
+        handleCancelEditVisit();
+      }
+      setSuccessMessage('通院履歴を削除しました。');
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(`通院履歴の削除中にエラーが発生しました。${String(error)}`);
+    } finally {
+      setDeletingVisitId(null);
     }
   };
 
@@ -883,18 +1017,72 @@ export default function AdminPatientDetailPage() {
               <div className="space-y-3">
                 {visits.map((visit) => (
                   <div key={visit.id} className="rounded-lg border p-4">
-                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                      <div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <p className="font-medium">{formatDate(visit.visitDate)}</p>
+                    {editingVisitId === visit.id ? (
+                      <form onSubmit={(event) => handleUpdateVisit(event, visit.id)} className="space-y-4">
+                        <div className="grid gap-4 md:grid-cols-[180px_1fr]">
+                          <div className="space-y-2">
+                            <Label htmlFor={`edit-visit-date-${visit.id}`}>来院日</Label>
+                            <Input
+                              id={`edit-visit-date-${visit.id}`}
+                              type="date"
+                              value={visitEditFormData.visitDate}
+                              onChange={(event) =>
+                                setVisitEditFormData({ ...visitEditFormData, visitDate: event.target.value })
+                              }
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor={`edit-visit-note-${visit.id}`}>施術メモ</Label>
+                            <textarea
+                              id={`edit-visit-note-${visit.id}`}
+                              className="flex min-h-[84px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                              value={visitEditFormData.note}
+                              onChange={(event) =>
+                                setVisitEditFormData({ ...visitEditFormData, note: event.target.value })
+                              }
+                            />
+                          </div>
                         </div>
-                        <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
-                          {visit.note || '施術メモは未入力です。'}
-                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <Button type="submit" size="sm" disabled={savingVisitId === visit.id}>
+                            {savingVisitId === visit.id ? '保存中...' : '保存'}
+                          </Button>
+                          <Button type="button" size="sm" variant="outline" onClick={handleCancelEditVisit}>
+                            キャンセル
+                          </Button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <p className="font-medium">{formatDate(visit.visitDate)}</p>
+                          </div>
+                          <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
+                            {visit.note || '施術メモは未入力です。'}
+                          </p>
+                          <p className="mt-3 text-xs text-muted-foreground">登録日: {formatDate(visit.createdAt)}</p>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap gap-2">
+                          <Button type="button" size="sm" variant="outline" onClick={() => handleStartEditVisit(visit)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            編集
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteVisit(visit)}
+                            disabled={deletingVisitId === visit.id}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            {deletingVisitId === visit.id ? '削除中...' : '削除'}
+                          </Button>
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">登録日: {formatDate(visit.createdAt)}</p>
-                    </div>
+                    )}
                   </div>
                 ))}
               </div>
