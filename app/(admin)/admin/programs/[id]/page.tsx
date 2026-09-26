@@ -1,9 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { PageHeader, SectionCard, ProgramSection } from '@/components/admin';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -29,9 +38,48 @@ type ProgramPatient = {
   phone: string | null;
 };
 
+type ProductOption = {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  concerns: string;
+  reasonTemplate: string;
+  price: number;
+  inventoryCount: number;
+  url: string;
+  status: '有効' | '無効';
+};
+
+type ProgramRecommendation = {
+  id: string;
+  patientId: string;
+  programId: string | null;
+  productId: string | null;
+  productName: string;
+  category: string;
+  reason: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type ProgramDetailResponse = {
   program?: ProgramDetail;
   patient?: ProgramPatient | null;
+  error?: string;
+  detail?: unknown;
+};
+
+type ProductsResponse = {
+  products?: ProductOption[];
+  error?: string;
+  detail?: unknown;
+};
+
+type ProgramRecommendationsResponse = {
+  recommendations?: ProgramRecommendation[];
+  recommendation?: ProgramRecommendation;
   error?: string;
   detail?: unknown;
 };
@@ -41,46 +89,108 @@ function formatApiError(status: number, data: ProgramDetailResponse) {
   return `改善プログラムを取得できませんでした（HTTP ${status} / error: ${data.error ?? 'unknown'}${detail}）`;
 }
 
+function formatRecommendationApiError(status: number, data: ProgramRecommendationsResponse) {
+  const detail = typeof data.detail === 'string' ? ` / detail: ${data.detail}` : '';
+  return `商品提案を処理できませんでした（HTTP ${status} / error: ${data.error ?? 'unknown'}${detail}）`;
+}
+
 export default function AdminProgramDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [program, setProgram] = useState<ProgramDetail | null>(null);
   const [patient, setPatient] = useState<ProgramPatient | null>(null);
+  const [products, setProducts] = useState<ProductOption[]>([]);
+  const [recommendations, setRecommendations] = useState<ProgramRecommendation[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState('none');
+  const [recommendationReason, setRecommendationReason] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(true);
+  const [isSavingRecommendation, setIsSavingRecommendation] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const [isDeleting, setIsDeleting] = useState(false);
+  const [recommendationErrorMessage, setRecommendationErrorMessage] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    const fetchProgram = async () => {
+    const fetchPageData = async () => {
       try {
         setIsLoading(true);
+        setIsLoadingRecommendations(true);
         setErrorMessage(null);
+        setRecommendationErrorMessage(null);
 
-        const response = await fetch(`/api/admin/programs/${params.id}`);
-        const data = (await response.json()) as ProgramDetailResponse;
+        /**
+         * 改善プログラム本体を取得する。
+         * 商品提案は後続APIで別途取得する。
+         */
+        const programResponse = await fetch(`/api/admin/programs/${params.id}`);
+        const programData = (await programResponse.json()) as ProgramDetailResponse;
 
-        if (!response.ok || !data.program) {
-          setErrorMessage(formatApiError(response.status, data));
+        if (!programResponse.ok || !programData.program) {
+          setErrorMessage(formatApiError(programResponse.status, programData));
           setProgram(null);
           setPatient(null);
+          setRecommendations([]);
           return;
         }
 
-        setProgram(data.program);
-        setPatient(data.patient ?? null);
+        setProgram(programData.program);
+        setPatient(programData.patient ?? null);
+
+        /**
+         * 商品マスタと、このプログラムに紐づく商品提案を並行取得する。
+         */
+        const [productsResponse, recommendationsResponse] = await Promise.all([
+          fetch('/api/admin/products'),
+          fetch(`/api/admin/programs/${params.id}/recommendations`),
+        ]);
+
+        const productsData = (await productsResponse.json()) as ProductsResponse;
+        const recommendationsData =
+          (await recommendationsResponse.json()) as ProgramRecommendationsResponse;
+
+        if (!productsResponse.ok || !productsData.products) {
+          setRecommendationErrorMessage('商品マスタを取得できませんでした。');
+          setProducts([]);
+        } else {
+          /**
+           * 提案候補は有効な商品だけに絞る。
+           */
+          setProducts(productsData.products.filter((product) => product.status === '有効'));
+        }
+
+        if (!recommendationsResponse.ok || !recommendationsData.recommendations) {
+          setRecommendationErrorMessage(
+            formatRecommendationApiError(recommendationsResponse.status, recommendationsData)
+          );
+          setRecommendations([]);
+        } else {
+          setRecommendations(recommendationsData.recommendations);
+        }
       } catch (error) {
         console.error(error);
         setErrorMessage('改善プログラムの取得中にエラーが発生しました。');
         setProgram(null);
         setPatient(null);
+        setRecommendations([]);
       } finally {
         setIsLoading(false);
+        setIsLoadingRecommendations(false);
       }
     };
 
-    fetchProgram();
+    fetchPageData();
   }, [params.id]);
 
-    /**
+  /**
+   * 商品選択時に、商品マスタの提案理由テンプレートを入力欄へ反映する。
+   */
+  const handleProductChange = (productId: string) => {
+    setSelectedProductId(productId);
+
+    const selectedProduct = products.find((product) => product.id === productId);
+    setRecommendationReason(selectedProduct?.reasonTemplate ?? '');
+  };
+
+  /**
    * 改善プログラム削除処理。
    *
    * 削除は元に戻しにくい操作なので、
@@ -134,6 +244,52 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
       setErrorMessage('改善プログラムの削除中にエラーが発生しました。');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  /**
+   * 改善プログラムへ商品提案を追加する。
+   */
+  const handleAddRecommendation = async () => {
+    if (selectedProductId === 'none') {
+      toast.error('提案する商品を選択してください');
+      return;
+    }
+
+    try {
+      setIsSavingRecommendation(true);
+      setRecommendationErrorMessage(null);
+
+      const response = await fetch(`/api/admin/programs/${params.id}/recommendations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId: selectedProductId,
+          reason: recommendationReason,
+        }),
+      });
+
+      const data = (await response.json()) as ProgramRecommendationsResponse;
+
+      if (!response.ok || !data.recommendation) {
+        const message = formatRecommendationApiError(response.status, data);
+        setRecommendationErrorMessage(message);
+        toast.error('商品提案を追加できませんでした');
+        return;
+      }
+
+      setRecommendations((prev) => [data.recommendation!, ...prev]);
+      setSelectedProductId('none');
+      setRecommendationReason('');
+      toast.success('商品提案を追加しました');
+    } catch (error) {
+      console.error(error);
+      setRecommendationErrorMessage('商品提案の追加中にエラーが発生しました。');
+      toast.error('商品提案を追加できませんでした');
+    } finally {
+      setIsSavingRecommendation(false);
     }
   };
 
@@ -256,6 +412,87 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
           content={program.today_task || '今日やることは未入力です。'}
         />
       </div>
+
+      <SectionCard title="商品提案" className="mb-6">
+        <div className="space-y-4">
+          {recommendationErrorMessage && (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+              {recommendationErrorMessage}
+            </div>
+          )}
+
+          <div className="rounded-lg border bg-muted/20 p-4">
+            <div className="grid gap-4 md:grid-cols-[260px_1fr]">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">提案する商品</p>
+                <Select value={selectedProductId} onValueChange={handleProductChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="商品を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">商品を選択</SelectItem>
+                    {products.map((product) => (
+                      <SelectItem key={product.id} value={product.id}>
+                        {product.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-sm font-medium">提案理由</p>
+                <Textarea
+                  className="min-h-[110px]"
+                  value={recommendationReason}
+                  onChange={(event) => setRecommendationReason(event.target.value)}
+                  placeholder="この患者さんに提案する理由を入力します"
+                />
+              </div>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <Button
+                onClick={handleAddRecommendation}
+                disabled={isSavingRecommendation || selectedProductId === 'none'}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {isSavingRecommendation ? '追加中...' : '商品提案を追加'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {isLoadingRecommendations && (
+              <p className="text-sm text-muted-foreground">商品提案を読み込み中です...</p>
+            )}
+
+            {!isLoadingRecommendations && recommendations.length === 0 && (
+              <p className="text-sm text-muted-foreground">商品提案はまだ登録されていません。</p>
+            )}
+
+            {!isLoadingRecommendations && recommendations.map((recommendation) => (
+              <div key={recommendation.id} className="rounded-lg border p-4">
+                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-medium">{recommendation.productName}</p>
+                      <Badge variant="secondary">{recommendation.category}</Badge>
+                      <Badge variant="outline">{recommendation.status}</Badge>
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                      {recommendation.reason || '提案理由は未入力です。'}
+                    </p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {new Date(recommendation.createdAt).toLocaleDateString('ja-JP')}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </SectionCard>
 
       <div className="flex items-center gap-4">
         <Link href="/admin/programs">
