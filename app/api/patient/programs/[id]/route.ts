@@ -14,9 +14,9 @@ type PatientProgramDetailRequestBody = {
 };
 
 type RouteContext = {
-  params: Promise<{
+  params: {
     id: string;
-  }>;
+  };
 };
 
 function getRequiredEnv(key: string): string {
@@ -77,9 +77,9 @@ function mapRecommendationStatus(status: string | null) {
   }
 }
 
-export async function POST(request: Request, context: RouteContext) {
+export async function POST(request: Request, { params }: RouteContext) {
   try {
-    const { id: programId } = await context.params;
+    const programId = params.id;
 
     if (!isValidUuid(programId)) {
       return NextResponse.json(
