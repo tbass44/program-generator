@@ -1,58 +1,147 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
-import { ChevronLeft, Clock, Calendar, Sparkles } from 'lucide-react';
+import { ChevronLeft, Clock, Calendar, FileText, Package } from 'lucide-react';
 import Link from 'next/link';
+import liff from '@line/liff';
 
-const dummyProgram = {
-  id: '1',
-  date: '2024年4月15日',
-  title: '腰痛改善プログラム',
-  content: {
-    shortTerm: {
-      period: '3カ月',
-      description: `姿勢改善とストレッチを中心とした集中期間です。
-
-1カ月目: 姿勢の意識づけと基本ストレッチ
-2カ月目: ストレッチの強化と日常動作の改善
-3カ月目: 習慣化の定着と効果の確認
-
-目標: 座位時の腰痛を5割軽減`,
-    },
-    longTerm: {
-      period: '6カ月〜',
-      description: `筋力強化と生活習慣の改善を進めます。
-
-・コア筋群の強化エクササイズ
-・日常の動作改善（立ち上がり、歩行）
-・睡眠環境の見直し
-・栄養バランスの改善
-
-目標: 再発予防と生活の質の向上`,
-    },
-    todayTask: {
-      items: [
-        '朝: ストレッチ10分（膝抱え・猫のポーズ）',
-        '昼: 1時間おきに立ち上がりストレッチ',
-        '夜: 温熱パック15分 + 入浴',
-        '就寝前: スマホ30分以内',
-      ],
-    },
-    selfCare: `・寝る前のスマホは30分以内に
-・枕の高さを見直す
-・週2回の軽いウォーキング（20分程度）
-・水分をこまめに摂る`,
-    support: `・次回診察までに痛みが強まった場合は早めにご連絡ください
-・ストレッチの方法について動画資料をお送りします
-・ご不明な点があればLINEでご相談ください`,
-    closing: `無理をせず、できることから始めていきましょう。小さな積み重ねが大きな変化につながります。
-
-次回の診察を楽しみにしています。`,
-  },
+type PatientProgram = {
+  id: string;
+  patient_id: string;
+  memo: string | null;
+  summary: string | null;
+  short_term_program: string | null;
+  long_term_program: string | null;
+  today_task: string | null;
+  program_text: string | null;
+  created_at: string;
 };
 
+type ProgramRecommendation = {
+  id: string;
+  reason: string | null;
+  status: string | null;
+  statusLabel: string;
+  created_at: string;
+  product: {
+    id: string;
+    name: string;
+    category: string | null;
+    description: string | null;
+    product_url: string | null;
+  } | null;
+};
+
+type ProgramDetailResponse = {
+  patient?: {
+    id: string;
+    name: string;
+  };
+  program?: PatientProgram;
+  recommendations?: ProgramRecommendation[];
+  error?: string;
+  detail?: unknown;
+};
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('ja-JP', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date(value));
+}
+
+function getParamId(id: string | string[] | undefined) {
+  if (Array.isArray(id)) {
+    return id[0] ?? '';
+  }
+
+  return id ?? '';
+}
+
 export default function ProgramDetailPage() {
-  const program = dummyProgram;
+  const params = useParams();
+  const programId = getParamId(params.id);
+  const [program, setProgram] = useState<PatientProgram | null>(null);
+  const [recommendations, setRecommendations] = useState<ProgramRecommendation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProgramDetail = async () => {
+      try {
+        setIsLoading(true);
+        setErrorMessage(null);
+        setStatusMessage('LINE認証を確認しています...');
+
+        const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+
+        if (!liffId) {
+          setErrorMessage('NEXT_PUBLIC_LIFF_ID が設定されていません。');
+          return;
+        }
+
+        if (!programId) {
+          setErrorMessage('改善プログラムIDを確認できませんでした。');
+          return;
+        }
+
+        await liff.init({ liffId });
+
+        if (!liff.isLoggedIn()) {
+          liff.login({ redirectUri: window.location.href });
+          return;
+        }
+
+        const idToken = liff.getIDToken();
+
+        if (!idToken) {
+          setErrorMessage('LINE IDトークンを取得できませんでした。');
+          return;
+        }
+
+        setStatusMessage('改善プログラムを取得しています...');
+
+        const response = await fetch(`/api/patient/programs/${programId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ idToken }),
+        });
+
+        const data = (await response.json()) as ProgramDetailResponse;
+
+        if (!response.ok || !data.program) {
+          console.error(data);
+
+          if (data.error === 'Patient not linked') {
+            setErrorMessage('このLINEアカウントはまだ患者データと連携されていません。');
+          } else if (data.error === 'Program not found') {
+            setErrorMessage('この改善プログラムは表示できません。');
+          } else {
+            setErrorMessage('改善プログラムを取得できませんでした。');
+          }
+
+          return;
+        }
+
+        setProgram(data.program);
+        setRecommendations(data.recommendations ?? []);
+        setStatusMessage('改善プログラムを取得しました。');
+      } catch (error) {
+        console.error(error);
+        setErrorMessage('改善プログラムの取得中にエラーが発生しました。');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProgramDetail();
+  }, [programId]);
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6">
@@ -64,81 +153,112 @@ export default function ProgramDetailPage() {
           <ChevronLeft className="h-4 w-4" />
           戻る
         </Link>
-        <p className="text-xs text-gray-500 mb-1">{program.date}</p>
-        <h1 className="text-xl font-bold text-gray-900">{program.title}</h1>
+        <p className="text-xs text-gray-500 mb-1">
+          {program ? formatDate(program.created_at) : ''}
+        </p>
+        <h1 className="text-xl font-bold text-gray-900">改善プログラム詳細</h1>
+        {isLoading && (
+          <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>
+        )}
+        {errorMessage && (
+          <p className="mt-2 text-xs text-red-500">{errorMessage}</p>
+        )}
       </header>
 
-      <div className="space-y-4">
-        <Card className="border-teal-200 bg-gradient-to-br from-teal-50 to-white">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-5 w-5 text-amber-600" />
-              <h2 className="font-semibold text-gray-900">今日やること</h2>
-            </div>
-            <ul className="space-y-2">
-              {program.content.todayTask.items.map((item, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-700 text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-                    {i + 1}
-                  </span>
-                  <span className="text-sm text-gray-700">{item}</span>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
+      {!isLoading && !program && !errorMessage && (
+        <div className="rounded-lg border bg-white p-4 text-sm text-gray-500">
+          改善プログラムが見つかりませんでした。
+        </div>
+      )}
 
-        <Card className="border-gray-200">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="h-5 w-5 text-teal-600" />
-              <h2 className="font-semibold text-gray-900">短期プログラム（3カ月）</h2>
-            </div>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-              {program.content.shortTerm.description}
-            </p>
-          </CardContent>
-        </Card>
+      {program && (
+        <div className="space-y-4">
+          <Card className="border-teal-200 bg-gradient-to-br from-teal-50 to-white">
+            <CardContent className="p-5">
+              <h2 className="font-semibold text-gray-900 mb-3">状態まとめ</h2>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                {program.summary || '状態まとめは未登録です。'}
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card className="border-gray-200">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Calendar className="h-5 w-5 text-teal-600" />
-              <h2 className="font-semibold text-gray-900">長期プログラム</h2>
-            </div>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-              {program.content.longTerm.description}
-            </p>
-          </CardContent>
-        </Card>
+          <Card className="border-gray-200">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="h-5 w-5 text-teal-600" />
+                <h2 className="font-semibold text-gray-900">短期プログラム</h2>
+              </div>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                {program.short_term_program || '短期プログラムは未登録です。'}
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card className="border-gray-200">
-          <CardContent className="p-5">
-            <h2 className="font-semibold text-gray-900 mb-3">セルフケア</h2>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-              {program.content.selfCare}
-            </p>
-          </CardContent>
-        </Card>
+          <Card className="border-gray-200">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Calendar className="h-5 w-5 text-teal-600" />
+                <h2 className="font-semibold text-gray-900">長期プログラム</h2>
+              </div>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                {program.long_term_program || '長期プログラムは未登録です。'}
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card className="border-gray-200">
-          <CardContent className="p-5">
-            <h2 className="font-semibold text-gray-900 mb-3">サポート提案</h2>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-              {program.content.support}
-            </p>
-          </CardContent>
-        </Card>
+          {program.program_text && (
+            <Card className="border-gray-200">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <FileText className="h-5 w-5 text-teal-600" />
+                  <h2 className="font-semibold text-gray-900">全体メモ</h2>
+                </div>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                  {program.program_text}
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
-        <Card className="border-gray-200 bg-teal-50/50">
-          <CardContent className="p-5">
-            <h2 className="font-semibold text-gray-900 mb-3">締め</h2>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-              {program.content.closing}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="border-gray-200 bg-teal-50/50">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Package className="h-5 w-5 text-teal-600" />
+                <h2 className="font-semibold text-gray-900">関連する商品提案</h2>
+              </div>
+
+              {recommendations.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  このプログラムに関連する商品提案はまだありません。
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {recommendations.map((recommendation) => (
+                    <div
+                      key={recommendation.id}
+                      className="rounded-lg border bg-white p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-medium text-gray-900">
+                          {recommendation.product?.name || '商品名未登録'}
+                        </p>
+                        <span className="rounded-full bg-teal-100 px-2 py-0.5 text-xs text-teal-700">
+                          {recommendation.statusLabel}
+                        </span>
+                      </div>
+                      {recommendation.reason && (
+                        <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
+                          {recommendation.reason}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
