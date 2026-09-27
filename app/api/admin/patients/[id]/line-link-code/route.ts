@@ -112,47 +112,67 @@ function formatPatient(row: PatientRow) {
   };
 }
 
-export async function POST(
-  _request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const adminResult = await requireAdmin();
+async function validateAdminAndPatientId(patientId: string) {
+  const adminResult = await requireAdmin();
 
-    if (!adminResult.ok) {
-      return NextResponse.json(
+  if (!adminResult.ok) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
         {
           error: adminResult.error,
           detail: 'detail' in adminResult ? adminResult.detail : undefined,
         },
         { status: adminResult.status }
-      );
-    }
+      ),
+      supabaseAdmin: null,
+    };
+  }
 
-    const patientId = params.id;
-
-    if (!isUuid(patientId)) {
-      return NextResponse.json(
+  if (!isUuid(patientId)) {
+    return {
+      ok: false as const,
+      response: NextResponse.json(
         { error: 'Invalid patient id' },
         { status: 400 }
-      );
+      ),
+      supabaseAdmin: null,
+    };
+  }
+
+  return {
+    ok: true as const,
+    supabaseAdmin: adminResult.supabaseAdmin,
+  };
+}
+
+const patientSelect = `
+  id,
+  name,
+  line_user_id,
+  line_display_name,
+  line_picture_url,
+  line_linked_at,
+  line_link_code,
+  line_link_code_expires_at,
+  updated_at
+`;
+
+export async function POST(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const patientId = params.id;
+    const validation = await validateAdminAndPatientId(patientId);
+
+    if (!validation.ok) {
+      return validation.response;
     }
 
-    const { data: existingPatient, error: patientError } = await adminResult.supabaseAdmin
+    const { data: existingPatient, error: patientError } = await validation.supabaseAdmin
       .from('patients')
-      .select(
-        `
-        id,
-        name,
-        line_user_id,
-        line_display_name,
-        line_picture_url,
-        line_linked_at,
-        line_link_code,
-        line_link_code_expires_at,
-        updated_at
-      `
-      )
+      .select(patientSelect)
       .eq('id', patientId)
       .maybeSingle<PatientRow>();
 
@@ -186,26 +206,14 @@ export async function POST(
     const lineLinkCode = generateLineLinkCode();
     const lineLinkCodeExpiresAt = createExpiresAt();
 
-    const { data: updatedPatient, error: updateError } = await adminResult.supabaseAdmin
+    const { data: updatedPatient, error: updateError } = await validation.supabaseAdmin
       .from('patients')
       .update({
         line_link_code: lineLinkCode,
         line_link_code_expires_at: lineLinkCodeExpiresAt,
       })
       .eq('id', patientId)
-      .select(
-        `
-        id,
-        name,
-        line_user_id,
-        line_display_name,
-        line_picture_url,
-        line_linked_at,
-        line_link_code,
-        line_link_code_expires_at,
-        updated_at
-      `
-      )
+      .select(patientSelect)
       .single<PatientRow>();
 
     if (updateError) {
@@ -222,6 +230,79 @@ export async function POST(
       patient: formatPatient(updatedPatient),
       lineLinkCode,
       lineLinkCodeExpiresAt,
+    });
+  } catch (error) {
+    console.error(error);
+
+    return NextResponse.json(
+      { error: 'Unexpected server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const patientId = params.id;
+    const validation = await validateAdminAndPatientId(patientId);
+
+    if (!validation.ok) {
+      return validation.response;
+    }
+
+    const { data: existingPatient, error: patientError } = await validation.supabaseAdmin
+      .from('patients')
+      .select(patientSelect)
+      .eq('id', patientId)
+      .maybeSingle<PatientRow>();
+
+    if (patientError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to fetch patient',
+          detail: patientError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!existingPatient) {
+      return NextResponse.json(
+        { error: 'Patient not found' },
+        { status: 404 }
+      );
+    }
+
+    const { data: updatedPatient, error: updateError } = await validation.supabaseAdmin
+      .from('patients')
+      .update({
+        line_user_id: null,
+        line_display_name: null,
+        line_picture_url: null,
+        line_linked_at: null,
+        line_link_code: null,
+        line_link_code_expires_at: null,
+      })
+      .eq('id', patientId)
+      .select(patientSelect)
+      .single<PatientRow>();
+
+    if (updateError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to unlink LINE account',
+          detail: updateError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      unlinked: true,
+      patient: formatPatient(updatedPatient),
     });
   } catch (error) {
     console.error(error);
