@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import Link from 'next/link';
 import liff from '@line/liff';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -196,6 +197,7 @@ export default function LineLinkPage() {
   };
 
   const detailText = formatDetail(result?.detail);
+  const isLinked = Boolean(result?.linked && result?.patient);
 
   return (
     <main className="min-h-screen bg-[#F6F3EE] px-4 py-8 text-[#3A3A3A]">
@@ -222,27 +224,29 @@ export default function LineLinkPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="linkCode">連携コード</Label>
-            <Input
-              id="linkCode"
-              value={linkCode}
-              onChange={(event) => setLinkCode(event.target.value)}
-              placeholder="例：123456"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-            />
-          </div>
+        {!isLinked && (
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="linkCode">連携コード</Label>
+              <Input
+                id="linkCode"
+                value={linkCode}
+                onChange={(event) => setLinkCode(event.target.value)}
+                placeholder="例：123456"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+              />
+            </div>
 
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={!idToken || isSubmitting}
-          >
-            {isSubmitting ? '連携中...' : 'LINEアカウントを連携する'}
-          </Button>
-        </form>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={!idToken || isSubmitting}
+            >
+              {isSubmitting ? '連携中...' : 'LINEアカウントを連携する'}
+            </Button>
+          </form>
+        )}
 
         {result?.patient && (
           <div className="mt-6 rounded-xl border p-4">
@@ -261,6 +265,12 @@ export default function LineLinkPage() {
                 </dd>
               </div>
             </dl>
+
+            {isLinked && (
+              <Link href="/dashboard" className="mt-5 block">
+                <Button className="w-full">患者画面へ進む</Button>
+              </Link>
+            )}
           </div>
         )}
       </div>
