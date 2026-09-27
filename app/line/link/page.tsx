@@ -6,17 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-/**
- * /api/line/link から返ってくるレスポンス型。
- *
- * 成功時：
- * - linked: true
- * - patient: 紐づいた患者情報
- *
- * 失敗時：
- * - error: エラー種別
- * - detail: 補足情報
- */
 type LinkResult = {
   linked?: boolean;
   patient?: {
@@ -47,6 +36,34 @@ function formatDetail(detail: unknown) {
   }
 }
 
+function toErrorDetail(error: unknown) {
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}`;
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+function isRevokedTokenError(error: unknown) {
+  return toErrorDetail(error).toLowerCase().includes('access token revoked');
+}
+
+function retryLineLogin() {
+  try {
+    liff.logout();
+  } catch (error) {
+    console.error(error);
+  }
+
+  window.setTimeout(() => {
+    liff.login({ redirectUri: window.location.href });
+  }, 500);
+}
+
 function toStatusMessage(data: LinkResult) {
   if (data.error === 'Invalid link code') {
     return '連携コードが正しくありません。';
@@ -67,62 +84,16 @@ function toStatusMessage(data: LinkResult) {
   return 'LINE連携に失敗しました。';
 }
 
-/**
- * LINEアカウント連携画面。
- *
- * 役割：
- * 1. LIFFを初期化する
- * 2. LINEログイン状態を確認する
- * 3. LINE IDトークンを取得する
- * 4. 患者さんが入力した連携コードとIDトークンをAPIへ送る
- * 5. 成功すれば patients.line_user_id にLINE userIdが保存される
- *
- * 注意：
- * この画面では line_user_id を直接扱わない。
- * 本人確認・LINE IDトークン検証・DB更新は /api/line/link 側で行う。
- */
 export default function LineLinkPage() {
-  /**
-   * 画面に表示する現在の処理状態。
-   * 例：LIFF初期化中、連携コード入力待ち、連携完了など。
-   */
   const [status, setStatus] = useState('LIFFを初期化しています...');
-
-  /**
-   * LIFFから取得したLINE IDトークン。
-   * API側でLINE公式の検証APIに渡すために使う。
-   */
   const [idToken, setIdToken] = useState<string | null>(null);
-
-  /**
-   * 患者さんが入力する連携コード。
-   * 管理者側で患者ごとに発行する想定。
-   */
   const [linkCode, setLinkCode] = useState('');
-
-  /**
-   * 連携処理中の二重送信防止用。
-   */
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  /**
-   * APIから返ってきた結果。
-   * 成功時は患者情報を表示する。
-   */
   const [result, setResult] = useState<LinkResult | null>(null);
 
   useEffect(() => {
-    /**
-     * LIFFを初期化し、LINE IDトークンを取得する。
-     *
-     * この処理は画面表示時に1回だけ実行する。
-     */
     const initLiff = async () => {
       try {
-        /**
-         * Vercel / .env.local に設定したLIFF ID。
-         * NEXT_PUBLIC_ が付いているのでブラウザ側で読める。
-         */
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
 
         if (!liffId) {
@@ -130,39 +101,43 @@ export default function LineLinkPage() {
           return;
         }
 
-        /**
-         * LIFF初期化。
-         * LINEアプリ内で開いた時に、LINEログインやプロフィール取得ができるようになる。
-         */
         await liff.init({ liffId });
 
-        /**
-         * 未ログインの場合はLINEログインへ遷移。
-         * 初回は認可画面が表示される。
-         */
         if (!liff.isLoggedIn()) {
-          liff.login();
+          liff.login({ redirectUri: window.location.href });
           return;
         }
 
-        /**
-         * LINE IDトークンを取得。
-         * これはサーバー側でLINE公式APIに検証してもらうために使う。
-         */
         const token = liff.getIDToken();
 
         if (!token) {
-          setStatus('LINE IDトークンを取得できませんでした。');
+          setStatus('LINE IDトークンを取得できませんでした。LIFFのscopeにopenidがない可能性があります。');
+          setResult({
+            error: 'Missing ID token',
+            detail: 'liff.getIDToken() returned null. LIFFのscopeにopenidがあるか確認してください。',
+          });
           return;
         }
 
         setIdToken(token);
         setStatus('LINE認証が完了しました。連携コードを入力してください。');
       } catch (error) {
-        /**
-         * LIFF初期化やIDトークン取得に失敗した場合。
-         */
         console.error(error);
+
+        if (isRevokedTokenError(error)) {
+          setStatus('LINEログイン情報が無効になっています。LINEログインをやり直します...');
+          setResult({
+            error: 'LINE access token revoked',
+            detail: toErrorDetail(error),
+          });
+          retryLineLogin();
+          return;
+        }
+
+        setResult({
+          error: 'LIFF init failed',
+          detail: toErrorDetail(error),
+        });
         setStatus('LIFFの初期化に失敗しました。');
       }
     };
@@ -170,26 +145,14 @@ export default function LineLinkPage() {
     initLiff();
   }, []);
 
-  /**
-   * 連携コード送信処理。
-   *
-   * 入力された連携コードとLINE IDトークンを /api/line/link に送り、
-   * サーバー側で患者データとLINEアカウントを紐づける。
-   */
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    /**
-     * LIFF認証が終わっていない場合は送信させない。
-     */
     if (!idToken) {
       setStatus('LINE認証が完了していません。');
       return;
     }
 
-    /**
-     * 連携コード未入力の場合は送信させない。
-     */
     if (!linkCode.trim()) {
       setStatus('連携コードを入力してください。');
       return;
@@ -200,15 +163,6 @@ export default function LineLinkPage() {
       setResult(null);
       setStatus('患者データとLINEアカウントを紐づけています...');
 
-      /**
-       * サーバー側APIへ送信。
-       *
-       * idToken：
-       *   LINE userIdを安全に検証するためのトークン。
-       *
-       * linkCode：
-       *   管理者が患者ごとに発行した本人確認用コード。
-       */
       const response = await fetch('/api/line/link', {
         method: 'POST',
         headers: {
@@ -223,23 +177,13 @@ export default function LineLinkPage() {
       const data = (await response.json()) as LinkResult;
       setResult(data);
 
-      /**
-       * API側でエラーが返ってきた場合、エラー種別ごとに表示文を変える。
-       */
       if (!response.ok) {
         setStatus(toStatusMessage(data));
         return;
       }
 
-      /**
-       * 紐づけ成功。
-       * この段階で patients.line_user_id などがDBに保存されている。
-       */
       setStatus('LINE連携が完了しました。');
     } catch (error) {
-      /**
-       * 通信エラーや想定外エラー。
-       */
       console.error(error);
       setResult({
         error: 'Client error',
