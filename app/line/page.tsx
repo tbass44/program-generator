@@ -50,6 +50,22 @@ function toErrorDetail(error: unknown) {
   }
 }
 
+function isRevokedTokenError(error: unknown) {
+  return toErrorDetail(error).toLowerCase().includes('access token revoked');
+}
+
+function retryLineLogin() {
+  try {
+    liff.logout();
+  } catch (error) {
+    console.error(error);
+  }
+
+  window.setTimeout(() => {
+    liff.login({ redirectUri: window.location.href });
+  }, 500);
+}
+
 function toApiErrorDetail(data: LineMeResponse) {
   const parts = [];
 
@@ -103,7 +119,7 @@ export default function LineEntryPage() {
         setShowLiffGuide(false);
 
         if (!liff.isLoggedIn()) {
-          liff.login();
+          liff.login({ redirectUri: window.location.href });
           return;
         }
 
@@ -154,6 +170,12 @@ export default function LineEntryPage() {
         console.error(error);
         const detail = toErrorDetail(error);
         setErrorDetail(detail);
+
+        if (isRevokedTokenError(error)) {
+          setStatus('LINEログイン情報が無効になっています。LINEログインをやり直します...');
+          retryLineLogin();
+          return;
+        }
 
         if (error instanceof Error && error.message === 'LIFF_INIT_TIMEOUT') {
           setStatus('LIFFの初期化に時間がかかっています。LIFF URLから開き直してください。');
