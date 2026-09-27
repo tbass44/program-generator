@@ -50,7 +50,6 @@ export default function AdminProgramEditPage({ params }: { params: { id: string 
   const [summary, setSummary] = useState('');
   const [shortTermProgram, setShortTermProgram] = useState('');
   const [longTermProgram, setLongTermProgram] = useState('');
-  const [todayTask, setTodayTask] = useState('');
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -75,7 +74,6 @@ export default function AdminProgramEditPage({ params }: { params: { id: string 
         setSummary(data.program.summary ?? '');
         setShortTermProgram(data.program.short_term_program ?? '');
         setLongTermProgram(data.program.long_term_program ?? '');
-        setTodayTask(data.program.today_task ?? '');
       } catch (error) {
         console.error(error);
         setErrorMessage('改善プログラムの取得中にエラーが発生しました。');
@@ -111,7 +109,6 @@ export default function AdminProgramEditPage({ params }: { params: { id: string 
           summary,
           shortTermProgram,
           longTermProgram,
-          todayTask,
         }),
       });
 
@@ -222,18 +219,6 @@ export default function AdminProgramEditPage({ params }: { params: { id: string 
             value={longTermProgram}
             onChange={(e) => setLongTermProgram(e.target.value)}
             className="min-h-[150px] font-mono text-sm"
-          />
-        </div>
-      </SectionCard>
-
-      <SectionCard title="今日やること" className="mb-6">
-        <div className="space-y-2">
-          <Label htmlFor="todayTask">今日やること</Label>
-          <Textarea
-            id="todayTask"
-            value={todayTask}
-            onChange={(e) => setTodayTask(e.target.value)}
-            className="min-h-[120px] font-mono text-sm"
           />
         </div>
       </SectionCard>
