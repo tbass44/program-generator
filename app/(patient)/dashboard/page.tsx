@@ -1,10 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import liff from '@line/liff';
-import { PlanStatusCard, ProgramCard, SectionHeader, SupportCategoryCard } from '@/components/patient';
-import { Moon, Apple, Dumbbell, Sparkles } from 'lucide-react';
+import {
+  PlanStatusCard,
+  ProgramCard,
+  SectionHeader,
+  SupportCategoryCard,
+  VisitList,
+} from '@/components/patient';
+import { Apple, Dumbbell, Moon, Sparkles } from 'lucide-react';
 
 /**
  * 患者ダッシュボードAPIから返ってくる患者情報。
@@ -34,12 +40,60 @@ type DashboardCurrentProgram = {
   created_at: string;
 };
 
+type DashboardCurrentPlan = {
+  id: string;
+  type: 'ticket' | 'subscription';
+  name: string;
+  total_count: number | null;
+  remaining_count: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  status: string;
+  created_at: string;
+};
+
+type DashboardProduct = {
+  id: string;
+  name: string;
+  category: string;
+  description: string | null;
+  product_url: string | null;
+};
+
+type DashboardRecommendation = {
+  id: string;
+  program_id: string | null;
+  product_id: string | null;
+  category: string | null;
+  reason: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  product: DashboardProduct | null;
+  program: {
+    id: string;
+    summary: string | null;
+  } | null;
+};
+
+type DashboardVisit = {
+  id: string;
+  visit_date: string;
+  note: string | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
 /**
  * /api/patient/dashboard のレスポンス型。
  */
 type DashboardResponse = {
   patient?: DashboardPatient;
   currentProgram?: DashboardCurrentProgram | null;
+  currentPlan?: DashboardCurrentPlan | null;
+  recommendations?: DashboardRecommendation[];
+  recentVisits?: DashboardVisit[];
+  rentals?: DashboardRecommendation[];
   error?: string;
   detail?: unknown;
 };
@@ -58,62 +112,97 @@ type ProgramCardViewModel = {
   todayTask: string;
 };
 
-/**
- * 商品サポートはまだDB連携前なので、MVP初期表示用のダミーデータを残す。
- * 次の工程で patient_product_recommendations から取得する形に差し替える。
- */
-const supportCategories = [
+type SupportCategoryKey = 'physical_sleep' | 'nutrition' | 'exercise' | 'skincare';
+
+const rentalStatuses = ['rental_requested', 'renting', 'rental_returned'];
+
+const supportCategoryMeta: Record<
+  SupportCategoryKey,
   {
-    href: '/product-support?category=sleep',
+    icon: typeof Moon;
+    title: string;
+    description: string;
+  }
+> = {
+  physical_sleep: {
     icon: Moon,
     title: '物理療法（睡眠）',
-    description: '睡眠の質を高めるサポート',
-    recommendedSupport: 'マグネシウムサプリメント',
-    relatedProgramId: '1',
-    relatedProgramTitle: '腰痛改善プログラム',
-    supportItems: [
-      { name: 'マグネシウム', href: '/product-support?category=sleep&item=1' },
-      { name: 'ホットパック', href: '/product-support?category=sleep&item=2' },
-    ],
+    description: '睡眠環境や身体への負担軽減を目的としたサポート',
   },
-  {
-    href: '/product-support?category=nutrition',
+  nutrition: {
     icon: Apple,
     title: '栄養療法',
     description: '内面から健康を支える栄養サポート',
-    recommendedSupport: 'ビタミンDサプリメント',
-    relatedProgramId: '1',
-    relatedProgramTitle: '腰痛改善プログラム',
-    supportItems: [
-      { name: 'ビタミンD', href: '/product-support?category=nutrition&item=1' },
-      { name: 'オメガ3', href: '/product-support?category=nutrition&item=2' },
-    ],
   },
-  {
-    href: '/product-support?category=exercise',
+  exercise: {
     icon: Dumbbell,
     title: '運動療法',
     description: '体を動かして改善を促すサポート',
-    recommendedSupport: '姿勢矯正ベルト',
-    relatedProgramId: '2',
-    relatedProgramTitle: '肩こり解消プログラム',
-    supportItems: [
-      { name: '矯正ベルト', href: '/product-support?category=exercise&item=1' },
-      { name: 'ヨガマット', href: '/product-support?category=exercise&item=2' },
-    ],
   },
-  {
-    href: '/product-support?category=skincare',
+  skincare: {
     icon: Sparkles,
     title: 'スキンケア',
     description: '肌の健康を保つケアサポート',
-    recommendedSupport: '保湿クリーム',
-    supportItems: [
-      { name: '保湿クリーム', href: '/product-support?category=skincare&item=1' },
-      { name: 'UVケア', href: '/product-support?category=skincare&item=2' },
-    ],
   },
-];
+};
+
+function isSupportCategoryKey(value: string | null | undefined): value is SupportCategoryKey {
+  return Boolean(value && value in supportCategoryMeta);
+}
+
+function getSupportCategoryMeta(value: string | null | undefined) {
+  if (isSupportCategoryKey(value)) {
+    return supportCategoryMeta[value];
+  }
+
+  return {
+    icon: Sparkles,
+    title: '商品サポート',
+    description: '現在提案中の商品サポート',
+  };
+}
+
+function getStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    recommended: '提案中',
+    rental_requested: 'レンタル希望',
+    renting: 'レンタル中',
+    rental_returned: 'レンタル終了',
+    purchase_requested: '購入希望',
+  };
+
+  return labels[status] ?? status;
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) {
+    return '未設定';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString('ja-JP');
+}
+
+function getSubscriptionRemainingDays(endDate: string | null) {
+  if (!endDate) {
+    return 0;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
+
+  const diff = end.getTime() - today.getTime();
+
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
 
 /**
  * APIから取得した改善プログラムを、ProgramCard表示用に変換する。
@@ -134,6 +223,37 @@ function toProgramCardViewModel(
   };
 }
 
+function toSupportCardProps(recommendation: DashboardRecommendation) {
+  const category = recommendation.product?.category ?? recommendation.category;
+  const meta = getSupportCategoryMeta(category);
+  const productName = recommendation.product?.name ?? '商品名未設定';
+  const reason = recommendation.reason || recommendation.product?.description || '提案理由は未登録です。';
+
+  return {
+    href: '/product-support',
+    icon: meta.icon,
+    title: meta.title,
+    description: reason,
+    recommendedSupport: productName,
+    relatedProgramId: recommendation.program?.id,
+    relatedProgramTitle: recommendation.program?.summary || '関連プログラム',
+    supportItems: [
+      {
+        name: getStatusLabel(recommendation.status),
+        href: '/product-support',
+      },
+    ],
+  };
+}
+
+function toVisitListItems(visits: DashboardVisit[]) {
+  return visits.map((visit) => ({
+    id: visit.id,
+    date: formatDate(visit.visit_date),
+    memo: visit.note || '施術メモは未登録です。',
+  }));
+}
+
 /**
  * 患者側ダッシュボード。
  *
@@ -142,8 +262,7 @@ function toProgramCardViewModel(
  * 2. LINE IDトークンを取得する
  * 3. /api/patient/dashboard にIDトークンを送り、サーバー側で検証する
  * 4. 検証済みのLINE userIdに紐づく患者情報を表示する
- * 5. 現在の改善プログラムを実データで表示する
- * 6. プラン・商品サポートは一旦ダミー表示を維持する
+ * 5. 現在の改善プログラム・現在プラン・商品提案・通院履歴を実データで表示する
  */
 export default function DashboardPage() {
   /**
@@ -156,6 +275,11 @@ export default function DashboardPage() {
    */
   const [currentProgram, setCurrentProgram] =
     useState<ProgramCardViewModel | null>(null);
+
+  const [currentPlan, setCurrentPlan] = useState<DashboardCurrentPlan | null>(null);
+  const [recommendations, setRecommendations] = useState<DashboardRecommendation[]>([]);
+  const [recentVisits, setRecentVisits] = useState<DashboardVisit[]>([]);
+  const [rentals, setRentals] = useState<DashboardRecommendation[]>([]);
 
   /**
    * 患者情報取得中の状態管理。
@@ -171,6 +295,11 @@ export default function DashboardPage() {
    * 患者情報取得に失敗した場合の表示用メッセージ。
    */
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const supportRecommendations = useMemo(
+    () => recommendations.filter((recommendation) => !rentalStatuses.includes(recommendation.status)),
+    [recommendations]
+  );
 
   useEffect(() => {
     /**
@@ -229,6 +358,10 @@ export default function DashboardPage() {
 
         setPatient(data.patient);
         setStatusMessage('患者情報を取得しました。');
+        setCurrentPlan(data.currentPlan ?? null);
+        setRecommendations(data.recommendations ?? []);
+        setRecentVisits(data.recentVisits ?? []);
+        setRentals(data.rentals ?? []);
 
         /**
          * 最新プログラムがある場合だけカード表示用データに変換する。
@@ -285,7 +418,29 @@ export default function DashboardPage() {
                 </Link>
               }
             />
-            <PlanStatusCard type="ticket" remaining={5} />
+            {currentPlan ? (
+              <div className="space-y-2">
+                <PlanStatusCard
+                  type={currentPlan.type}
+                  remaining={
+                    currentPlan.type === 'ticket'
+                      ? currentPlan.remaining_count ?? 0
+                      : getSubscriptionRemainingDays(currentPlan.end_date)
+                  }
+                  expiresAt={formatDate(currentPlan.end_date)}
+                />
+                <div className="rounded-lg border bg-white p-3 text-sm text-gray-600">
+                  <p className="font-medium text-gray-900">{currentPlan.name}</p>
+                  <p className="mt-1">
+                    期間：{formatDate(currentPlan.start_date)} 〜 {formatDate(currentPlan.end_date)}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border bg-white p-4 text-sm text-gray-500">
+                現在有効なプランは登録されていません。
+              </div>
+            )}
           </section>
 
           <section className="mb-6">
@@ -307,7 +462,7 @@ export default function DashboardPage() {
             )}
           </section>
 
-          <section>
+          <section className="mb-6">
             <SectionHeader
               title="商品サポート"
               action={
@@ -316,11 +471,77 @@ export default function DashboardPage() {
                 </Link>
               }
             />
-            <div className="space-y-3">
-              {supportCategories.map((category) => (
-                <SupportCategoryCard key={category.title} {...category} />
-              ))}
-            </div>
+            {supportRecommendations.length > 0 ? (
+              <div className="space-y-3">
+                {supportRecommendations.map((recommendation) => (
+                  <SupportCategoryCard
+                    key={recommendation.id}
+                    {...toSupportCardProps(recommendation)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border bg-white p-4 text-sm text-gray-500">
+                現在表示できる商品提案はありません。
+              </div>
+            )}
+          </section>
+
+          <section className="mb-6">
+            <SectionHeader
+              title="直近の通院履歴"
+              action={
+                <Link href="/visits" className="text-sm text-teal-600">
+                  すべて見る
+                </Link>
+              }
+            />
+            {recentVisits.length > 0 ? (
+              <VisitList visits={toVisitListItems(recentVisits)} />
+            ) : (
+              <div className="rounded-lg border bg-white p-4 text-sm text-gray-500">
+                通院履歴はまだ登録されていません。
+              </div>
+            )}
+          </section>
+
+          <section>
+            <SectionHeader
+              title="レンタル履歴"
+              action={
+                <Link href="/rentals" className="text-sm text-teal-600">
+                  すべて見る
+                </Link>
+              }
+            />
+            {rentals.length > 0 ? (
+              <div className="space-y-3">
+                {rentals.map((rental) => (
+                  <div key={rental.id} className="rounded-lg border bg-white p-4 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {rental.product?.name ?? '商品名未設定'}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          更新日：{formatDate(rental.updated_at)}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-teal-50 px-2 py-1 text-xs font-medium text-teal-700">
+                        {getStatusLabel(rental.status)}
+                      </span>
+                    </div>
+                    {rental.reason && (
+                      <p className="mt-3 text-gray-600">{rental.reason}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border bg-white p-4 text-sm text-gray-500">
+                レンタル履歴はまだありません。
+              </div>
+            )}
           </section>
         </>
       )}
