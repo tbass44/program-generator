@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { Copy, RefreshCw } from 'lucide-react';
+import { Copy, RefreshCw, Unlink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader, SectionCard } from '@/components/admin';
@@ -41,6 +41,7 @@ type LineLinkCodeResponse = {
   patient?: LineLinkCodePatient;
   lineLinkCode?: string;
   lineLinkCodeExpiresAt?: string;
+  unlinked?: boolean;
   error?: string;
   detail?: unknown;
 };
@@ -60,6 +61,18 @@ function formatDateTime(value: string | null | undefined) {
   return new Date(value).toLocaleString('ja-JP');
 }
 
+function toPatientDetail(current: PatientDetail, next: LineLinkCodePatient): PatientDetail {
+  return {
+    ...current,
+    line_user_id: next.lineUserId,
+    line_display_name: next.lineDisplayName,
+    line_picture_url: next.linePictureUrl,
+    line_linked_at: next.lineLinkedAt,
+    line_link_code: next.lineLinkCode,
+    line_link_code_expires_at: next.lineLinkCodeExpiresAt,
+  };
+}
+
 export default function AdminPatientLineLinkPage() {
   const params = useParams();
   const patientId = typeof params.id === 'string' ? params.id : '';
@@ -69,6 +82,7 @@ export default function AdminPatientLineLinkPage() {
   const [lineLinkCodeExpiresAt, setLineLinkCodeExpiresAt] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isUnlinking, setIsUnlinking] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -132,15 +146,11 @@ export default function AdminPatientLineLinkPage() {
       }
 
       setPatient((current) => {
-        if (!current) {
+        if (!current || !data.patient) {
           return current;
         }
 
-        return {
-          ...current,
-          line_link_code: data.patient?.lineLinkCode ?? null,
-          line_link_code_expires_at: data.patient?.lineLinkCodeExpiresAt ?? null,
-        };
+        return toPatientDetail(current, data.patient);
       });
       setLineLinkCode(data.lineLinkCode);
       setLineLinkCodeExpiresAt(data.lineLinkCodeExpiresAt ?? null);
@@ -150,6 +160,54 @@ export default function AdminPatientLineLinkPage() {
       setErrorMessage(`LINE連携コードの発行中にエラーが発生しました。${String(error)}`);
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleUnlinkLine = async () => {
+    if (!patientId || !patient) {
+      setErrorMessage('患者情報を取得できませんでした。');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `${patient.name}さんのLINE連携を解除します。\n解除後は、再度LINE連携コードで紐づけが必要です。よろしいですか？`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIsUnlinking(true);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      const response = await fetch(`/api/admin/patients/${patientId}/line-link-code`, {
+        method: 'DELETE',
+      });
+      const data = (await response.json()) as LineLinkCodeResponse;
+
+      if (!response.ok || !data.patient || !data.unlinked) {
+        console.error(data);
+        setErrorMessage(buildApiErrorMessage('LINE連携を解除できませんでした', response.status, data));
+        return;
+      }
+
+      setPatient((current) => {
+        if (!current || !data.patient) {
+          return current;
+        }
+
+        return toPatientDetail(current, data.patient);
+      });
+      setLineLinkCode(null);
+      setLineLinkCodeExpiresAt(null);
+      setSuccessMessage('LINE連携を解除しました。必要に応じて新しい連携コードを発行してください。');
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(`LINE連携の解除中にエラーが発生しました。${String(error)}`);
+    } finally {
+      setIsUnlinking(false);
     }
   };
 
@@ -246,8 +304,20 @@ export default function AdminPatientLineLinkPage() {
 
       <SectionCard title="連携コード">
         {isLinked ? (
-          <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
-            この患者さんはすでにLINE連携済みです。通常は連携コードの再発行は不要です。
+          <div className="space-y-4">
+            <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
+              この患者さんはすでにLINE連携済みです。通常は連携コードの再発行は不要です。
+              テストや付け替えを行う場合のみ、LINE連携を解除してください。
+            </div>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleUnlinkLine}
+              disabled={isUnlinking || isGenerating}
+            >
+              <Unlink className="mr-2 h-4 w-4" />
+              {isUnlinking ? '解除中...' : 'LINE連携を解除'}
+            </Button>
           </div>
         ) : (
           <div className="space-y-6">
