@@ -182,6 +182,44 @@ export async function POST(request: Request) {
     }
 
     /**
+     * 同じLINEアカウントが、すでに別の患者データに紐づいていないか確認する。
+     *
+     * patients.line_user_id はユニーク想定のため、
+     * テスト時に同じLINEで複数患者を紐づけようとするとDB更新で失敗する。
+     * 事前に409で返すことで、画面側で分かりやすいエラーにする。
+     */
+    const { data: existingLinkedPatient, error: existingLinkedPatientError } = await supabaseAdmin
+      .from('patients')
+      .select('id, name, line_user_id, line_display_name')
+      .eq('line_user_id', lineProfile.userId)
+      .maybeSingle();
+
+    if (existingLinkedPatientError) {
+      return NextResponse.json(
+        {
+          error: 'Failed to check existing LINE link',
+          detail: existingLinkedPatientError.message,
+        },
+        { status: 500 }
+      );
+    }
+
+    if (existingLinkedPatient && existingLinkedPatient.id !== patient.id) {
+      return NextResponse.json(
+        {
+          error: 'LINE account already linked',
+          detail: `このLINEアカウントは、すでに「${existingLinkedPatient.name}」さんの患者データに連携済みです。別の患者データへ連携する場合は、先に既存のLINE連携を解除してください。`,
+          linkedPatient: {
+            id: existingLinkedPatient.id,
+            name: existingLinkedPatient.name,
+            line_display_name: existingLinkedPatient.line_display_name,
+          },
+        },
+        { status: 409 }
+      );
+    }
+
+    /**
      * 患者データにLINE情報を保存する。
      * 成功後はコードの再利用を防ぐため、line_link_code を null にする。
      */
@@ -209,12 +247,20 @@ export async function POST(request: Request) {
       .single();
 
     if (updateError) {
+      const isUniqueLineUserIdError =
+        updateError.message.includes('line_user_id') ||
+        updateError.message.includes('duplicate key value');
+
       return NextResponse.json(
         {
-          error: 'Failed to link LINE account',
-          detail: updateError.message,
+          error: isUniqueLineUserIdError
+            ? 'LINE account already linked'
+            : 'Failed to link LINE account',
+          detail: isUniqueLineUserIdError
+            ? 'このLINEアカウントは、すでに別の患者データに連携済みです。'
+            : updateError.message,
         },
-        { status: 500 }
+        { status: isUniqueLineUserIdError ? 409 : 500 }
       );
     }
 
@@ -226,7 +272,10 @@ export async function POST(request: Request) {
     console.error(error);
 
     return NextResponse.json(
-      { error: 'Unexpected server error' },
+      {
+        error: 'Unexpected server error',
+        detail: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
