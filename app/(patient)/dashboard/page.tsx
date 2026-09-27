@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import liff from '@line/liff';
 import { PlanStatusCard, ProgramCard, SectionHeader, SupportCategoryCard } from '@/components/patient';
 import { Moon, Apple, Dumbbell, Sparkles } from 'lucide-react';
 
@@ -138,19 +138,14 @@ function toProgramCardViewModel(
  * 患者側ダッシュボード。
  *
  * 現在の役割：
- * 1. /line から渡された patientId をURLクエリから受け取る
- * 2. /api/patient/dashboard から患者基本情報と最新プログラムを取得する
- * 3. ヘッダーに患者名を表示する
- * 4. 現在の改善プログラムを実データで表示する
- * 5. プラン・商品サポートは一旦ダミー表示を維持する
+ * 1. LIFFを初期化する
+ * 2. LINE IDトークンを取得する
+ * 3. /api/patient/dashboard にIDトークンを送り、サーバー側で検証する
+ * 4. 検証済みのLINE userIdに紐づく患者情報を表示する
+ * 5. 現在の改善プログラムを実データで表示する
+ * 6. プラン・商品サポートは一旦ダミー表示を維持する
  */
 export default function DashboardPage() {
-  /**
-   * /dashboard?patientId=xxx の patientId を取得する。
-   */
-  const searchParams = useSearchParams();
-  const patientId = searchParams.get('patientId');
-
   /**
    * APIから取得した患者情報。
    */
@@ -165,7 +160,12 @@ export default function DashboardPage() {
   /**
    * 患者情報取得中の状態管理。
    */
-  const [isLoading, setIsLoading] = useState(Boolean(patientId));
+  const [isLoading, setIsLoading] = useState(true);
+
+  /**
+   * 処理状況の簡易表示。
+   */
+  const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
 
   /**
    * 患者情報取得に失敗した場合の表示用メッセージ。
@@ -174,32 +174,61 @@ export default function DashboardPage() {
 
   useEffect(() => {
     /**
-     * patientId がない場合は、まだLINE導線から来ていない可能性がある。
-     * その場合は患者別の実データ取得は行わない。
-     */
-    if (!patientId) {
-      setIsLoading(false);
-      return;
-    }
-
-    /**
-     * 患者ダッシュボードAPIから患者基本情報と最新プログラムを取得する。
+     * LIFFを初期化し、LINE IDトークンを使って患者ダッシュボードAPIを呼び出す。
      */
     const fetchPatientDashboard = async () => {
       try {
         setIsLoading(true);
         setErrorMessage(null);
+        setStatusMessage('LINE認証を確認しています...');
 
-        const response = await fetch(`/api/patient/dashboard?patientId=${patientId}`);
+        const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+
+        if (!liffId) {
+          setErrorMessage('NEXT_PUBLIC_LIFF_ID が設定されていません。');
+          return;
+        }
+
+        await liff.init({ liffId });
+
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const idToken = liff.getIDToken();
+
+        if (!idToken) {
+          setErrorMessage('LINE IDトークンを取得できませんでした。');
+          return;
+        }
+
+        setStatusMessage('患者情報を取得しています...');
+
+        const response = await fetch('/api/patient/dashboard', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ idToken }),
+        });
+
         const data = (await response.json()) as DashboardResponse;
 
         if (!response.ok || !data.patient) {
           console.error(data);
-          setErrorMessage('患者情報を取得できませんでした。');
+
+          if (data.error === 'Patient not linked') {
+            setErrorMessage('このLINEアカウントはまだ患者データと連携されていません。');
+          } else {
+            setErrorMessage('患者情報を取得できませんでした。');
+          }
+
           return;
         }
 
         setPatient(data.patient);
+        setStatusMessage('患者情報を取得しました。');
 
         /**
          * 最新プログラムがある場合だけカード表示用データに変換する。
@@ -219,7 +248,9 @@ export default function DashboardPage() {
     };
 
     fetchPatientDashboard();
-  }, [patientId]);
+  }, []);
+
+  const canShowDashboard = Boolean(patient);
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6">
@@ -229,64 +260,70 @@ export default function DashboardPage() {
         </h1>
         <p className="text-sm text-gray-500">本日の状態を確認しましょう</p>
 
-        {/*
-          patientId付きURLで来た場合、患者情報の取得状態を簡単に表示する。
-          MVP確認用なので、今後はより自然なUIに整理する。
-        */}
         {isLoading && (
-          <p className="mt-2 text-xs text-gray-400">患者情報を読み込み中です...</p>
+          <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>
         )}
         {errorMessage && (
           <p className="mt-2 text-xs text-red-500">{errorMessage}</p>
         )}
       </header>
 
-      <section className="mb-6">
-        <SectionHeader
-          title="現在のプラン"
-          action={
-            <Link href="/plans" className="text-sm text-teal-600">
-              詳細
-            </Link>
-          }
-        />
-        <PlanStatusCard type="ticket" remaining={5} />
-      </section>
-
-      <section className="mb-6">
-        <SectionHeader
-          title="現在の改善プログラム"
-          action={
-            <Link href="/programs" className="text-sm text-teal-600">
-              すべて見る
-            </Link>
-          }
-        />
-
-        {currentProgram ? (
-          <ProgramCard {...currentProgram} />
-        ) : (
-          <div className="rounded-lg border bg-white p-4 text-sm text-gray-500">
-            まだ改善プログラムは登録されていません。
-          </div>
-        )}
-      </section>
-
-      <section>
-        <SectionHeader
-          title="商品サポート"
-          action={
-            <Link href="/product-support" className="text-sm text-teal-600">
-              すべて見る
-            </Link>
-          }
-        />
-        <div className="space-y-3">
-          {supportCategories.map((category) => (
-            <SupportCategoryCard key={category.title} {...category} />
-          ))}
+      {!canShowDashboard && !isLoading && (
+        <div className="rounded-lg border bg-white p-4 text-sm text-gray-500">
+          患者画面を表示するには、LINEアカウントと患者データの連携が必要です。
         </div>
-      </section>
+      )}
+
+      {canShowDashboard && (
+        <>
+          <section className="mb-6">
+            <SectionHeader
+              title="現在のプラン"
+              action={
+                <Link href="/plans" className="text-sm text-teal-600">
+                  詳細
+                </Link>
+              }
+            />
+            <PlanStatusCard type="ticket" remaining={5} />
+          </section>
+
+          <section className="mb-6">
+            <SectionHeader
+              title="現在の改善プログラム"
+              action={
+                <Link href="/programs" className="text-sm text-teal-600">
+                  すべて見る
+                </Link>
+              }
+            />
+
+            {currentProgram ? (
+              <ProgramCard {...currentProgram} />
+            ) : (
+              <div className="rounded-lg border bg-white p-4 text-sm text-gray-500">
+                まだ改善プログラムは登録されていません。
+              </div>
+            )}
+          </section>
+
+          <section>
+            <SectionHeader
+              title="商品サポート"
+              action={
+                <Link href="/product-support" className="text-sm text-teal-600">
+                  すべて見る
+                </Link>
+              }
+            />
+            <div className="space-y-3">
+              {supportCategories.map((category) => (
+                <SupportCategoryCard key={category.title} {...category} />
+              ))}
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }
