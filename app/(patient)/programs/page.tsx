@@ -10,7 +10,6 @@ type PatientProgram = {
   summary: string | null;
   short_term_program: string | null;
   long_term_program: string | null;
-  today_task: string | null;
   program_text: string | null;
   created_at: string;
 };
@@ -30,7 +29,6 @@ type ProgramCardViewModel = {
   title: string;
   shortTerm: string;
   longTerm: string;
-  todayTask: string;
 };
 
 function formatDate(value: string) {
@@ -47,7 +45,6 @@ function toProgramCardViewModel(program: PatientProgram): ProgramCardViewModel {
     title: program.summary || `${formatDate(program.created_at)} の改善プログラム`,
     shortTerm: program.short_term_program || '短期プログラムは未登録です。',
     longTerm: program.long_term_program || '長期プログラムは未登録です。',
-    todayTask: program.today_task || '詳細ページで内容をご確認ください。',
   };
 }
 
