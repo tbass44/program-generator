@@ -36,7 +36,6 @@ type CreateProgramBody = {
   summary?: unknown;
   shortTermProgram?: unknown;
   longTermProgram?: unknown;
-  todayTask?: unknown;
 };
 
 /**
@@ -184,7 +183,6 @@ function buildProgramText(params: {
   summary: string;
   shortTermProgram: string;
   longTermProgram: string | null;
-  todayTask: string | null;
 }) {
   return [
     params.status ? ['【状態】', params.status].join('\n') : '',
@@ -192,7 +190,6 @@ function buildProgramText(params: {
     ['【状態まとめ】', params.summary].join('\n'),
     ['【短期プログラム（3カ月）】', params.shortTermProgram].join('\n'),
     params.longTermProgram ? ['【長期プログラム】', params.longTermProgram].join('\n') : '',
-    params.todayTask ? ['【今日やること】', params.todayTask].join('\n') : '',
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -308,7 +305,6 @@ export async function POST(request: Request) {
     const summary = normalizeRequiredText(body.summary);
     const shortTermProgram = normalizeRequiredText(body.shortTermProgram);
     const longTermProgram = normalizeOptionalText(body.longTermProgram);
-    const todayTask = normalizeOptionalText(body.todayTask);
 
     if (!patientId) {
       return NextResponse.json(
@@ -363,7 +359,6 @@ export async function POST(request: Request) {
       summary,
       shortTermProgram,
       longTermProgram,
-      todayTask,
     });
 
     /**
@@ -386,7 +381,7 @@ export async function POST(request: Request) {
         summary,
         short_term_program: shortTermProgram,
         long_term_program: longTermProgram,
-        today_task: todayTask,
+        today_task: null,
         program_text: programText,
       })
       .select(programSelect)
