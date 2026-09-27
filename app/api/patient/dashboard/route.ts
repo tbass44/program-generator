@@ -2,6 +2,25 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 /**
+ * LINEのIDトークン検証APIから返ってくるレスポンス型。
+ */
+type LineVerifyResponse = {
+  iss?: string;
+  sub?: string;
+  aud?: string;
+  exp?: number;
+  iat?: number;
+  name?: string;
+  picture?: string;
+  error?: string;
+  error_description?: string;
+};
+
+type PatientDashboardRequestBody = {
+  idToken?: unknown;
+};
+
+/**
  * 必須環境変数を取得するための関数。
  *
  * process.env は TypeScript上では string | undefined になるため、
@@ -18,9 +37,53 @@ function getRequiredEnv(key: string): string {
 }
 
 /**
- * GET /api/patient/dashboard?patientId=xxx
+ * LINE IDトークンをLINE公式APIで検証する。
+ *
+ * フロント側からLINE userIdを直接受け取るのではなく、
+ * LIFFのidTokenを検証して、信頼できるLINE userIdを取得する。
+ */
+async function verifyLineIdToken(idToken: string): Promise<{
+  userId: string;
+  displayName: string | null;
+  pictureUrl: string | null;
+}> {
+  const lineChannelId = getRequiredEnv('LINE_CHANNEL_ID');
+
+  const params = new URLSearchParams();
+  params.append('id_token', idToken);
+  params.append('client_id', lineChannelId);
+
+  const verifyResponse = await fetch(
+    'https://api.line.me/oauth2/v2.1/verify',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params,
+    }
+  );
+
+  const verifyData = (await verifyResponse.json()) as LineVerifyResponse;
+
+  if (!verifyResponse.ok || !verifyData.sub) {
+    throw new Error('Failed to verify LINE id token');
+  }
+
+  return {
+    userId: verifyData.sub,
+    displayName: verifyData.name ?? null,
+    pictureUrl: verifyData.picture ?? null,
+  };
+}
+
+/**
+ * POST /api/patient/dashboard
  *
  * 患者側ダッシュボードに表示するための情報を取得するAPI。
+ *
+ * 以前は /api/patient/dashboard?patientId=xxx のように患者IDを直接受け取っていたが、
+ * STEP12ではLINE IDトークンを検証し、patients.line_user_id から本人の患者データを取得する。
  *
  * 現時点のMVPでは、以下を返す。
  * - 患者基本情報
@@ -36,20 +99,22 @@ function getRequiredEnv(key: string): string {
  * service_role key を使うため、この処理はサーバー側だけで実行する。
  * ブラウザ側に service_role key を出してはいけない。
  */
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const patientId = searchParams.get('patientId');
+    const body = (await request.json()) as PatientDashboardRequestBody;
+    const idToken = body.idToken;
 
-    /**
-     * patientId がない場合は、患者を特定できないため400を返す。
-     */
-    if (!patientId) {
+    if (!idToken || typeof idToken !== 'string') {
       return NextResponse.json(
-        { error: 'patientId is required' },
+        { error: 'idToken is required' },
         { status: 400 }
       );
     }
+
+    /**
+     * LINE IDトークンを検証して、本人のLINE userIdを取得する。
+     */
+    const lineProfile = await verifyLineIdToken(idToken);
 
     /**
      * APIが呼ばれたタイミングで環境変数を読む。
@@ -65,8 +130,7 @@ export async function GET(request: Request) {
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     /**
-     * 患者基本情報を取得する。
-     * ダッシュボードの見出しや、本人情報確認に使う。
+     * 検証済みLINE userIdに紐づく患者基本情報を取得する。
      */
     const { data: patient, error: patientError } = await supabaseAdmin
       .from('patients')
@@ -81,7 +145,7 @@ export async function GET(request: Request) {
         line_linked_at
       `
       )
-      .eq('id', patientId)
+      .eq('line_user_id', lineProfile.userId)
       .maybeSingle();
 
     if (patientError) {
@@ -96,7 +160,11 @@ export async function GET(request: Request) {
 
     if (!patient) {
       return NextResponse.json(
-        { error: 'Patient not found' },
+        {
+          error: 'Patient not linked',
+          detail: 'このLINEアカウントに紐づく患者データがありません。',
+          lineProfile,
+        },
         { status: 404 }
       );
     }
@@ -119,7 +187,7 @@ export async function GET(request: Request) {
         created_at
       `
       )
-      .eq('patient_id', patientId)
+      .eq('patient_id', patient.id)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -135,6 +203,7 @@ export async function GET(request: Request) {
     }
 
     return NextResponse.json({
+      lineProfile,
       patient,
       currentProgram,
     });
