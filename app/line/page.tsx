@@ -54,7 +54,7 @@ type LineMeResponse = {
  * 2. LINEプロフィールとIDトークンを取得する
  * 3. /api/line/me でLINE IDトークンを検証する
  * 4. patients.line_user_id と照合する
- * 5. 紐づけ済みなら患者ID付きで患者ダッシュボードへ進める
+ * 5. 紐づけ済みなら患者ダッシュボードへ進める
  * 6. 未紐づけなら /line/link へ進めるボタンを出す
  */
 export default function LineEntryPage() {
@@ -251,17 +251,12 @@ export default function LineEntryPage() {
                   </div>
 
                   {/*
-                    LINE連携済みの場合は、患者ID付きで患者側ダッシュボードへ進む。
-
-                    /dashboard?patientId=... として渡しておくことで、次の工程で
-                    ダッシュボード側が患者ごとの実データを取得できるようにする。
-                    将来的にはセッションや署名付きトークンでの保護も検討する。
+                    LINE連携済みの場合は、患者側ダッシュボードへ進む。
+                    ダッシュボード側で再度LIFFのIDトークンを取得し、
+                    サーバー側で検証してから本人の患者データを取得する。
                   */}
                   <div className="pt-2">
-                    <Link
-                      href={`/dashboard?patientId=${lineMeResult.patient.id}`}
-                      className="block"
-                    >
+                    <Link href="/dashboard" className="block">
                       <Button className="w-full">患者画面へ進む</Button>
                     </Link>
                   </div>
