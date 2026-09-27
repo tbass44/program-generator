@@ -108,7 +108,6 @@ export default function AdminProgramNewPage() {
   const [manualSummary, setManualSummary] = useState('');
   const [manualShortTerm, setManualShortTerm] = useState('');
   const [manualLongTerm, setManualLongTerm] = useState('');
-  const [manualTodayTask, setManualTodayTask] = useState('');
   const [manualSupportSections, setManualSupportSections] = useState<
     Record<SupportCategoryId, ManualSupportSection>
   >(createInitialManualSupportSections);
@@ -165,7 +164,6 @@ export default function AdminProgramNewPage() {
       ['【状態まとめ】', manualSummary].join('\n'),
       ['【短期プログラム（3カ月）】', manualShortTerm].join('\n'),
       manualLongTerm ? ['【長期プログラム】', manualLongTerm].join('\n') : '',
-      manualTodayTask ? ['【今日やること】', manualTodayTask].join('\n') : '',
     ]
       .filter(Boolean)
       .join('\n\n');
@@ -209,7 +207,6 @@ export default function AdminProgramNewPage() {
           summary: manualSummary,
           shortTermProgram: manualShortTerm,
           longTermProgram: manualLongTerm,
-          todayTask: manualTodayTask,
         }),
       });
 
@@ -396,19 +393,6 @@ export default function AdminProgramNewPage() {
             value={manualLongTerm}
             onChange={(e) => setManualLongTerm(e.target.value)}
             rows={6}
-          />
-        </div>
-      </SectionCard>
-
-      <SectionCard title="今日やること" className="mb-6">
-        <div className="space-y-2">
-          <Label htmlFor="todayTask">今日やること</Label>
-          <Textarea
-            id="todayTask"
-            placeholder="今日実施する項目を入力してください"
-            value={manualTodayTask}
-            onChange={(e) => setManualTodayTask(e.target.value)}
-            rows={5}
           />
         </div>
       </SectionCard>
