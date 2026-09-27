@@ -36,7 +36,6 @@ type DashboardCurrentProgram = {
   summary: string | null;
   short_term_program: string | null;
   long_term_program: string | null;
-  today_task: string | null;
   created_at: string;
 };
 
@@ -109,7 +108,6 @@ type ProgramCardViewModel = {
   title: string;
   shortTerm: string;
   longTerm: string;
-  todayTask: string;
 };
 
 type SupportCategoryKey = 'physical_sleep' | 'nutrition' | 'exercise' | 'skincare';
@@ -209,7 +207,7 @@ function getSubscriptionRemainingDays(endDate: string | null) {
  *
  * summary は状態まとめなので、カードタイトルとして使うには長くなりやすい。
  * そのため、タイトルは固定で「現在の改善プログラム」とし、
- * 各本文は short_term_program / long_term_program / today_task から表示する。
+ * 各本文は short_term_program / long_term_program から表示する。
  */
 function toProgramCardViewModel(
   program: DashboardCurrentProgram
@@ -219,7 +217,6 @@ function toProgramCardViewModel(
     title: '現在の改善プログラム',
     shortTerm: program.short_term_program || '短期プログラムは未登録です。',
     longTerm: program.long_term_program || '長期プログラムは未登録です。',
-    todayTask: program.today_task || '今日やることは未登録です。',
   };
 }
 
