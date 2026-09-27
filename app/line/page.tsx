@@ -6,6 +6,15 @@ import liff from '@line/liff';
 import { Button } from '@/components/ui/button';
 
 /**
+ * LIFF初期化の待機上限。
+ *
+ * Vercelの通常URLをLINE内ブラウザで直接開いた場合など、
+ * liff.init() が完了しないように見えるケースがあるため、
+ * 一定時間で案内表示に切り替える。
+ */
+const LIFF_INIT_TIMEOUT_MS = 10000;
+
+/**
  * LIFFから取得したLINEプロフィール。
  */
 type LineProfile = {
@@ -46,6 +55,21 @@ type LineMeResponse = {
   detail?: unknown;
 };
 
+function buildLiffUrl(liffId: string) {
+  return `https://liff.line.me/${liffId}`;
+}
+
+function initLiffWithTimeout(liffId: string) {
+  return Promise.race([
+    liff.init({ liffId }),
+    new Promise<never>((_resolve, reject) => {
+      window.setTimeout(() => {
+        reject(new Error('LIFF_INIT_TIMEOUT'));
+      }, LIFF_INIT_TIMEOUT_MS);
+    }),
+  ]);
+}
+
 /**
  * LINE公式アカウントから開く患者画面の入口。
  *
@@ -62,6 +86,17 @@ export default function LineEntryPage() {
    * 画面上に表示する処理状況。
    */
   const [status, setStatus] = useState('LIFFを初期化しています...');
+
+  /**
+   * LIFF URL。
+   * 直接 /line を開いて初期化が進まない場合の案内に使う。
+   */
+  const [liffUrl, setLiffUrl] = useState<string | null>(null);
+
+  /**
+   * LIFF URLで開き直す案内を表示するかどうか。
+   */
+  const [showLiffGuide, setShowLiffGuide] = useState(false);
 
   /**
    * LIFFから取得したLINEプロフィール。
@@ -93,11 +128,16 @@ export default function LineEntryPage() {
           return;
         }
 
+        const nextLiffUrl = buildLiffUrl(liffId);
+        setLiffUrl(nextLiffUrl);
+
         /**
          * LIFF初期化。
-         * ここでLINEアプリ内のLIFFとして動く準備をする。
+         * 直接Vercel URLを開いた場合などに進まないことがあるため、
+         * タイムアウト時はLIFF URLから開き直す案内を出す。
          */
-        await liff.init({ liffId });
+        await initLiffWithTimeout(liffId);
+        setShowLiffGuide(false);
 
         /**
          * 未ログインならLINEログインへ遷移。
@@ -171,7 +211,15 @@ export default function LineEntryPage() {
         }
       } catch (error) {
         console.error(error);
+
+        if (error instanceof Error && error.message === 'LIFF_INIT_TIMEOUT') {
+          setStatus('LIFFの初期化に時間がかかっています。LIFF URLから開き直してください。');
+          setShowLiffGuide(true);
+          return;
+        }
+
         setStatus('LIFFの初期化または患者情報の照合に失敗しました。');
+        setShowLiffGuide(true);
       }
     };
 
@@ -191,6 +239,21 @@ export default function LineEntryPage() {
           <p className="text-sm font-medium">接続状況</p>
           <p className="mt-2 text-sm">{status}</p>
         </div>
+
+        {showLiffGuide && liffUrl && (
+          <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm font-medium text-amber-900">
+              LINEアプリ用URLから開き直してください
+            </p>
+            <p className="mt-2 text-sm leading-6 text-amber-800">
+              この画面が進まない場合は、通常URLではなくLIFF URLから開く必要があります。
+            </p>
+            <a href={liffUrl} className="mt-4 block">
+              <Button className="w-full">LINEアプリ用URLで開く</Button>
+            </a>
+            <p className="mt-3 break-all text-xs text-amber-700">{liffUrl}</p>
+          </div>
+        )}
 
         {profile && (
           <div className="mt-6 rounded-xl border p-4">
