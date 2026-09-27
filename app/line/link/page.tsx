@@ -31,6 +31,42 @@ type LinkResult = {
   detail?: unknown;
 };
 
+function formatDetail(detail: unknown) {
+  if (!detail) {
+    return null;
+  }
+
+  if (typeof detail === 'string') {
+    return detail;
+  }
+
+  try {
+    return JSON.stringify(detail, null, 2);
+  } catch {
+    return String(detail);
+  }
+}
+
+function toStatusMessage(data: LinkResult) {
+  if (data.error === 'Invalid link code') {
+    return '連携コードが正しくありません。';
+  }
+
+  if (data.error === 'Link code has expired') {
+    return '連携コードの有効期限が切れています。';
+  }
+
+  if (data.error === 'LINE account already linked') {
+    return 'このLINEアカウントは、すでに別の患者データに連携済みです。';
+  }
+
+  if (data.error === 'Failed to verify LINE id token') {
+    return 'LINE認証情報の確認に失敗しました。';
+  }
+
+  return 'LINE連携に失敗しました。';
+}
+
 /**
  * LINEアカウント連携画面。
  *
@@ -161,6 +197,7 @@ export default function LineLinkPage() {
 
     try {
       setIsSubmitting(true);
+      setResult(null);
       setStatus('患者データとLINEアカウントを紐づけています...');
 
       /**
@@ -190,14 +227,7 @@ export default function LineLinkPage() {
        * API側でエラーが返ってきた場合、エラー種別ごとに表示文を変える。
        */
       if (!response.ok) {
-        if (data.error === 'Invalid link code') {
-          setStatus('連携コードが正しくありません。');
-        } else if (data.error === 'Link code has expired') {
-          setStatus('連携コードの有効期限が切れています。');
-        } else {
-          setStatus('LINE連携に失敗しました。');
-        }
-
+        setStatus(toStatusMessage(data));
         return;
       }
 
@@ -211,11 +241,17 @@ export default function LineLinkPage() {
        * 通信エラーや想定外エラー。
        */
       console.error(error);
+      setResult({
+        error: 'Client error',
+        detail: error instanceof Error ? error.message : String(error),
+      });
       setStatus('LINE連携中にエラーが発生しました。');
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const detailText = formatDetail(result?.detail);
 
   return (
     <main className="min-h-screen bg-[#F6F3EE] px-4 py-8 text-[#3A3A3A]">
@@ -231,6 +267,16 @@ export default function LineLinkPage() {
           <p className="text-sm font-medium">状態</p>
           <p className="mt-2 text-sm">{status}</p>
         </div>
+
+        {result?.error && (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <p className="font-medium">エラー詳細</p>
+            <p className="mt-2 break-all">error: {result.error}</p>
+            {detailText && (
+              <p className="mt-2 whitespace-pre-wrap break-all">detail: {detailText}</p>
+            )}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <div className="space-y-2">
