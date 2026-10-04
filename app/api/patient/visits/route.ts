@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 type LineVerifyResponse = {
   sub?: string;
   name?: string;
@@ -39,21 +42,26 @@ async function verifyLineIdToken(idToken: string): Promise<{ userId: string }> {
   params.append('id_token', idToken);
   params.append('client_id', lineChannelId);
 
-  const verifyResponse = await fetch(
-    'https://api.line.me/oauth2/v2.1/verify',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params,
-    }
-  );
+  const verifyResponse = await fetch('https://api.line.me/oauth2/v2.1/verify', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params,
+    cache: 'no-store',
+  });
 
   const verifyData = (await verifyResponse.json()) as LineVerifyResponse;
 
   if (!verifyResponse.ok || !verifyData.sub) {
-    throw new Error('Failed to verify LINE id token');
+    const lineError = verifyData.error ? ` / ${verifyData.error}` : '';
+    const description = verifyData.error_description
+      ? ` / ${verifyData.error_description}`
+      : '';
+
+    throw new Error(
+      `Failed to verify LINE id token${lineError}${description}`
+    );
   }
 
   return { userId: verifyData.sub };
@@ -78,7 +86,7 @@ export async function POST(request: Request) {
 
     const { data: patient, error: patientError } = await supabaseAdmin
       .from('patients')
-      .select('id, name')
+      .select('id, name, line_user_id, line_display_name')
       .eq('line_user_id', lineProfile.userId)
       .maybeSingle();
 
@@ -87,6 +95,9 @@ export async function POST(request: Request) {
         {
           error: 'Failed to fetch patient',
           detail: patientError.message,
+          debug: {
+            lineUserId: lineProfile.userId,
+          },
         },
         { status: 500 }
       );
@@ -97,6 +108,9 @@ export async function POST(request: Request) {
         {
           error: 'Patient not linked',
           detail: 'このLINEアカウントに紐づく患者データがありません。',
+          debug: {
+            lineUserId: lineProfile.userId,
+          },
         },
         { status: 404 }
       );
@@ -124,14 +138,27 @@ export async function POST(request: Request) {
         {
           error: 'Failed to fetch visits',
           detail: visitsError.message,
+          debug: {
+            patientId: patient.id,
+            patientName: patient.name,
+            lineUserId: lineProfile.userId,
+          },
         },
         { status: 500 }
       );
     }
 
+    const visitRows = visits ?? [];
+
     return NextResponse.json({
       patient,
-      visits: visits ?? [],
+      visits: visitRows,
+      debug: {
+        patientId: patient.id,
+        patientName: patient.name,
+        lineUserId: lineProfile.userId,
+        visitsCount: visitRows.length,
+      },
     });
   } catch (error) {
     console.error(error);
