@@ -26,6 +26,21 @@ type RecommendationRow = {
   updated_at: string;
 };
 
+type PurchaseHistoryRow = {
+  id: string;
+  patient_id: string;
+  product_id: string | null;
+  recommendation_id: string | null;
+  program_id: string | null;
+  purchased_at: string;
+  quantity: number;
+  unit_price: number | null;
+  total_price: number | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type ProductRow = {
   id: string;
   name: string;
@@ -87,19 +102,66 @@ function uniq(values: Array<string | null>) {
   return Array.from(new Set(values.filter(Boolean))) as string[];
 }
 
-function attachDetails(
-  purchases: RecommendationRow[],
+function attachRecommendationDetails(
+  purchaseRequests: RecommendationRow[],
   products: ProductRow[],
   programs: ProgramRow[]
 ) {
   const productMap = new Map(products.map((product) => [product.id, product]));
   const programMap = new Map(programs.map((program) => [program.id, program]));
 
-  return purchases.map((purchase) => ({
+  return purchaseRequests.map((purchaseRequest) => ({
+    ...purchaseRequest,
+    product: purchaseRequest.product_id
+      ? productMap.get(purchaseRequest.product_id) ?? null
+      : null,
+    program: purchaseRequest.program_id
+      ? programMap.get(purchaseRequest.program_id) ?? null
+      : null,
+  }));
+}
+
+function attachPurchaseHistoryDetails(
+  purchaseHistory: PurchaseHistoryRow[],
+  products: ProductRow[],
+  programs: ProgramRow[],
+  recommendations: RecommendationRow[]
+) {
+  const productMap = new Map(products.map((product) => [product.id, product]));
+  const programMap = new Map(programs.map((program) => [program.id, program]));
+  const recommendationMap = new Map(recommendations.map((recommendation) => [recommendation.id, recommendation]));
+
+  return purchaseHistory.map((purchase) => ({
     ...purchase,
     product: purchase.product_id ? productMap.get(purchase.product_id) ?? null : null,
     program: purchase.program_id ? programMap.get(purchase.program_id) ?? null : null,
+    recommendation: purchase.recommendation_id
+      ? recommendationMap.get(purchase.recommendation_id) ?? null
+      : null,
   }));
+}
+
+async function fetchProductsAndPrograms(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  productIds: string[],
+  programIds: string[]
+) {
+  return Promise.all([
+    productIds.length > 0
+      ? supabaseAdmin
+          .from('products')
+          .select('id, name, category, description, price, inventory_count, product_url, status')
+          .in('id', productIds)
+          .returns<ProductRow[]>()
+      : Promise.resolve({ data: [] as ProductRow[], error: null }),
+    programIds.length > 0
+      ? supabaseAdmin
+          .from('programs')
+          .select('id, summary, created_at')
+          .in('id', programIds)
+          .returns<ProgramRow[]>()
+      : Promise.resolve({ data: [] as ProgramRow[], error: null }),
+  ]);
 }
 
 export async function POST(request: Request) {
@@ -148,32 +210,56 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: purchaseRows, error: purchasesError } = await supabaseAdmin
-      .from('patient_product_recommendations')
-      .select(
+    const [purchaseRequestsResult, purchaseHistoryResult] = await Promise.all([
+      supabaseAdmin
+        .from('patient_product_recommendations')
+        .select(
+          `
+          id,
+          patient_id,
+          program_id,
+          product_id,
+          category,
+          reason,
+          status,
+          created_at,
+          updated_at
         `
-        id,
-        patient_id,
-        program_id,
-        product_id,
-        category,
-        reason,
-        status,
-        created_at,
-        updated_at
-      `
-      )
-      .eq('patient_id', patient.id)
-      .eq('status', 'purchase_requested')
-      .order('updated_at', { ascending: false })
-      .order('created_at', { ascending: false })
-      .returns<RecommendationRow[]>();
+        )
+        .eq('patient_id', patient.id)
+        .eq('status', 'purchase_requested')
+        .order('updated_at', { ascending: false })
+        .order('created_at', { ascending: false })
+        .returns<RecommendationRow[]>(),
+      supabaseAdmin
+        .from('patient_product_purchases')
+        .select(
+          `
+          id,
+          patient_id,
+          product_id,
+          recommendation_id,
+          program_id,
+          purchased_at,
+          quantity,
+          unit_price,
+          total_price,
+          note,
+          created_at,
+          updated_at
+        `
+        )
+        .eq('patient_id', patient.id)
+        .order('purchased_at', { ascending: false })
+        .order('created_at', { ascending: false })
+        .returns<PurchaseHistoryRow[]>(),
+    ]);
 
-    if (purchasesError) {
+    if (purchaseRequestsResult.error) {
       return NextResponse.json(
         {
-          error: 'Failed to fetch purchases',
-          detail: purchasesError.message,
+          error: 'Failed to fetch purchase requests',
+          detail: purchaseRequestsResult.error.message,
           debug: {
             patientId: patient.id,
             patientName: patient.name,
@@ -184,25 +270,40 @@ export async function POST(request: Request) {
       );
     }
 
-    const purchaseRequests = purchaseRows ?? [];
-    const productIds = uniq(purchaseRequests.map((purchase) => purchase.product_id));
-    const programIds = uniq(purchaseRequests.map((purchase) => purchase.program_id));
+    if (purchaseHistoryResult.error) {
+      return NextResponse.json(
+        {
+          error: 'Failed to fetch purchase history',
+          detail: purchaseHistoryResult.error.message,
+          debug: {
+            patientId: patient.id,
+            patientName: patient.name,
+            lineUserId: lineProfile.userId,
+          },
+        },
+        { status: 500 }
+      );
+    }
 
-    const [productsResult, programsResult] = await Promise.all([
-      productIds.length > 0
+    const purchaseRequests = purchaseRequestsResult.data ?? [];
+    const purchaseHistory = purchaseHistoryResult.data ?? [];
+    const requestProductIds = purchaseRequests.map((purchase) => purchase.product_id);
+    const requestProgramIds = purchaseRequests.map((purchase) => purchase.program_id);
+    const historyProductIds = purchaseHistory.map((purchase) => purchase.product_id);
+    const historyProgramIds = purchaseHistory.map((purchase) => purchase.program_id);
+    const historyRecommendationIds = uniq(purchaseHistory.map((purchase) => purchase.recommendation_id));
+    const productIds = uniq([...requestProductIds, ...historyProductIds]);
+    const programIds = uniq([...requestProgramIds, ...historyProgramIds]);
+
+    const [productsResult, programsResult, historyRecommendationsResult] = await Promise.all([
+      ...await fetchProductsAndPrograms(supabaseAdmin, productIds, programIds),
+      historyRecommendationIds.length > 0
         ? supabaseAdmin
-            .from('products')
-            .select('id, name, category, description, price, inventory_count, product_url, status')
-            .in('id', productIds)
-            .returns<ProductRow[]>()
-        : Promise.resolve({ data: [] as ProductRow[], error: null }),
-      programIds.length > 0
-        ? supabaseAdmin
-            .from('programs')
-            .select('id, summary, created_at')
-            .in('id', programIds)
-            .returns<ProgramRow[]>()
-        : Promise.resolve({ data: [] as ProgramRow[], error: null }),
+            .from('patient_product_recommendations')
+            .select('id, patient_id, program_id, product_id, category, reason, status, created_at, updated_at')
+            .in('id', historyRecommendationIds)
+            .returns<RecommendationRow[]>()
+        : Promise.resolve({ data: [] as RecommendationRow[], error: null }),
     ]);
 
     if (productsResult.error) {
@@ -213,7 +314,6 @@ export async function POST(request: Request) {
           debug: {
             patientId: patient.id,
             patientName: patient.name,
-            purchasesCount: purchaseRequests.length,
           },
         },
         { status: 500 }
@@ -228,27 +328,50 @@ export async function POST(request: Request) {
           debug: {
             patientId: patient.id,
             patientName: patient.name,
-            purchasesCount: purchaseRequests.length,
           },
         },
         { status: 500 }
       );
     }
 
-    const purchases = attachDetails(
+    if (historyRecommendationsResult.error) {
+      return NextResponse.json(
+        {
+          error: 'Failed to fetch purchase recommendations',
+          detail: historyRecommendationsResult.error.message,
+          debug: {
+            patientId: patient.id,
+            patientName: patient.name,
+          },
+        },
+        { status: 500 }
+      );
+    }
+
+    const productRows = productsResult.data ?? [];
+    const programRows = programsResult.data ?? [];
+    const purchaseRequestsWithDetails = attachRecommendationDetails(
       purchaseRequests,
-      productsResult.data ?? [],
-      programsResult.data ?? []
+      productRows,
+      programRows
+    );
+    const purchaseHistoryWithDetails = attachPurchaseHistoryDetails(
+      purchaseHistory,
+      productRows,
+      programRows,
+      historyRecommendationsResult.data ?? []
     );
 
     return NextResponse.json({
       patient,
-      purchases,
+      purchaseRequests: purchaseRequestsWithDetails,
+      purchaseHistory: purchaseHistoryWithDetails,
       debug: {
         patientId: patient.id,
         patientName: patient.name,
         lineUserId: lineProfile.userId,
-        purchasesCount: purchases.length,
+        purchaseRequestsCount: purchaseRequestsWithDetails.length,
+        purchaseHistoryCount: purchaseHistoryWithDetails.length,
       },
     });
   } catch (error) {
