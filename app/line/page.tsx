@@ -38,6 +38,20 @@ function buildLiffUrl(liffId: string) {
   return `https://liff.line.me/${liffId}`;
 }
 
+function getSafeNextPath() {
+  if (typeof window === 'undefined') {
+    return '/dashboard';
+  }
+
+  const next = new URLSearchParams(window.location.search).get('next');
+
+  if (!next || !next.startsWith('/') || next.startsWith('//')) {
+    return '/dashboard';
+  }
+
+  return next;
+}
+
 function toErrorDetail(error: unknown) {
   if (error instanceof Error) {
     return `${error.name}: ${error.message}`;
@@ -98,11 +112,14 @@ export default function LineEntryPage() {
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const [profile, setProfile] = useState<LineProfile | null>(null);
   const [lineMeResult, setLineMeResult] = useState<LineMeResponse | null>(null);
+  const [nextPath, setNextPath] = useState('/dashboard');
 
   useEffect(() => {
     const initLiff = async () => {
       try {
         setErrorDetail(null);
+        const safeNextPath = getSafeNextPath();
+        setNextPath(safeNextPath);
 
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
 
@@ -282,7 +299,7 @@ export default function LineEntryPage() {
                   </div>
 
                   <div className="pt-2">
-                    <Link href="/dashboard" className="block">
+                    <Link href={nextPath} className="block">
                       <Button className="w-full">患者画面へ進む</Button>
                     </Link>
                   </div>
