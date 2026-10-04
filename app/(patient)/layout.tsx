@@ -13,6 +13,8 @@ const navItems = [
   { href: '/plans', icon: CreditCard, label: 'プラン' },
 ];
 
+const patientViewVersion = 'patient-view-20261004-1558';
+
 export default function PatientLayout({
   children,
 }: {
@@ -22,6 +24,9 @@ export default function PatientLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-[11px] text-amber-800">
+        表示確認: {patientViewVersion}
+      </div>
       <main className="pb-20">{children}</main>
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 safe-area-bottom">
         <div className="max-w-lg mx-auto">
