@@ -1,213 +1,451 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import liff from '@line/liff';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SectionHeader } from '@/components/patient';
-import { Moon, Apple, Dumbbell, Sparkles, ChevronRight, Package, ShoppingBag, Star } from 'lucide-react';
-import Link from 'next/link';
-import { useState } from 'react';
+import {
+  Apple,
+  Dumbbell,
+  ExternalLink,
+  Moon,
+  ShoppingBag,
+  Sparkles,
+  Star,
+} from 'lucide-react';
 
-type Tab = 'purchased' | 'renting' | 'recommended';
+type Tab = 'recommended' | 'purchase_requested' | 'all';
 
-const dummyPurchased = [
-  {
-    id: '1',
-    name: 'マグネシウムサプリメント（30日分）',
-    date: '2024年4月10日',
-    price: '2,500円',
-    category: 'sleep',
-    categoryLabel: '物理療法（睡眠）',
-  },
-  {
-    id: '2',
-    name: 'ホットパック',
-    date: '2024年3月28日',
-    price: '1,500円',
-    category: 'sleep',
-    categoryLabel: '物理療法（睡眠）',
-  },
-  {
-    id: '3',
-    name: '姿勢矯正クッション',
-    date: '2024年3月15日',
-    price: '4,800円',
-    category: 'exercise',
-    categoryLabel: '運動療法',
-  },
-];
-
-const dummyRenting = [
-  {
-    id: '1',
-    name: '電気治療器',
-    startDate: '2024年4月15日',
-    endDate: '2024年5月15日',
-    category: 'exercise',
-    categoryLabel: '運動療法',
-  },
-  {
-    id: '2',
-    name: '姿勢矯正ベルト',
-    startDate: '2024年4月1日',
-    endDate: '2024年4月30日',
-    category: 'exercise',
-    categoryLabel: '運動療法',
-  },
-];
-
-const dummyRecommended = [
-  {
-    id: '1',
-    name: 'ビタミンDサプリメント',
-    price: '1,980円',
-    category: 'nutrition',
-    categoryLabel: '栄養療法',
-    reason: '腰痛改善に必要な栄養素を補給',
-  },
-  {
-    id: '2',
-    name: '保湿クリーム',
-    price: '3,200円',
-    category: 'skincare',
-    categoryLabel: 'スキンケア',
-    reason: '施術後の肌ケアに最適',
-  },
-  {
-    id: '3',
-    name: 'ヨガマット',
-    price: '2,980円',
-    category: 'exercise',
-    categoryLabel: '運動療法',
-    reason: '自宅でのストレッチに',
-  },
-];
-
-const categoryIcons: Record<string, typeof Moon> = {
-  sleep: Moon,
-  nutrition: Apple,
-  exercise: Dumbbell,
-  skincare: Sparkles,
+type ProductSupportProduct = {
+  id: string;
+  name: string;
+  category: string;
+  description: string | null;
+  price: number | null;
+  inventory_count: number | null;
+  product_url: string | null;
+  status: string;
 };
 
-export default function ProductSupportPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('purchased');
+type ProductSupportProgram = {
+  id: string;
+  summary: string | null;
+  created_at: string;
+};
 
-  const tabs: { key: Tab; label: string; icon: typeof ShoppingBag }[] = [
-    { key: 'purchased', label: '購入済み', icon: ShoppingBag },
-    { key: 'renting', label: 'レンタル中', icon: Package },
-    { key: 'recommended', label: 'おすすめ', icon: Star },
-  ];
+type ProductSupportItem = {
+  id: string;
+  patient_id: string;
+  program_id: string | null;
+  product_id: string | null;
+  category: string | null;
+  reason: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  product: ProductSupportProduct | null;
+  program: ProductSupportProgram | null;
+};
+
+type ProductSupportResponse = {
+  patient?: {
+    id: string;
+    name: string;
+  };
+  productSupport?: ProductSupportItem[];
+  debug?: {
+    patientId?: string;
+    patientName?: string;
+    recommendationsCount?: number;
+    recommendedCount?: number;
+    purchaseRequestedCount?: number;
+  };
+  error?: string;
+  detail?: unknown;
+};
+
+type CategoryKey = 'physical_sleep' | 'nutrition' | 'exercise' | 'skincare';
+
+const categoryMeta: Record<
+  CategoryKey,
+  {
+    label: string;
+    icon: typeof Moon;
+    iconClassName: string;
+    iconWrapClassName: string;
+  }
+> = {
+  physical_sleep: {
+    label: '物理療法（睡眠）',
+    icon: Moon,
+    iconClassName: 'text-blue-700',
+    iconWrapClassName: 'bg-blue-100',
+  },
+  nutrition: {
+    label: '栄養療法',
+    icon: Apple,
+    iconClassName: 'text-green-700',
+    iconWrapClassName: 'bg-green-100',
+  },
+  exercise: {
+    label: '運動療法',
+    icon: Dumbbell,
+    iconClassName: 'text-amber-700',
+    iconWrapClassName: 'bg-amber-100',
+  },
+  skincare: {
+    label: 'スキンケア',
+    icon: Sparkles,
+    iconClassName: 'text-pink-700',
+    iconWrapClassName: 'bg-pink-100',
+  },
+};
+
+function getCategoryMeta(value: string | null | undefined) {
+  if (value && value in categoryMeta) {
+    return categoryMeta[value as CategoryKey];
+  }
+
+  return {
+    label: '商品サポート',
+    icon: Sparkles,
+    iconClassName: 'text-gray-700',
+    iconWrapClassName: 'bg-gray-100',
+  };
+}
+
+function getStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    recommended: '提案中',
+    purchase_requested: '購入希望',
+  };
+
+  return labels[status] ?? status;
+}
+
+function getStatusClassName(status: string) {
+  switch (status) {
+    case 'purchase_requested':
+      return 'bg-teal-600';
+    case 'recommended':
+      return 'bg-amber-600';
+    default:
+      return 'bg-gray-500';
+  }
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) {
+    return '未設定';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString('ja-JP');
+}
+
+function formatPrice(value: number | null | undefined) {
+  if (typeof value !== 'number') {
+    return '価格未設定';
+  }
+
+  return `${value.toLocaleString('ja-JP')}円`;
+}
+
+function formatDetail(detail: unknown) {
+  if (!detail) {
+    return '';
+  }
+
+  if (typeof detail === 'string') {
+    return detail;
+  }
+
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return String(detail);
+  }
+}
+
+function shouldRetryLineLogin(message: string) {
+  const lower = message.toLowerCase();
 
   return (
-    <div className="max-w-lg mx-auto px-4 py-6">
+    lower.includes('access token revoked') ||
+    lower.includes('failed to verify line id token') ||
+    lower.includes('invalid token') ||
+    lower.includes('expired')
+  );
+}
+
+function retryLineLogin() {
+  try {
+    if (liff.isLoggedIn()) {
+      liff.logout();
+    }
+  } catch (error) {
+    console.error(error);
+  }
+
+  liff.login({ redirectUri: window.location.href });
+}
+
+function ProductSupportCard({ item }: { item: ProductSupportItem }) {
+  const category = item.product?.category ?? item.category;
+  const meta = getCategoryMeta(category);
+  const Icon = meta.icon;
+  const productName = item.product?.name ?? '商品名未設定';
+  const reason = item.reason || item.product?.description || '提案理由は未登録です。';
+
+  return (
+    <Card className="border-gray-200">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div className={`rounded-lg p-2 ${meta.iconWrapClassName}`}>
+            <Icon className={`h-4 w-4 ${meta.iconClassName}`} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex items-start justify-between gap-3">
+              <p className="text-xs text-gray-500">{meta.label}</p>
+              <Badge className={`text-xs ${getStatusClassName(item.status)}`}>
+                {getStatusLabel(item.status)}
+              </Badge>
+            </div>
+            <p className="font-medium text-gray-900">{productName}</p>
+            <p className="mt-1 text-xs text-gray-600">{reason}</p>
+
+            {item.program?.summary && (
+              <p className="mt-2 rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-500">
+                関連プログラム: {item.program.summary}
+              </p>
+            )}
+
+            <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
+              <span>{formatDate(item.updated_at)}</span>
+              <span className="font-medium text-gray-700">
+                {formatPrice(item.product?.price)}
+              </span>
+            </div>
+
+            {item.product?.product_url && (
+              <a
+                href={item.product.product_url}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-teal-600"
+              >
+                商品ページを見る
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function ProductSupportPage() {
+  const [activeTab, setActiveTab] = useState<Tab>('recommended');
+  const [patientName, setPatientName] = useState<string | null>(null);
+  const [items, setItems] = useState<ProductSupportItem[]>([]);
+  const [debugMessage, setDebugMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const recommendedItems = useMemo(
+    () => items.filter((item) => item.status === 'recommended'),
+    [items]
+  );
+  const purchaseRequestedItems = useMemo(
+    () => items.filter((item) => item.status === 'purchase_requested'),
+    [items]
+  );
+
+  const visibleItems = useMemo(() => {
+    if (activeTab === 'recommended') {
+      return recommendedItems;
+    }
+
+    if (activeTab === 'purchase_requested') {
+      return purchaseRequestedItems;
+    }
+
+    return items;
+  }, [activeTab, items, purchaseRequestedItems, recommendedItems]);
+
+  const tabs: { key: Tab; label: string; icon: typeof ShoppingBag; count: number }[] = [
+    { key: 'recommended', label: '提案中', icon: Star, count: recommendedItems.length },
+    {
+      key: 'purchase_requested',
+      label: '購入希望',
+      icon: ShoppingBag,
+      count: purchaseRequestedItems.length,
+    },
+    { key: 'all', label: 'すべて', icon: Sparkles, count: items.length },
+  ];
+
+  useEffect(() => {
+    const fetchProductSupport = async () => {
+      try {
+        setIsLoading(true);
+        setErrorMessage(null);
+        setDebugMessage(null);
+        setStatusMessage('LINE認証を確認しています...');
+
+        const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+
+        if (!liffId) {
+          setErrorMessage('NEXT_PUBLIC_LIFF_ID が設定されていません。');
+          return;
+        }
+
+        await liff.init({ liffId });
+
+        if (!liff.isLoggedIn()) {
+          liff.login({ redirectUri: window.location.href });
+          return;
+        }
+
+        const idToken = liff.getIDToken();
+
+        if (!idToken) {
+          retryLineLogin();
+          return;
+        }
+
+        setStatusMessage('商品サポート情報を取得しています...');
+
+        const response = await fetch('/api/patient/product-support', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ idToken }),
+          cache: 'no-store',
+        });
+
+        const data = (await response.json()) as ProductSupportResponse;
+
+        if (!response.ok) {
+          const detail = formatDetail(data.detail);
+
+          if (shouldRetryLineLogin(`${data.error ?? ''} ${detail}`)) {
+            retryLineLogin();
+            return;
+          }
+
+          if (data.error === 'Patient not linked') {
+            setErrorMessage('このLINEアカウントはまだ患者データと連携されていません。');
+          } else {
+            setErrorMessage(
+              `商品サポート情報を取得できませんでした。${detail ? ` ${detail}` : ''}`
+            );
+          }
+
+          if (data.debug) {
+            setDebugMessage(
+              `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 件数: ${data.debug.recommendationsCount ?? '-'}`
+            );
+          }
+
+          return;
+        }
+
+        setPatientName(data.patient?.name ?? data.debug?.patientName ?? null);
+        setItems(data.productSupport ?? []);
+        setStatusMessage('商品サポート情報を取得しました。');
+
+        if (data.debug) {
+          setDebugMessage(
+            `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 提案中: ${data.debug.recommendedCount ?? 0} / 購入希望: ${data.debug.purchaseRequestedCount ?? 0} / 合計: ${data.debug.recommendationsCount ?? 0}`
+          );
+        }
+      } catch (error) {
+        console.error(error);
+        const message = error instanceof Error ? error.message : String(error);
+
+        if (shouldRetryLineLogin(message)) {
+          retryLineLogin();
+          return;
+        }
+
+        setErrorMessage(
+          `商品サポート情報の取得中にエラーが発生しました。${message ? ` ${message}` : ''}`
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProductSupport();
+  }, []);
+
+  return (
+    <div className="mx-auto max-w-lg px-4 py-6">
       <header className="mb-6">
+        <Link href="/dashboard" className="mb-3 inline-block text-sm text-teal-600">
+          ダッシュボードへ戻る
+        </Link>
         <h1 className="text-xl font-bold text-gray-900">商品サポート</h1>
-        <p className="text-sm text-gray-500">あなたに合った商品とサポート</p>
+        <p className="text-sm text-gray-500">
+          {patientName ? `${patientName}さんへの商品提案` : 'あなたに合った商品とサポート'}
+        </p>
+        {isLoading && <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>}
+        {errorMessage && <p className="mt-2 text-xs text-red-500">{errorMessage}</p>}
+        {debugMessage && <p className="mt-2 text-[11px] text-gray-400">{debugMessage}</p>}
       </header>
 
-      <div className="flex gap-2 mb-6">
+      <div className="mb-6 flex gap-2">
         {tabs.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg text-sm font-medium transition-colors ${
-              activeTab === tab.key
-                ? 'bg-teal-600 text-white'
-                : 'bg-gray-100 text-gray-600'
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === tab.key ? 'bg-teal-600 text-white' : 'bg-gray-100 text-gray-600'
             }`}
           >
             <tab.icon className="h-4 w-4" />
             {tab.label}
+            <span className="text-xs opacity-80">{tab.count}</span>
           </button>
         ))}
       </div>
 
-      {activeTab === 'purchased' && (
-        <div className="space-y-3">
-          <SectionHeader title="購入済み商品" />
-          {dummyPurchased.map((item) => {
-            const Icon = categoryIcons[item.category] || Sparkles;
-            return (
-              <Card key={item.id} className="border-gray-200">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-gray-100">
-                      <Icon className="h-4 w-4 text-gray-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs text-gray-500 mb-0.5">{item.categoryLabel}</p>
-                      <p className="font-medium text-gray-900">{item.name}</p>
-                      <div className="flex justify-between items-center mt-1">
-                        <p className="text-xs text-gray-500">{item.date}</p>
-                        <p className="text-sm text-gray-600">{item.price}</p>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+      {!isLoading && !errorMessage && items.length === 0 && (
+        <div className="rounded-lg border bg-white p-4 text-sm text-gray-500">
+          現在表示できる商品提案はありません。
         </div>
       )}
 
-      {activeTab === 'renting' && (
-        <div className="space-y-3">
-          <SectionHeader title="レンタル中の商品" />
-          {dummyRenting.map((item) => {
-            const Icon = categoryIcons[item.category] || Sparkles;
-            return (
-              <Card key={item.id} className="border-teal-200 bg-teal-50/50">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-teal-100">
-                      <Icon className="h-4 w-4 text-teal-700" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start mb-1">
-                        <p className="text-xs text-gray-500">{item.categoryLabel}</p>
-                        <Badge className="bg-teal-600 text-xs">レンタル中</Badge>
-                      </div>
-                      <p className="font-medium text-gray-900">{item.name}</p>
-                      <p className="text-xs text-gray-600 mt-1">
-                        {item.startDate} ~ {item.endDate}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+      {!isLoading && !errorMessage && items.length > 0 && visibleItems.length === 0 && (
+        <div className="rounded-lg border bg-white p-4 text-sm text-gray-500">
+          この分類の商品提案はまだありません。
         </div>
       )}
 
-      {activeTab === 'recommended' && (
+      {visibleItems.length > 0 && (
         <div className="space-y-3">
-          <SectionHeader title="おすすめ商品" />
-          {dummyRecommended.map((item) => {
-            const Icon = categoryIcons[item.category] || Sparkles;
-            return (
-              <Card key={item.id} className="border-gray-200 hover:shadow-md transition-shadow cursor-pointer">
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2 rounded-lg bg-amber-100">
-                      <Icon className="h-4 w-4 text-amber-700" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-xs text-gray-500 mb-0.5">{item.categoryLabel}</p>
-                      <p className="font-medium text-gray-900">{item.name}</p>
-                      <p className="text-xs text-amber-700 mt-0.5">{item.reason}</p>
-                      <div className="flex justify-between items-center mt-2">
-                        <p className="text-sm font-medium text-gray-700">{item.price}</p>
-                        <span className="text-xs text-teal-600 flex items-center gap-0.5">
-                          詳細 <ChevronRight className="h-3 w-3" />
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          <SectionHeader
+            title={
+              activeTab === 'recommended'
+                ? '提案中の商品'
+                : activeTab === 'purchase_requested'
+                  ? '購入希望の商品'
+                  : 'すべての商品提案'
+            }
+          />
+          {visibleItems.map((item) => (
+            <ProductSupportCard key={item.id} item={item} />
+          ))}
         </div>
       )}
     </div>
