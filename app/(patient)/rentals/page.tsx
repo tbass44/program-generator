@@ -6,7 +6,7 @@ import liff from '@line/liff';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SectionHeader } from '@/components/patient';
-import { Calendar, Package, RotateCcw, CheckCircle2, Clock } from 'lucide-react';
+import { Calendar, Package, RotateCcw, CheckCircle2, Clock, ChevronRight } from 'lucide-react';
 
 const NEXT_PATH_STORAGE_KEY = 'patientNextPath';
 
@@ -178,39 +178,47 @@ function RentalCard({ rental }: { rental: RentalItem }) {
   const reason = rental.reason || rental.product?.description || 'レンタル理由は未登録です。';
 
   return (
-    <Card className={rental.status === 'renting' ? 'border-teal-200 bg-teal-50/50' : 'border-gray-200'}>
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <div className="rounded-lg bg-gray-100 p-2">
-            <Icon className="h-4 w-4 text-gray-600" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="mb-1 flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs text-gray-500">{getCategoryLabel(category)}</p>
-                <p className="font-medium text-gray-900">{productName}</p>
+    <Link href={`/product-support/${rental.id}`} className="block">
+      <Card className={rental.status === 'renting' ? 'border-teal-200 bg-teal-50/50' : 'border-gray-200'}>
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <div className="rounded-lg bg-gray-100 p-2">
+              <Icon className="h-4 w-4 text-gray-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs text-gray-500">{getCategoryLabel(category)}</p>
+                  <p className="font-medium text-gray-900">{productName}</p>
+                </div>
+                <Badge className={`${getStatusClassName(rental.status)} shrink-0 text-xs`}>
+                  {getStatusLabel(rental.status)}
+                </Badge>
               </div>
-              <Badge className={`${getStatusClassName(rental.status)} shrink-0 text-xs`}>
-                {getStatusLabel(rental.status)}
-              </Badge>
-            </div>
 
-            <p className="mt-2 text-sm text-gray-600">{reason}</p>
+              <p className="mt-2 text-sm text-gray-600">{reason}</p>
 
-            {rental.program && (
-              <p className="mt-2 text-xs text-gray-500">
-                関連プログラム: {rental.program.summary || '改善プログラム'}
-              </p>
-            )}
+              {rental.program && (
+                <p className="mt-2 text-xs text-gray-500">
+                  関連プログラム: {rental.program.summary || '改善プログラム'}
+                </p>
+              )}
 
-            <div className="mt-3 flex items-center gap-1 text-xs text-gray-500">
-              <Calendar className="h-3 w-3" />
-              <span>更新日: {formatDate(rental.updated_at || rental.created_at)}</span>
+              <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  更新日: {formatDate(rental.updated_at || rental.created_at)}
+                </span>
+                <span className="flex shrink-0 items-center gap-0.5 text-teal-600">
+                  詳細
+                  <ChevronRight className="h-3 w-3" />
+                </span>
+              </div>
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
