@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { SectionHeader } from '@/components/patient';
 import { Calendar, Package, RotateCcw, CheckCircle2, Clock } from 'lucide-react';
 
+const NEXT_PATH_STORAGE_KEY = 'patientNextPath';
+
 type Product = {
   id: string;
   name: string;
@@ -74,7 +76,8 @@ function getCurrentPath() {
 }
 
 function redirectToLineEntry() {
-  window.location.href = `/line?next=${encodeURIComponent(getCurrentPath())}`;
+  window.sessionStorage.setItem(NEXT_PATH_STORAGE_KEY, getCurrentPath());
+  window.location.href = '/line';
 }
 
 function formatDate(value: string | null | undefined) {
