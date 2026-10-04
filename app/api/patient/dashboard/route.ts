@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-/**
- * LINEのIDトークン検証APIから返ってくるレスポンス型。
- */
 type LineVerifyResponse = {
   iss?: string;
   sub?: string;
@@ -44,14 +41,17 @@ type RecommendationRow = {
   updated_at: string;
 };
 
+type VisitRow = {
+  id: string;
+  patient_id: string;
+  visit_date: string;
+  note: string | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
 const rentalStatuses = ['rental_requested', 'renting', 'rental_returned'];
 
-/**
- * 必須環境変数を取得するための関数。
- *
- * process.env は TypeScript上では string | undefined になるため、
- * ここで undefined を弾いて string として扱えるようにする。
- */
 function getRequiredEnv(key: string): string {
   const value = process.env[key];
 
@@ -62,12 +62,6 @@ function getRequiredEnv(key: string): string {
   return value;
 }
 
-/**
- * LINE IDトークンをLINE公式APIで検証する。
- *
- * フロント側からLINE userIdを直接受け取るのではなく、
- * LIFFのidTokenを検証して、信頼できるLINE userIdを取得する。
- */
 async function verifyLineIdToken(idToken: string): Promise<{
   userId: string;
   displayName: string | null;
@@ -79,16 +73,13 @@ async function verifyLineIdToken(idToken: string): Promise<{
   params.append('id_token', idToken);
   params.append('client_id', lineChannelId);
 
-  const verifyResponse = await fetch(
-    'https://api.line.me/oauth2/v2.1/verify',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params,
-    }
-  );
+  const verifyResponse = await fetch('https://api.line.me/oauth2/v2.1/verify', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params,
+  });
 
   const verifyData = (await verifyResponse.json()) as LineVerifyResponse;
 
@@ -108,14 +99,14 @@ function uniq(values: Array<string | null>) {
 }
 
 function attachRecommendationDetails(
-  recommendations: RecommendationRow[] | null,
-  products: ProductRow[] | null,
-  programs: ProgramRow[] | null
+  recommendations: RecommendationRow[],
+  products: ProductRow[],
+  programs: ProgramRow[]
 ) {
-  const productMap = new Map((products ?? []).map((product) => [product.id, product]));
-  const programMap = new Map((programs ?? []).map((program) => [program.id, program]));
+  const productMap = new Map(products.map((product) => [product.id, product]));
+  const programMap = new Map(programs.map((program) => [program.id, program]));
 
-  return (recommendations ?? []).map((recommendation) => {
+  return recommendations.map((recommendation) => {
     const product = recommendation.product_id
       ? productMap.get(recommendation.product_id) ?? null
       : null;
@@ -131,25 +122,6 @@ function attachRecommendationDetails(
   });
 }
 
-/**
- * POST /api/patient/dashboard
- *
- * 患者側ダッシュボードに表示するための情報を取得するAPI。
- *
- * LINE IDトークンを検証し、patients.line_user_id から本人の患者データを取得する。
- *
- * 返却するもの：
- * - 患者基本情報
- * - 最新の改善プログラム1件
- * - 現在のプラン
- * - 商品提案
- * - 直近通院履歴
- * - レンタル履歴
- *
- * 注意：
- * service_role key を使うため、この処理はサーバー側だけで実行する。
- * ブラウザ側に service_role key を出してはいけない。
- */
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as PatientDashboardRequestBody;
@@ -162,27 +134,11 @@ export async function POST(request: Request) {
       );
     }
 
-    /**
-     * LINE IDトークンを検証して、本人のLINE userIdを取得する。
-     */
     const lineProfile = await verifyLineIdToken(idToken);
-
-    /**
-     * APIが呼ばれたタイミングで環境変数を読む。
-     * build時にトップレベルで環境変数チェックを走らせないため。
-     */
     const supabaseUrl = getRequiredEnv('NEXT_PUBLIC_SUPABASE_URL');
     const serviceRoleKey = getRequiredEnv('SUPABASE_SERVICE_ROLE_KEY');
-
-    /**
-     * 管理用Supabaseクライアント。
-     * RLSの影響を受けずにサーバー側から必要な患者情報を取得する。
-     */
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
-    /**
-     * 検証済みLINE userIdに紐づく患者基本情報を取得する。
-     */
     const { data: patient, error: patientError } = await supabaseAdmin
       .from('patients')
       .select(
@@ -220,100 +176,78 @@ export async function POST(request: Request) {
       );
     }
 
-    const [
-      programResult,
-      planResult,
-      recommendationsResult,
-      visitsResult,
-      rentalsResult,
-    ] = await Promise.all([
-      supabaseAdmin
-        .from('programs')
-        .select(
+    const [programResult, planResult, recommendationsResult, visitsResult] =
+      await Promise.all([
+        supabaseAdmin
+          .from('programs')
+          .select(
+            `
+            id,
+            summary,
+            short_term_program,
+            long_term_program,
+            created_at
           `
-          id,
-          summary,
-          short_term_program,
-          long_term_program,
-          today_task,
-          created_at
-        `
-        )
-        .eq('patient_id', patient.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabaseAdmin
-        .from('plans')
-        .select(
+          )
+          .eq('patient_id', patient.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabaseAdmin
+          .from('plans')
+          .select(
+            `
+            id,
+            type,
+            name,
+            total_count,
+            remaining_count,
+            start_date,
+            end_date,
+            status,
+            created_at
           `
-          id,
-          type,
-          name,
-          total_count,
-          remaining_count,
-          start_date,
-          end_date,
-          status,
-          created_at
-        `
-        )
-        .eq('patient_id', patient.id)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabaseAdmin
-        .from('patient_product_recommendations')
-        .select(
+          )
+          .eq('patient_id', patient.id)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabaseAdmin
+          .from('patient_product_recommendations')
+          .select(
+            `
+            id,
+            program_id,
+            product_id,
+            category,
+            reason,
+            status,
+            created_at,
+            updated_at
           `
-          id,
-          program_id,
-          product_id,
-          category,
-          reason,
-          status,
-          created_at,
-          updated_at
-        `
-        )
-        .eq('patient_id', patient.id)
-        .order('updated_at', { ascending: false })
-        .limit(6),
-      supabaseAdmin
-        .from('visits')
-        .select(
+          )
+          .eq('patient_id', patient.id)
+          .order('updated_at', { ascending: false })
+          .order('created_at', { ascending: false })
+          .returns<RecommendationRow[]>(),
+        supabaseAdmin
+          .from('visits')
+          .select(
+            `
+            id,
+            patient_id,
+            visit_date,
+            note,
+            created_at,
+            updated_at
           `
-          id,
-          visit_date,
-          note,
-          created_at,
-          updated_at
-        `
-        )
-        .eq('patient_id', patient.id)
-        .order('visit_date', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(3),
-      supabaseAdmin
-        .from('patient_product_recommendations')
-        .select(
-          `
-          id,
-          program_id,
-          product_id,
-          category,
-          reason,
-          status,
-          created_at,
-          updated_at
-        `
-        )
-        .eq('patient_id', patient.id)
-        .in('status', rentalStatuses)
-        .order('updated_at', { ascending: false })
-        .limit(5),
-    ]);
+          )
+          .eq('patient_id', patient.id)
+          .order('visit_date', { ascending: false })
+          .order('created_at', { ascending: false })
+          .returns<VisitRow[]>(),
+      ]);
 
     if (programResult.error) {
       return NextResponse.json(
@@ -355,20 +289,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (rentalsResult.error) {
-      return NextResponse.json(
-        {
-          error: 'Failed to fetch rentals',
-          detail: rentalsResult.error.message,
-        },
-        { status: 500 }
-      );
-    }
-
-    const allRecommendations = [
-      ...((recommendationsResult.data ?? []) as RecommendationRow[]),
-      ...((rentalsResult.data ?? []) as RecommendationRow[]),
-    ];
+    const allRecommendations = recommendationsResult.data ?? [];
     const productIds = uniq(allRecommendations.map((recommendation) => recommendation.product_id));
     const programIds = uniq(allRecommendations.map((recommendation) => recommendation.program_id));
 
@@ -378,12 +299,14 @@ export async function POST(request: Request) {
             .from('products')
             .select('id, name, category, description, product_url')
             .in('id', productIds)
+            .returns<ProductRow[]>()
         : Promise.resolve({ data: [] as ProductRow[], error: null }),
       programIds.length > 0
         ? supabaseAdmin
             .from('programs')
             .select('id, summary')
             .in('id', programIds)
+            .returns<ProgramRow[]>()
         : Promise.resolve({ data: [] as ProgramRow[], error: null }),
     ]);
 
@@ -407,22 +330,27 @@ export async function POST(request: Request) {
       );
     }
 
+    const recommendationDetails = attachRecommendationDetails(
+      allRecommendations,
+      productsResult.data ?? [],
+      programsResult.data ?? []
+    );
+
+    const rentals = recommendationDetails.filter((recommendation) =>
+      rentalStatuses.includes(recommendation.status)
+    );
+    const productRecommendations = recommendationDetails.filter(
+      (recommendation) => !rentalStatuses.includes(recommendation.status)
+    );
+
     return NextResponse.json({
       lineProfile,
       patient,
       currentProgram: programResult.data,
       currentPlan: planResult.data,
-      recommendations: attachRecommendationDetails(
-        recommendationsResult.data as RecommendationRow[] | null,
-        productsResult.data as ProductRow[] | null,
-        programsResult.data as ProgramRow[] | null
-      ),
-      recentVisits: visitsResult.data ?? [],
-      rentals: attachRecommendationDetails(
-        rentalsResult.data as RecommendationRow[] | null,
-        productsResult.data as ProductRow[] | null,
-        programsResult.data as ProgramRow[] | null
-      ),
+      recommendations: productRecommendations.slice(0, 6),
+      recentVisits: (visitsResult.data ?? []).slice(0, 3),
+      rentals: rentals.slice(0, 5),
     });
   } catch (error) {
     console.error(error);
