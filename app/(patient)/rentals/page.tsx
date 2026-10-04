@@ -65,6 +65,18 @@ const categoryLabels: Record<string, string> = {
   skincare: 'スキンケア',
 };
 
+function getCurrentPath() {
+  if (typeof window === 'undefined') {
+    return '/rentals';
+  }
+
+  return `${window.location.pathname}${window.location.search}`;
+}
+
+function redirectToLineEntry() {
+  window.location.href = `/line?next=${encodeURIComponent(getCurrentPath())}`;
+}
+
 function formatDate(value: string | null | undefined) {
   if (!value) {
     return '未設定';
@@ -137,7 +149,7 @@ function retryLineLogin() {
     console.error(error);
   }
 
-  liff.login({ redirectUri: window.location.href });
+  redirectToLineEntry();
 }
 
 function formatDetail(detail: unknown) {
@@ -225,7 +237,7 @@ export default function RentalsPage() {
         await liff.init({ liffId });
 
         if (!liff.isLoggedIn()) {
-          liff.login({ redirectUri: window.location.href });
+          redirectToLineEntry();
           return;
         }
 
