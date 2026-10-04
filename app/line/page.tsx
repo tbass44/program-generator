@@ -6,6 +6,7 @@ import liff from '@line/liff';
 import { Button } from '@/components/ui/button';
 
 const LIFF_INIT_TIMEOUT_MS = 10000;
+const NEXT_PATH_STORAGE_KEY = 'patientNextPath';
 
 type LineProfile = {
   userId: string;
@@ -38,18 +39,28 @@ function buildLiffUrl(liffId: string) {
   return `https://liff.line.me/${liffId}`;
 }
 
+function isSafePath(value: string | null) {
+  return Boolean(value && value.startsWith('/') && !value.startsWith('//'));
+}
+
 function getSafeNextPath() {
   if (typeof window === 'undefined') {
     return '/dashboard';
   }
 
-  const next = new URLSearchParams(window.location.search).get('next');
+  const queryNext = new URLSearchParams(window.location.search).get('next');
 
-  if (!next || !next.startsWith('/') || next.startsWith('//')) {
-    return '/dashboard';
+  if (isSafePath(queryNext)) {
+    return queryNext as string;
   }
 
-  return next;
+  const storedNext = window.sessionStorage.getItem(NEXT_PATH_STORAGE_KEY);
+
+  if (isSafePath(storedNext)) {
+    return storedNext as string;
+  }
+
+  return '/dashboard';
 }
 
 function toErrorDetail(error: unknown) {
