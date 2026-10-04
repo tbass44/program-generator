@@ -258,9 +258,11 @@ export default function PlansPage() {
                 ) : (
                   <div className="rounded-lg bg-teal-50 p-4 text-center">
                     <p className="text-3xl font-bold text-teal-700">
+                      <span className="text-lg font-medium text-teal-600 mr-1">あと</span>
                       {getSubscriptionRemainingDays(plan.end_date)}
+                      <span className="text-base font-medium text-teal-600 ml-1">日</span>
                     </p>
-                    <p className="text-sm text-teal-700">有効期限までの日数</p>
+                    <p className="text-sm text-teal-700">有効期限まで</p>
                   </div>
                 )}
 
