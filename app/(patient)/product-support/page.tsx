@@ -8,13 +8,15 @@ import { Badge } from '@/components/ui/badge';
 import { SectionHeader } from '@/components/patient';
 import {
   Apple,
+  ChevronRight,
   Dumbbell,
-  ExternalLink,
   Moon,
   ShoppingBag,
   Sparkles,
   Star,
 } from 'lucide-react';
+
+const NEXT_PATH_STORAGE_KEY = 'patientNextPath';
 
 type Tab = 'recommended' | 'purchase_requested' | 'all';
 
@@ -102,6 +104,24 @@ const categoryMeta: Record<
     iconWrapClassName: 'bg-pink-100',
   },
 };
+
+function getCurrentPath() {
+  if (typeof window === 'undefined') {
+    return '/product-support';
+  }
+
+  return `${window.location.pathname}${window.location.search}`;
+}
+
+function redirectToLineEntry() {
+  try {
+    window.sessionStorage.setItem(NEXT_PATH_STORAGE_KEY, getCurrentPath());
+  } catch (error) {
+    console.error(error);
+  }
+
+  window.location.href = '/line';
+}
 
 function getCategoryMeta(value: string | null | undefined) {
   if (value && value in categoryMeta) {
@@ -194,7 +214,7 @@ function retryLineLogin() {
     console.error(error);
   }
 
-  liff.login({ redirectUri: window.location.href });
+  redirectToLineEntry();
 }
 
 function ProductSupportCard({ item }: { item: ProductSupportItem }) {
@@ -205,50 +225,47 @@ function ProductSupportCard({ item }: { item: ProductSupportItem }) {
   const reason = item.reason || item.product?.description || '提案理由は未登録です。';
 
   return (
-    <Card className="border-gray-200">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <div className={`rounded-lg p-2 ${meta.iconWrapClassName}`}>
-            <Icon className={`h-4 w-4 ${meta.iconClassName}`} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="mb-1 flex items-start justify-between gap-3">
-              <p className="text-xs text-gray-500">{meta.label}</p>
-              <Badge className={`text-xs ${getStatusClassName(item.status)}`}>
-                {getStatusLabel(item.status)}
-              </Badge>
+    <Link href={`/product-support/${item.id}`} className="block">
+      <Card className="border-gray-200 hover:shadow-sm transition-shadow">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <div className={`rounded-lg p-2 ${meta.iconWrapClassName}`}>
+              <Icon className={`h-4 w-4 ${meta.iconClassName}`} />
             </div>
-            <p className="font-medium text-gray-900">{productName}</p>
-            <p className="mt-1 text-xs text-gray-600">{reason}</p>
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex items-start justify-between gap-3">
+                <p className="text-xs text-gray-500">{meta.label}</p>
+                <Badge className={`text-xs ${getStatusClassName(item.status)}`}>
+                  {getStatusLabel(item.status)}
+                </Badge>
+              </div>
+              <p className="font-medium text-gray-900">{productName}</p>
+              <p className="mt-1 text-xs text-gray-600">{reason}</p>
 
-            {item.program?.summary && (
-              <p className="mt-2 rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-500">
-                関連プログラム: {item.program.summary}
-              </p>
-            )}
+              {item.program?.summary && (
+                <p className="mt-2 rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-500">
+                  関連プログラム: {item.program.summary}
+                </p>
+              )}
 
-            <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
-              <span>{formatDate(item.updated_at)}</span>
-              <span className="font-medium text-gray-700">
-                {formatPrice(item.product?.price)}
-              </span>
+              <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
+                <span>{formatDate(item.updated_at)}</span>
+                <span className="font-medium text-gray-700">
+                  {formatPrice(item.product?.price)}
+                </span>
+              </div>
+
+              <div className="mt-3 flex justify-end text-xs font-medium text-teal-600">
+                <span className="inline-flex items-center gap-0.5">
+                  詳細を見る
+                  <ChevronRight className="h-3 w-3" />
+                </span>
+              </div>
             </div>
-
-            {item.product?.product_url && (
-              <a
-                href={item.product.product_url}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-teal-600"
-              >
-                商品ページを見る
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            )}
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
@@ -311,7 +328,7 @@ export default function ProductSupportPage() {
         await liff.init({ liffId });
 
         if (!liff.isLoggedIn()) {
-          liff.login({ redirectUri: window.location.href });
+          redirectToLineEntry();
           return;
         }
 
