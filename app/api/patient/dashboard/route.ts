@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 type LineVerifyResponse = {
   iss?: string;
   sub?: string;
@@ -79,12 +82,20 @@ async function verifyLineIdToken(idToken: string): Promise<{
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: params,
+    cache: 'no-store',
   });
 
   const verifyData = (await verifyResponse.json()) as LineVerifyResponse;
 
   if (!verifyResponse.ok || !verifyData.sub) {
-    throw new Error('Failed to verify LINE id token');
+    const lineError = verifyData.error ? ` / ${verifyData.error}` : '';
+    const description = verifyData.error_description
+      ? ` / ${verifyData.error_description}`
+      : '';
+
+    throw new Error(
+      `Failed to verify LINE id token${lineError}${description}`
+    );
   }
 
   return {
@@ -160,6 +171,9 @@ export async function POST(request: Request) {
         {
           error: 'Failed to fetch patient',
           detail: patientError.message,
+          debug: {
+            lineUserId: lineProfile.userId,
+          },
         },
         { status: 500 }
       );
@@ -171,6 +185,9 @@ export async function POST(request: Request) {
           error: 'Patient not linked',
           detail: 'このLINEアカウントに紐づく患者データがありません。',
           lineProfile,
+          debug: {
+            lineUserId: lineProfile.userId,
+          },
         },
         { status: 404 }
       );
@@ -284,6 +301,11 @@ export async function POST(request: Request) {
         {
           error: 'Failed to fetch recent visits',
           detail: visitsResult.error.message,
+          debug: {
+            patientId: patient.id,
+            patientName: patient.name,
+            lineUserId: lineProfile.userId,
+          },
         },
         { status: 500 }
       );
@@ -293,47 +315,53 @@ export async function POST(request: Request) {
     const productIds = uniq(allRecommendations.map((recommendation) => recommendation.product_id));
     const programIds = uniq(allRecommendations.map((recommendation) => recommendation.program_id));
 
-    const [productsResult, programsResult] = await Promise.all([
-      productIds.length > 0
-        ? supabaseAdmin
-            .from('products')
-            .select('id, name, category, description, product_url')
-            .in('id', productIds)
-            .returns<ProductRow[]>()
-        : Promise.resolve({ data: [] as ProductRow[], error: null }),
-      programIds.length > 0
-        ? supabaseAdmin
-            .from('programs')
-            .select('id, summary')
-            .in('id', programIds)
-            .returns<ProgramRow[]>()
-        : Promise.resolve({ data: [] as ProgramRow[], error: null }),
-    ]);
+    let products: ProductRow[] = [];
+    let programs: ProgramRow[] = [];
 
-    if (productsResult.error) {
-      return NextResponse.json(
-        {
-          error: 'Failed to fetch recommendation products',
-          detail: productsResult.error.message,
-        },
-        { status: 500 }
-      );
+    if (productIds.length > 0) {
+      const { data, error } = await supabaseAdmin
+        .from('products')
+        .select('id, name, category, description, product_url')
+        .in('id', productIds)
+        .returns<ProductRow[]>();
+
+      if (error) {
+        return NextResponse.json(
+          {
+            error: 'Failed to fetch recommendation products',
+            detail: error.message,
+          },
+          { status: 500 }
+        );
+      }
+
+      products = data ?? [];
     }
 
-    if (programsResult.error) {
-      return NextResponse.json(
-        {
-          error: 'Failed to fetch recommendation programs',
-          detail: programsResult.error.message,
-        },
-        { status: 500 }
-      );
+    if (programIds.length > 0) {
+      const { data, error } = await supabaseAdmin
+        .from('programs')
+        .select('id, summary')
+        .in('id', programIds)
+        .returns<ProgramRow[]>();
+
+      if (error) {
+        return NextResponse.json(
+          {
+            error: 'Failed to fetch recommendation programs',
+            detail: error.message,
+          },
+          { status: 500 }
+        );
+      }
+
+      programs = data ?? [];
     }
 
     const recommendationDetails = attachRecommendationDetails(
       allRecommendations,
-      productsResult.data ?? [],
-      programsResult.data ?? []
+      products,
+      programs
     );
 
     const rentals = recommendationDetails.filter((recommendation) =>
@@ -342,6 +370,7 @@ export async function POST(request: Request) {
     const productRecommendations = recommendationDetails.filter(
       (recommendation) => !rentalStatuses.includes(recommendation.status)
     );
+    const visitRows = visitsResult.data ?? [];
 
     return NextResponse.json({
       lineProfile,
@@ -349,8 +378,16 @@ export async function POST(request: Request) {
       currentProgram: programResult.data,
       currentPlan: planResult.data,
       recommendations: productRecommendations.slice(0, 6),
-      recentVisits: (visitsResult.data ?? []).slice(0, 3),
+      recentVisits: visitRows.slice(0, 3),
       rentals: rentals.slice(0, 5),
+      debug: {
+        patientId: patient.id,
+        patientName: patient.name,
+        lineUserId: lineProfile.userId,
+        recommendationsCount: productRecommendations.length,
+        visitsCount: visitRows.length,
+        rentalsCount: rentals.length,
+      },
     });
   } catch (error) {
     console.error(error);
