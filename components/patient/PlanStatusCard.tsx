@@ -32,6 +32,7 @@ export function PlanStatusCard({ type, remaining, expiresAt }: PlanStatusCardPro
             </>
           ) : (
             <>
+              <span className="text-lg font-medium text-teal-600 mr-1">あと</span>
               <span className="text-4xl font-bold text-teal-700">{remaining}</span>
               <span className="text-lg text-teal-600 ml-1">日</span>
               <p className="text-sm text-gray-500 mt-1">
