@@ -12,9 +12,6 @@ import {
 } from '@/components/patient';
 import { Apple, Dumbbell, Moon, Sparkles } from 'lucide-react';
 
-/**
- * 患者ダッシュボードAPIから返ってくる患者情報。
- */
 type DashboardPatient = {
   id: string;
   name: string;
@@ -25,12 +22,6 @@ type DashboardPatient = {
   line_linked_at: string | null;
 };
 
-/**
- * 患者ダッシュボードAPIから返ってくる最新の改善プログラム。
- *
- * DBのカラム名は snake_case のまま受け取る。
- * 画面表示時に ProgramCard が使いやすい形へ変換する。
- */
 type DashboardCurrentProgram = {
   id: string;
   summary: string | null;
@@ -77,15 +68,13 @@ type DashboardRecommendation = {
 
 type DashboardVisit = {
   id: string;
+  patient_id: string;
   visit_date: string;
   note: string | null;
   created_at: string;
   updated_at: string | null;
 };
 
-/**
- * /api/patient/dashboard のレスポンス型。
- */
 type DashboardResponse = {
   patient?: DashboardPatient;
   currentProgram?: DashboardCurrentProgram | null;
@@ -93,16 +82,18 @@ type DashboardResponse = {
   recommendations?: DashboardRecommendation[];
   recentVisits?: DashboardVisit[];
   rentals?: DashboardRecommendation[];
+  debug?: {
+    patientId?: string;
+    patientName?: string;
+    lineUserId?: string;
+    recommendationsCount?: number;
+    visitsCount?: number;
+    rentalsCount?: number;
+  };
   error?: string;
   detail?: unknown;
 };
 
-/**
- * ProgramCard に渡す表示用データ。
- *
- * APIから受け取ったDB形式の改善プログラムを、
- * コンポーネントが受け取れる camelCase の形に変換して使う。
- */
 type ProgramCardViewModel = {
   id: string;
   title: string;
@@ -202,16 +193,7 @@ function getSubscriptionRemainingDays(endDate: string | null) {
   return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
-/**
- * APIから取得した改善プログラムを、ProgramCard表示用に変換する。
- *
- * summary は状態まとめなので、カードタイトルとして使うには長くなりやすい。
- * そのため、タイトルは固定で「現在の改善プログラム」とし、
- * 各本文は short_term_program / long_term_program から表示する。
- */
-function toProgramCardViewModel(
-  program: DashboardCurrentProgram
-): ProgramCardViewModel {
+function toProgramCardViewModel(program: DashboardCurrentProgram): ProgramCardViewModel {
   return {
     id: program.id,
     title: '現在の改善プログラム',
@@ -251,46 +233,55 @@ function toVisitListItems(visits: DashboardVisit[]) {
   }));
 }
 
-/**
- * 患者側ダッシュボード。
- *
- * 現在の役割：
- * 1. LIFFを初期化する
- * 2. LINE IDトークンを取得する
- * 3. /api/patient/dashboard にIDトークンを送り、サーバー側で検証する
- * 4. 検証済みのLINE userIdに紐づく患者情報を表示する
- * 5. 現在の改善プログラム・現在プラン・商品提案・通院履歴を実データで表示する
- */
+function shouldRetryLineLogin(message: string) {
+  const lower = message.toLowerCase();
+
+  return (
+    lower.includes('access token revoked') ||
+    lower.includes('failed to verify line id token') ||
+    lower.includes('invalid token') ||
+    lower.includes('expired')
+  );
+}
+
+function retryLineLogin() {
+  try {
+    if (liff.isLoggedIn()) {
+      liff.logout();
+    }
+  } catch (error) {
+    console.error(error);
+  }
+
+  liff.login({ redirectUri: window.location.href });
+}
+
+function formatDetail(detail: unknown) {
+  if (!detail) {
+    return '';
+  }
+
+  if (typeof detail === 'string') {
+    return detail;
+  }
+
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return String(detail);
+  }
+}
+
 export default function DashboardPage() {
-  /**
-   * APIから取得した患者情報。
-   */
   const [patient, setPatient] = useState<DashboardPatient | null>(null);
-
-  /**
-   * APIから取得した最新の改善プログラム。
-   */
-  const [currentProgram, setCurrentProgram] =
-    useState<ProgramCardViewModel | null>(null);
-
+  const [currentProgram, setCurrentProgram] = useState<ProgramCardViewModel | null>(null);
   const [currentPlan, setCurrentPlan] = useState<DashboardCurrentPlan | null>(null);
   const [recommendations, setRecommendations] = useState<DashboardRecommendation[]>([]);
   const [recentVisits, setRecentVisits] = useState<DashboardVisit[]>([]);
   const [rentals, setRentals] = useState<DashboardRecommendation[]>([]);
-
-  /**
-   * 患者情報取得中の状態管理。
-   */
+  const [debugMessage, setDebugMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  /**
-   * 処理状況の簡易表示。
-   */
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
-
-  /**
-   * 患者情報取得に失敗した場合の表示用メッセージ。
-   */
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const supportRecommendations = useMemo(
@@ -299,13 +290,11 @@ export default function DashboardPage() {
   );
 
   useEffect(() => {
-    /**
-     * LIFFを初期化し、LINE IDトークンを使って患者ダッシュボードAPIを呼び出す。
-     */
     const fetchPatientDashboard = async () => {
       try {
         setIsLoading(true);
         setErrorMessage(null);
+        setDebugMessage(null);
         setStatusMessage('LINE認証を確認しています...');
 
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
@@ -318,14 +307,14 @@ export default function DashboardPage() {
         await liff.init({ liffId });
 
         if (!liff.isLoggedIn()) {
-          liff.login();
+          liff.login({ redirectUri: window.location.href });
           return;
         }
 
         const idToken = liff.getIDToken();
 
         if (!idToken) {
-          setErrorMessage('LINE IDトークンを取得できませんでした。');
+          retryLineLogin();
           return;
         }
 
@@ -337,41 +326,63 @@ export default function DashboardPage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ idToken }),
+          cache: 'no-store',
         });
 
         const data = (await response.json()) as DashboardResponse;
 
         if (!response.ok || !data.patient) {
           console.error(data);
+          const detail = formatDetail(data.detail);
+
+          if (shouldRetryLineLogin(`${data.error ?? ''} ${detail}`)) {
+            retryLineLogin();
+            return;
+          }
 
           if (data.error === 'Patient not linked') {
             setErrorMessage('このLINEアカウントはまだ患者データと連携されていません。');
           } else {
-            setErrorMessage('患者情報を取得できませんでした。');
+            setErrorMessage(`患者情報を取得できませんでした。${detail ? ` ${detail}` : ''}`);
+          }
+
+          if (data.debug) {
+            setDebugMessage(
+              `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 商品: ${data.debug.recommendationsCount ?? '-'} / 通院: ${data.debug.visitsCount ?? '-'} / レンタル: ${data.debug.rentalsCount ?? '-'}`
+            );
           }
 
           return;
         }
 
         setPatient(data.patient);
-        setStatusMessage('患者情報を取得しました。');
         setCurrentPlan(data.currentPlan ?? null);
         setRecommendations(data.recommendations ?? []);
         setRecentVisits(data.recentVisits ?? []);
         setRentals(data.rentals ?? []);
+        setStatusMessage('患者情報を取得しました。');
 
-        /**
-         * 最新プログラムがある場合だけカード表示用データに変換する。
-         * まだprogramsが登録されていない患者では null のままにする。
-         */
         if (data.currentProgram) {
           setCurrentProgram(toProgramCardViewModel(data.currentProgram));
         } else {
           setCurrentProgram(null);
         }
+
+        if (data.debug) {
+          setDebugMessage(
+            `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 商品: ${data.debug.recommendationsCount ?? 0} / 通院: ${data.debug.visitsCount ?? 0} / レンタル: ${data.debug.rentalsCount ?? 0}`
+          );
+        }
       } catch (error) {
         console.error(error);
-        setErrorMessage('患者情報の取得中にエラーが発生しました。');
+        const message = error instanceof Error ? error.message : String(error);
+
+        if (shouldRetryLineLogin(message)) {
+          retryLineLogin();
+          return;
+        }
+
+        setErrorMessage(`患者情報の取得中にエラーが発生しました。${message ? ` ${message}` : ''}`);
       } finally {
         setIsLoading(false);
       }
@@ -389,13 +400,9 @@ export default function DashboardPage() {
           {patient ? `こんにちは、${patient.name}さん` : 'こんにちは'}
         </h1>
         <p className="text-sm text-gray-500">本日の状態を確認しましょう</p>
-
-        {isLoading && (
-          <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>
-        )}
-        {errorMessage && (
-          <p className="mt-2 text-xs text-red-500">{errorMessage}</p>
-        )}
+        {isLoading && <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>}
+        {errorMessage && <p className="mt-2 text-xs text-red-500">{errorMessage}</p>}
+        {debugMessage && <p className="mt-2 text-[11px] text-gray-400">{debugMessage}</p>}
       </header>
 
       {!canShowDashboard && !isLoading && (
@@ -449,7 +456,6 @@ export default function DashboardPage() {
                 </Link>
               }
             />
-
             {currentProgram ? (
               <ProgramCard {...currentProgram} />
             ) : (
@@ -528,9 +534,7 @@ export default function DashboardPage() {
                         {getStatusLabel(rental.status)}
                       </span>
                     </div>
-                    {rental.reason && (
-                      <p className="mt-3 text-gray-600">{rental.reason}</p>
-                    )}
+                    {rental.reason && <p className="mt-3 text-gray-600">{rental.reason}</p>}
                   </div>
                 ))}
               </div>
