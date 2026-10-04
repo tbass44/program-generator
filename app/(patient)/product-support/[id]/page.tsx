@@ -1,7 +1,8 @@
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import liff from '@line/liff';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -54,12 +55,6 @@ type ProductSupportDetailResponse = {
   detail?: unknown;
 };
 
-type ProductSupportDetailPageProps = {
-  params: Promise<{
-    id: string;
-  }>;
-};
-
 const statusLabels: Record<string, string> = {
   recommended: '提案中',
   purchase_requested: '購入希望',
@@ -74,6 +69,14 @@ const categoryLabels: Record<string, string> = {
   exercise: '運動療法',
   skincare: 'スキンケア',
 };
+
+function getParamId(id: string | string[] | undefined) {
+  if (Array.isArray(id)) {
+    return id[0] ?? '';
+  }
+
+  return id ?? '';
+}
 
 function getCurrentPath() {
   if (typeof window === 'undefined') {
@@ -183,10 +186,9 @@ function getStatusClassName(status: string) {
   }
 }
 
-export default function ProductSupportDetailPage({
-  params,
-}: ProductSupportDetailPageProps) {
-  const { id } = use(params);
+export default function ProductSupportDetailPage() {
+  const params = useParams();
+  const id = getParamId(params.id);
   const [patientName, setPatientName] = useState<string | null>(null);
   const [item, setItem] = useState<ProductSupportDetailItem | null>(null);
   const [debugMessage, setDebugMessage] = useState<string | null>(null);
@@ -206,6 +208,11 @@ export default function ProductSupportDetailPage({
 
         if (!liffId) {
           setErrorMessage('NEXT_PUBLIC_LIFF_ID が設定されていません。');
+          return;
+        }
+
+        if (!id) {
+          setErrorMessage('商品提案IDを確認できませんでした。');
           return;
         }
 
