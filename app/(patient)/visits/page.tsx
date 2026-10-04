@@ -20,6 +20,12 @@ type PatientVisitsResponse = {
     name: string;
   };
   visits?: PatientVisit[];
+  debug?: {
+    patientId?: string;
+    patientName?: string;
+    lineUserId?: string;
+    visitsCount?: number;
+  };
   error?: string;
   detail?: unknown;
 };
@@ -46,8 +52,49 @@ function toVisitListItems(visits: PatientVisit[]) {
   }));
 }
 
+function shouldRetryLineLogin(message: string) {
+  const lower = message.toLowerCase();
+
+  return (
+    lower.includes('access token revoked') ||
+    lower.includes('failed to verify line id token') ||
+    lower.includes('invalid token') ||
+    lower.includes('expired')
+  );
+}
+
+function retryLineLogin() {
+  try {
+    if (liff.isLoggedIn()) {
+      liff.logout();
+    }
+  } catch (error) {
+    console.error(error);
+  }
+
+  liff.login({ redirectUri: window.location.href });
+}
+
+function formatDetail(detail: unknown) {
+  if (!detail) {
+    return '';
+  }
+
+  if (typeof detail === 'string') {
+    return detail;
+  }
+
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return String(detail);
+  }
+}
+
 export default function VisitsPage() {
+  const [patientName, setPatientName] = useState<string | null>(null);
   const [visits, setVisits] = useState<PatientVisit[]>([]);
+  const [debugMessage, setDebugMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -57,6 +104,7 @@ export default function VisitsPage() {
       try {
         setIsLoading(true);
         setErrorMessage(null);
+        setDebugMessage(null);
         setStatusMessage('LINE認証を確認しています...');
 
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
@@ -76,7 +124,7 @@ export default function VisitsPage() {
         const idToken = liff.getIDToken();
 
         if (!idToken) {
-          setErrorMessage('LINE IDトークンを取得できませんでした。');
+          retryLineLogin();
           return;
         }
 
@@ -88,6 +136,7 @@ export default function VisitsPage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ idToken }),
+          cache: 'no-store',
         });
 
         const data = (await response.json()) as PatientVisitsResponse;
@@ -95,20 +144,49 @@ export default function VisitsPage() {
         if (!response.ok) {
           console.error(data);
 
+          const detail = formatDetail(data.detail);
+
+          if (shouldRetryLineLogin(`${data.error ?? ''} ${detail}`)) {
+            retryLineLogin();
+            return;
+          }
+
           if (data.error === 'Patient not linked') {
             setErrorMessage('このLINEアカウントはまだ患者データと連携されていません。');
           } else {
-            setErrorMessage('通院履歴を取得できませんでした。');
+            setErrorMessage(
+              `通院履歴を取得できませんでした。${detail ? ` ${detail}` : ''}`
+            );
+          }
+
+          if (data.debug) {
+            setDebugMessage(
+              `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 件数: ${data.debug.visitsCount ?? '-'}`
+            );
           }
 
           return;
         }
 
+        setPatientName(data.patient?.name ?? data.debug?.patientName ?? null);
         setVisits(data.visits ?? []);
         setStatusMessage('通院履歴を取得しました。');
+
+        if (data.debug) {
+          setDebugMessage(
+            `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 件数: ${data.debug.visitsCount ?? data.visits?.length ?? 0}`
+          );
+        }
       } catch (error) {
         console.error(error);
-        setErrorMessage('通院履歴の取得中にエラーが発生しました。');
+        const message = error instanceof Error ? error.message : String(error);
+
+        if (shouldRetryLineLogin(message)) {
+          retryLineLogin();
+          return;
+        }
+
+        setErrorMessage(`通院履歴の取得中にエラーが発生しました。${message ? ` ${message}` : ''}`);
       } finally {
         setIsLoading(false);
       }
@@ -124,12 +202,17 @@ export default function VisitsPage() {
           ダッシュボードへ戻る
         </Link>
         <h1 className="text-xl font-bold text-gray-900">通院履歴</h1>
-        <p className="text-sm text-gray-500">過去の通院記録</p>
+        <p className="text-sm text-gray-500">
+          {patientName ? `${patientName}さんの通院記録` : '過去の通院記録'}
+        </p>
         {isLoading && (
           <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>
         )}
         {errorMessage && (
           <p className="mt-2 text-xs text-red-500">{errorMessage}</p>
+        )}
+        {debugMessage && (
+          <p className="mt-2 text-[11px] text-gray-400">{debugMessage}</p>
         )}
       </header>
 
