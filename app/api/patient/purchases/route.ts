@@ -141,29 +141,6 @@ function attachPurchaseHistoryDetails(
   }));
 }
 
-async function fetchProductsAndPrograms(
-  supabaseAdmin: ReturnType<typeof createClient>,
-  productIds: string[],
-  programIds: string[]
-) {
-  return Promise.all([
-    productIds.length > 0
-      ? supabaseAdmin
-          .from('products')
-          .select('id, name, category, description, price, inventory_count, product_url, status')
-          .in('id', productIds)
-          .returns<ProductRow[]>()
-      : Promise.resolve({ data: [] as ProductRow[], error: null }),
-    programIds.length > 0
-      ? supabaseAdmin
-          .from('programs')
-          .select('id, summary, created_at')
-          .in('id', programIds)
-          .returns<ProgramRow[]>()
-      : Promise.resolve({ data: [] as ProgramRow[], error: null }),
-  ]);
-}
-
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as PurchasesRequestBody;
@@ -295,15 +272,32 @@ export async function POST(request: Request) {
     const productIds = uniq([...requestProductIds, ...historyProductIds]);
     const programIds = uniq([...requestProgramIds, ...historyProgramIds]);
 
+    const productsPromise = productIds.length > 0
+      ? supabaseAdmin
+          .from('products')
+          .select('id, name, category, description, price, inventory_count, product_url, status')
+          .in('id', productIds)
+          .returns<ProductRow[]>()
+      : Promise.resolve({ data: [] as ProductRow[], error: null });
+    const programsPromise = programIds.length > 0
+      ? supabaseAdmin
+          .from('programs')
+          .select('id, summary, created_at')
+          .in('id', programIds)
+          .returns<ProgramRow[]>()
+      : Promise.resolve({ data: [] as ProgramRow[], error: null });
+    const historyRecommendationsPromise = historyRecommendationIds.length > 0
+      ? supabaseAdmin
+          .from('patient_product_recommendations')
+          .select('id, patient_id, program_id, product_id, category, reason, status, created_at, updated_at')
+          .in('id', historyRecommendationIds)
+          .returns<RecommendationRow[]>()
+      : Promise.resolve({ data: [] as RecommendationRow[], error: null });
+
     const [productsResult, programsResult, historyRecommendationsResult] = await Promise.all([
-      ...await fetchProductsAndPrograms(supabaseAdmin, productIds, programIds),
-      historyRecommendationIds.length > 0
-        ? supabaseAdmin
-            .from('patient_product_recommendations')
-            .select('id, patient_id, program_id, product_id, category, reason, status, created_at, updated_at')
-            .in('id', historyRecommendationIds)
-            .returns<RecommendationRow[]>()
-        : Promise.resolve({ data: [] as RecommendationRow[], error: null }),
+      productsPromise,
+      programsPromise,
+      historyRecommendationsPromise,
     ]);
 
     if (productsResult.error) {
