@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { ChevronLeft, Pencil, Save, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader, SectionCard } from '@/components/admin';
@@ -71,6 +71,27 @@ function buildApiErrorMessage(prefix: string, status: number, data: { error?: st
   return `${prefix}（HTTP ${status}${errorText}${detailText}）`;
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function getPatientIdFromParams(idParam: string | string[] | undefined, pathname: string) {
+  const paramValue = Array.isArray(idParam) ? idParam[0] : idParam;
+
+  if (paramValue && isUuid(paramValue)) {
+    return paramValue;
+  }
+
+  const pathMatch = pathname.match(/\/admin\/patients\/([0-9a-f-]{36})\/rentals/i);
+  const pathValue = pathMatch?.[1];
+
+  if (pathValue && isUuid(pathValue)) {
+    return pathValue;
+  }
+
+  return '';
+}
+
 function formatDate(value: string | null | undefined) {
   if (!value) {
     return '未設定';
@@ -100,7 +121,8 @@ function getStatusBadgeClass(status: string) {
 
 export default function AdminPatientRentalsPage() {
   const params = useParams();
-  const patientId = typeof params.id === 'string' ? params.id : '';
+  const pathname = usePathname();
+  const patientId = getPatientIdFromParams(params.id, pathname);
 
   const [patient, setPatient] = useState<PatientDetail | null>(null);
   const [rentals, setRentals] = useState<RentalItem[]>([]);
@@ -128,7 +150,7 @@ export default function AdminPatientRentalsPage() {
 
   const refreshRentals = async () => {
     if (!patientId) {
-      setErrorMessage('患者IDを取得できませんでした。');
+      setErrorMessage('患者IDを取得できませんでした。患者詳細画面から開き直してください。');
       return false;
     }
 
@@ -182,7 +204,7 @@ export default function AdminPatientRentalsPage() {
 
   const handleUpdateRental = async (rental: RentalItem) => {
     if (!patientId) {
-      setErrorMessage('患者IDを取得できませんでした。');
+      setErrorMessage('患者IDを取得できませんでした。患者詳細画面から開き直してください。');
       return;
     }
 
@@ -226,7 +248,7 @@ export default function AdminPatientRentalsPage() {
 
   const handleDeleteRental = async (rental: RentalItem) => {
     if (!patientId) {
-      setErrorMessage('患者IDを取得できませんでした。');
+      setErrorMessage('患者IDを取得できませんでした。患者詳細画面から開き直してください。');
       return;
     }
 
