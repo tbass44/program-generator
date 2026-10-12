@@ -35,7 +35,23 @@ function getRequiredEnv(key: string): string {
 }
 
 function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function getPatientIdFromRequest(request: Request, paramId: string) {
+  if (paramId && isUuid(paramId)) {
+    return paramId;
+  }
+
+  const pathname = new URL(request.url).pathname;
+  const pathMatch = pathname.match(/\/api\/admin\/patients\/([0-9a-f-]{36})\/rentals/i);
+  const pathValue = pathMatch?.[1] ?? '';
+
+  if (pathValue && isUuid(pathValue)) {
+    return pathValue;
+  }
+
+  return '';
 }
 
 function createSupabaseAdminClient() {
@@ -123,12 +139,17 @@ function normalizeOptionalText(value: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
-function validateIds(patientId: string, recommendationId: string) {
+function validateIds(patientId: string, recommendationId: string, request: Request, paramId: string) {
   if (!patientId || !isUuid(patientId)) {
     return {
       ok: false as const,
       response: NextResponse.json(
-        { error: 'Invalid patient id format', detail: 'patient id must be UUID' },
+        {
+          error: 'Invalid patient id format',
+          detail: 'patient id must be UUID',
+          receivedId: paramId,
+          pathname: new URL(request.url).pathname,
+        },
         { status: 400 }
       ),
     };
@@ -180,9 +201,9 @@ export async function PATCH(
       );
     }
 
-    const patientId = params.id;
+    const patientId = getPatientIdFromRequest(request, params.id);
     const recommendationId = params.recommendationId;
-    const idValidation = validateIds(patientId, recommendationId);
+    const idValidation = validateIds(patientId, recommendationId, request, params.id);
 
     if (!idValidation.ok) {
       return idValidation.response;
@@ -258,7 +279,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: { id: string; recommendationId: string } }
 ) {
   try {
@@ -274,9 +295,9 @@ export async function DELETE(
       );
     }
 
-    const patientId = params.id;
+    const patientId = getPatientIdFromRequest(request, params.id);
     const recommendationId = params.recommendationId;
-    const idValidation = validateIds(patientId, recommendationId);
+    const idValidation = validateIds(patientId, recommendationId, request, params.id);
 
     if (!idValidation.ok) {
       return idValidation.response;
