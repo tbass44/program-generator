@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ChevronLeft, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -123,7 +123,7 @@ type PatientPurchasesResponse = {
   detail?: unknown;
 };
 
-type CreatePurchaseResponse = {
+type SavePurchaseResponse = {
   purchase?: {
     id: string;
   };
@@ -159,6 +159,20 @@ const categoryLabels: Record<string, string> = {
 
 function getTodayDateString() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function toDateInputValue(value: string | null | undefined) {
+  if (!value) {
+    return getTodayDateString();
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return getTodayDateString();
+  }
+
+  return date.toISOString().slice(0, 10);
 }
 
 function buildApiErrorMessage(prefix: string, status: number, data: { error?: string; detail?: unknown }) {
@@ -248,6 +262,29 @@ function getPurchaseCategory(purchase: PurchaseHistory) {
   return formatCategory(purchase.product?.category);
 }
 
+function getPurchaseChoiceValue(purchase: PurchaseHistory) {
+  if (purchase.recommendationId) {
+    return `recommendation:${purchase.recommendationId}`;
+  }
+
+  if (purchase.productId) {
+    return `product:${purchase.productId}`;
+  }
+
+  return '';
+}
+
+function buildFormDataFromPurchase(purchase: PurchaseHistory, fallbackChoice: string): PurchaseFormData {
+  return {
+    purchaseChoice: getPurchaseChoiceValue(purchase) || fallbackChoice,
+    purchasedAt: toDateInputValue(purchase.purchasedAt),
+    quantity: String(purchase.quantity),
+    unitPrice: typeof purchase.unitPrice === 'number' ? String(purchase.unitPrice) : '',
+    totalPrice: typeof purchase.totalPrice === 'number' ? String(purchase.totalPrice) : '',
+    note: purchase.note ?? '',
+  };
+}
+
 export default function AdminPatientPurchaseNewPage() {
   const params = useParams();
   const patientId = typeof params.id === 'string' ? params.id : '';
@@ -265,11 +302,14 @@ export default function AdminPatientPurchaseNewPage() {
     totalPrice: '',
     note: '',
   });
+  const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingPurchaseId, setDeletingPurchaseId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const isEditing = Boolean(editingPurchaseId);
 
   const recommendationChoices = useMemo(
     () => recommendations.filter(shouldShowRecommendation).map(buildRecommendationChoice),
@@ -306,6 +346,25 @@ export default function AdminPatientPurchaseNewPage() {
       setPurchaseHistoryPage(purchaseHistoryTotalPages);
     }
   }, [purchaseHistoryPage, purchaseHistoryTotalPages]);
+
+  const refreshPurchaseHistory = async () => {
+    if (!patientId) {
+      return false;
+    }
+
+    const response = await fetch(`/api/admin/patients/${patientId}/purchases`, {
+      cache: 'no-store',
+    });
+    const data = (await response.json()) as PatientPurchasesResponse;
+
+    if (!response.ok || !data.purchases) {
+      setErrorMessage(buildApiErrorMessage('購入履歴を取得できませんでした', response.status, data));
+      return false;
+    }
+
+    setPurchaseHistory(data.purchases);
+    return true;
+  };
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -412,6 +471,20 @@ export default function AdminPatientPurchaseNewPage() {
     fetchInitialData();
   }, [patientId]);
 
+  const resetForm = () => {
+    const firstChoice = allChoices[0] ?? null;
+
+    setEditingPurchaseId(null);
+    setFormData({
+      purchaseChoice: firstChoice?.value ?? '',
+      purchasedAt: getTodayDateString(),
+      quantity: '1',
+      unitPrice: typeof firstChoice?.price === 'number' ? String(firstChoice.price) : '',
+      totalPrice: typeof firstChoice?.price === 'number' ? String(firstChoice.price) : '',
+      note: '',
+    });
+  };
+
   const handleQuantityOrUnitPriceChange = (nextData: Partial<PurchaseFormData>) => {
     setFormData((current) => {
       const merged = { ...current, ...nextData };
@@ -459,6 +532,22 @@ export default function AdminPatientPurchaseNewPage() {
     });
   };
 
+  const handleEditPurchase = (purchase: PurchaseHistory) => {
+    const fallbackChoice = allChoices[0]?.value ?? '';
+    const nextFormData = buildFormDataFromPurchase(purchase, fallbackChoice);
+    const choiceExists = allChoices.some((choice) => choice.value === nextFormData.purchaseChoice);
+
+    setEditingPurchaseId(purchase.id);
+    setFormData({
+      ...nextFormData,
+      purchaseChoice: choiceExists ? nextFormData.purchaseChoice : fallbackChoice,
+    });
+    setErrorMessage(null);
+    setSuccessMessage('購入記録を編集中です。内容を修正して「購入記録を更新」を押してください。');
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -484,13 +573,18 @@ export default function AdminPatientPurchaseNewPage() {
       return;
     }
 
+    const endpoint = editingPurchaseId
+      ? `/api/admin/patients/${patientId}/purchases/${editingPurchaseId}`
+      : `/api/admin/patients/${patientId}/purchases`;
+    const method = editingPurchaseId ? 'PATCH' : 'POST';
+
     try {
       setIsSaving(true);
       setErrorMessage(null);
       setSuccessMessage(null);
 
-      const response = await fetch(`/api/admin/patients/${patientId}/purchases`, {
-        method: 'POST',
+      const response = await fetch(endpoint, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -505,29 +599,35 @@ export default function AdminPatientPurchaseNewPage() {
         }),
       });
 
-      const data = (await response.json()) as CreatePurchaseResponse;
+      const data = (await response.json()) as SavePurchaseResponse;
+      const errorPrefix = editingPurchaseId
+        ? '購入記録を更新できませんでした'
+        : '購入記録を追加できませんでした';
 
       if (!response.ok || !data.purchase) {
-        setErrorMessage(buildApiErrorMessage('購入記録を追加できませんでした', response.status, data));
+        setErrorMessage(buildApiErrorMessage(errorPrefix, response.status, data));
         return;
       }
 
       if (data.purchases) {
         setPurchaseHistory(data.purchases);
-        setPurchaseHistoryPage(1);
+      } else {
+        const refreshed = await refreshPurchaseHistory();
+        if (!refreshed) {
+          return;
+        }
       }
 
-      setFormData((current) => ({
-        ...current,
-        purchasedAt: getTodayDateString(),
-        quantity: '1',
-        totalPrice: '',
-        note: '',
-      }));
-      setSuccessMessage('購入記録を追加しました。下の購入履歴に反映されています。');
+      setPurchaseHistoryPage(1);
+      resetForm();
+      setSuccessMessage(
+        editingPurchaseId
+          ? '購入記録を更新しました。下の購入履歴に反映されています。'
+          : '購入記録を追加しました。下の購入履歴に反映されています。'
+      );
     } catch (error) {
       console.error(error);
-      setErrorMessage(`購入記録の追加中にエラーが発生しました。${String(error)}`);
+      setErrorMessage(`購入記録の保存中にエラーが発生しました。${String(error)}`);
     } finally {
       setIsSaving(false);
     }
@@ -564,6 +664,9 @@ export default function AdminPatientPurchaseNewPage() {
       }
 
       setPurchaseHistory((current) => current.filter((item) => item.id !== purchase.id));
+      if (editingPurchaseId === purchase.id) {
+        resetForm();
+      }
       setSuccessMessage('購入履歴を削除しました。');
     } catch (error) {
       console.error(error);
@@ -576,8 +679,8 @@ export default function AdminPatientPurchaseNewPage() {
   return (
     <div>
       <PageHeader
-        title="購入記録を追加"
-        description={patient ? `${patient.name}さんの商品購入履歴を登録します` : '商品購入履歴を登録します'}
+        title="購入記録を追加・編集"
+        description={patient ? `${patient.name}さんの商品購入履歴を登録・修正します` : '商品購入履歴を登録・修正します'}
         backHref={patientId ? `/admin/patients/${patientId}` : '/admin/patients'}
       />
 
@@ -599,7 +702,10 @@ export default function AdminPatientPurchaseNewPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          <SectionCard title="購入内容">
+          <SectionCard
+            title={isEditing ? '購入記録を編集中' : '購入内容'}
+            description={isEditing ? '下の購入履歴から選択した記録を修正しています。' : undefined}
+          >
             {allChoices.length === 0 ? (
               <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
                 購入対象の商品がありません。先に商品マスタを登録してください。
@@ -716,8 +822,20 @@ export default function AdminPatientPurchaseNewPage() {
                 <div className="flex flex-wrap gap-3">
                   <Button type="submit" disabled={isSaving}>
                     <Plus className="mr-2 h-4 w-4" />
-                    {isSaving ? '追加中...' : '購入記録を追加'}
+                    {isSaving
+                      ? isEditing
+                        ? '更新中...'
+                        : '追加中...'
+                      : isEditing
+                        ? '購入記録を更新'
+                        : '購入記録を追加'}
                   </Button>
+                  {isEditing && (
+                    <Button type="button" variant="outline" disabled={isSaving} onClick={resetForm}>
+                      <X className="mr-2 h-4 w-4" />
+                      編集をキャンセル
+                    </Button>
+                  )}
                   <Link href={`/admin/patients/${patientId}`}>
                     <Button type="button" variant="outline" disabled={isSaving}>
                       <ChevronLeft className="mr-2 h-4 w-4" />
@@ -752,6 +870,11 @@ export default function AdminPatientPurchaseNewPage() {
                             <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs text-white">
                               購入済み
                             </span>
+                            {editingPurchaseId === purchase.id && (
+                              <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
+                                編集中
+                              </span>
+                            )}
                           </div>
                           <p className="mt-2 text-sm text-muted-foreground">
                             購入日: {formatDate(purchase.purchasedAt)} / 数量: {purchase.quantity}
@@ -769,16 +892,28 @@ export default function AdminPatientPurchaseNewPage() {
                               単価: {formatPrice(purchase.unitPrice)}
                             </p>
                           </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={deletingPurchaseId === purchase.id}
-                            onClick={() => handleDeletePurchase(purchase)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            {deletingPurchaseId === purchase.id ? '削除中...' : '削除'}
-                          </Button>
+                          <div className="flex flex-wrap gap-2 md:justify-end">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={isSaving || deletingPurchaseId === purchase.id}
+                              onClick={() => handleEditPurchase(purchase)}
+                            >
+                              <Pencil className="mr-2 h-4 w-4" />
+                              編集
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={deletingPurchaseId === purchase.id || isSaving}
+                              onClick={() => handleDeletePurchase(purchase)}
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              {deletingPurchaseId === purchase.id ? '削除中...' : '削除'}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
