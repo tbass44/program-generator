@@ -25,6 +25,7 @@ type RentalItem = {
   programSummary: string;
   programCreatedAt: string | null;
   rentalStartedAt: string;
+  rentalReturnedAt: string | null;
   rentalUpdatedAt: string;
   createdAt: string;
   updatedAt: string;
@@ -43,6 +44,8 @@ type UpdateRentalResponse = {
     patientId: string;
     status: string;
     reason: string;
+    rentalStartedAt: string | null;
+    rentalReturnedAt: string | null;
     updatedAt: string;
   };
   error?: string;
@@ -59,6 +62,8 @@ type DeleteRentalResponse = {
 type RentalEditForm = {
   status: string;
   reason: string;
+  rentalStartedAt: string;
+  rentalReturnedAt: string;
 };
 
 const rentalPageSize = 5;
@@ -106,6 +111,24 @@ function formatDate(value: string | null | undefined) {
   return date.toLocaleDateString('ja-JP');
 }
 
+function toDateInputValue(value: string | null | undefined) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function getTodayDateInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function getStatusBadgeClass(status: string) {
   switch (status) {
     case 'レンタル希望':
@@ -128,7 +151,12 @@ export default function AdminPatientRentalsPage() {
   const [rentals, setRentals] = useState<RentalItem[]>([]);
   const [rentalPage, setRentalPage] = useState(1);
   const [editingRentalId, setEditingRentalId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<RentalEditForm>({ status: 'レンタル中', reason: '' });
+  const [editForm, setEditForm] = useState<RentalEditForm>({
+    status: 'レンタル中',
+    reason: '',
+    rentalStartedAt: getTodayDateInputValue(),
+    rentalReturnedAt: '',
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingRentalId, setDeletingRentalId] = useState<string | null>(null);
@@ -191,6 +219,8 @@ export default function AdminPatientRentalsPage() {
     setEditForm({
       status: rental.status || 'レンタル中',
       reason: rental.reason || '',
+      rentalStartedAt: toDateInputValue(rental.rentalStartedAt) || getTodayDateInputValue(),
+      rentalReturnedAt: toDateInputValue(rental.rentalReturnedAt),
     });
     setErrorMessage(null);
     setSuccessMessage('レンタル履歴を編集中です。内容を修正して「保存」を押してください。');
@@ -198,7 +228,12 @@ export default function AdminPatientRentalsPage() {
 
   const handleCancelEdit = () => {
     setEditingRentalId(null);
-    setEditForm({ status: 'レンタル中', reason: '' });
+    setEditForm({
+      status: 'レンタル中',
+      reason: '',
+      rentalStartedAt: getTodayDateInputValue(),
+      rentalReturnedAt: '',
+    });
     setSuccessMessage(null);
   };
 
@@ -221,6 +256,8 @@ export default function AdminPatientRentalsPage() {
         body: JSON.stringify({
           status: editForm.status,
           reason: editForm.reason,
+          rentalStartedAt: editForm.rentalStartedAt,
+          rentalReturnedAt: editForm.rentalReturnedAt,
         }),
       });
 
@@ -348,7 +385,7 @@ export default function AdminPatientRentalsPage() {
                           </div>
 
                           <p className="mt-2 text-sm text-muted-foreground">
-                            開始相当: {formatDate(rental.rentalStartedAt)} / 最終更新: {formatDate(rental.rentalUpdatedAt)}
+                            開始日: {formatDate(rental.rentalStartedAt)} / 返却日: {formatDate(rental.rentalReturnedAt)} / 最終更新: {formatDate(rental.rentalUpdatedAt)}
                           </p>
 
                           {rental.programSummary && (
@@ -358,25 +395,69 @@ export default function AdminPatientRentalsPage() {
                           )}
 
                           {isEditing ? (
-                            <div className="mt-4 space-y-3">
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium" htmlFor={`rental-status-${rental.id}`}>
-                                  ステータス
-                                </label>
-                                <select
-                                  id={`rental-status-${rental.id}`}
-                                  value={editForm.status}
-                                  onChange={(event) =>
-                                    setEditForm((current) => ({ ...current, status: event.target.value }))
-                                  }
-                                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm md:max-w-xs"
-                                >
-                                  {rentalStatuses.map((status) => (
-                                    <option key={status} value={status}>
-                                      {status}
-                                    </option>
-                                  ))}
-                                </select>
+                            <div className="mt-4 space-y-4">
+                              <div className="grid gap-4 md:grid-cols-3">
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium" htmlFor={`rental-status-${rental.id}`}>
+                                    ステータス
+                                  </label>
+                                  <select
+                                    id={`rental-status-${rental.id}`}
+                                    value={editForm.status}
+                                    onChange={(event) =>
+                                      setEditForm((current) => ({ ...current, status: event.target.value }))
+                                    }
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                  >
+                                    {rentalStatuses.map((status) => (
+                                      <option key={status} value={status}>
+                                        {status}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium" htmlFor={`rental-started-at-${rental.id}`}>
+                                    レンタル開始日
+                                  </label>
+                                  <input
+                                    id={`rental-started-at-${rental.id}`}
+                                    type="date"
+                                    value={editForm.rentalStartedAt}
+                                    onChange={(event) =>
+                                      setEditForm((current) => ({
+                                        ...current,
+                                        rentalStartedAt: event.target.value,
+                                      }))
+                                    }
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium" htmlFor={`rental-returned-at-${rental.id}`}>
+                                    返却日
+                                  </label>
+                                  <input
+                                    id={`rental-returned-at-${rental.id}`}
+                                    type="date"
+                                    value={editForm.rentalReturnedAt}
+                                    onChange={(event) =>
+                                      setEditForm((current) => ({
+                                        ...current,
+                                        rentalReturnedAt: event.target.value,
+                                      }))
+                                    }
+                                    disabled={editForm.status !== 'レンタル終了'}
+                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                  />
+                                  {editForm.status !== 'レンタル終了' && (
+                                    <p className="text-xs text-muted-foreground">
+                                      返却日はステータスが「レンタル終了」のときだけ保存されます。
+                                    </p>
+                                  )}
+                                </div>
                               </div>
 
                               <div className="space-y-2">
