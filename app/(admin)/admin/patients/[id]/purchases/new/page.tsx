@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { ChevronLeft, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,11 +76,58 @@ type PurchaseChoice = {
   price: number | null;
 };
 
+type PurchaseProduct = {
+  id: string;
+  name: string;
+  category: string;
+  description: string | null;
+  price: number | null;
+  product_url: string | null;
+};
+
+type PurchaseProgram = {
+  id: string;
+  summary: string | null;
+  created_at: string;
+};
+
+type PurchaseRecommendation = {
+  id: string;
+  product_id: string | null;
+  program_id: string | null;
+  reason: string | null;
+  status: string;
+};
+
+type PurchaseHistory = {
+  id: string;
+  patientId: string;
+  productId: string | null;
+  recommendationId: string | null;
+  programId: string | null;
+  purchasedAt: string;
+  quantity: number;
+  unitPrice: number | null;
+  totalPrice: number | null;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+  product: PurchaseProduct | null;
+  program: PurchaseProgram | null;
+  recommendation: PurchaseRecommendation | null;
+};
+
+type PatientPurchasesResponse = {
+  purchases?: PurchaseHistory[];
+  error?: string;
+  detail?: unknown;
+};
+
 type CreatePurchaseResponse = {
   purchase?: {
     id: string;
   };
-  purchases?: unknown[];
+  purchases?: PurchaseHistory[];
   error?: string;
   detail?: unknown;
 };
@@ -92,6 +139,15 @@ type PurchaseFormData = {
   unitPrice: string;
   totalPrice: string;
   note: string;
+};
+
+const purchaseHistoryPageSize = 5;
+
+const categoryLabels: Record<string, string> = {
+  physical_sleep: '物理療法（睡眠）',
+  nutrition: '栄養療法',
+  exercise: '運動療法',
+  skincare: 'スキンケア',
 };
 
 function getTodayDateString() {
@@ -111,6 +167,36 @@ function toNumberOrNull(value: string) {
   }
 
   return Number(value);
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) {
+    return '未設定';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString('ja-JP');
+}
+
+function formatPrice(value: number | null | undefined) {
+  if (typeof value !== 'number') {
+    return '金額未設定';
+  }
+
+  return `${value.toLocaleString('ja-JP')}円`;
+}
+
+function formatCategory(value: string | null | undefined) {
+  if (!value) {
+    return 'カテゴリ未設定';
+  }
+
+  return categoryLabels[value] ?? value;
 }
 
 function shouldShowRecommendation(item: PatientProductRecommendation) {
@@ -147,14 +233,23 @@ function buildProductChoice(product: ProductMaster): PurchaseChoice {
   };
 }
 
+function getPurchaseProductName(purchase: PurchaseHistory) {
+  return purchase.product?.name ?? '商品名未設定';
+}
+
+function getPurchaseCategory(purchase: PurchaseHistory) {
+  return formatCategory(purchase.product?.category);
+}
+
 export default function AdminPatientPurchaseNewPage() {
   const params = useParams();
-  const router = useRouter();
   const patientId = typeof params.id === 'string' ? params.id : '';
 
   const [patient, setPatient] = useState<PatientDetail | null>(null);
   const [recommendations, setRecommendations] = useState<PatientProductRecommendation[]>([]);
   const [products, setProducts] = useState<ProductMaster[]>([]);
+  const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistory[]>([]);
+  const [purchaseHistoryPage, setPurchaseHistoryPage] = useState(1);
   const [formData, setFormData] = useState<PurchaseFormData>({
     purchaseChoice: '',
     purchasedAt: getTodayDateString(),
@@ -188,6 +283,22 @@ export default function AdminPatientPurchaseNewPage() {
     [allChoices, formData.purchaseChoice]
   );
 
+  const purchaseHistoryTotalPages = Math.max(
+    1,
+    Math.ceil(purchaseHistory.length / purchaseHistoryPageSize)
+  );
+
+  const currentPurchaseHistory = useMemo(() => {
+    const start = (purchaseHistoryPage - 1) * purchaseHistoryPageSize;
+    return purchaseHistory.slice(start, start + purchaseHistoryPageSize);
+  }, [purchaseHistory, purchaseHistoryPage]);
+
+  useEffect(() => {
+    if (purchaseHistoryPage > purchaseHistoryTotalPages) {
+      setPurchaseHistoryPage(purchaseHistoryTotalPages);
+    }
+  }, [purchaseHistoryPage, purchaseHistoryTotalPages]);
+
   useEffect(() => {
     const fetchInitialData = async () => {
       if (!patientId) {
@@ -200,16 +311,18 @@ export default function AdminPatientPurchaseNewPage() {
         setIsLoading(true);
         setErrorMessage(null);
 
-        const [patientResponse, recommendationsResponse, productsResponse] = await Promise.all([
+        const [patientResponse, recommendationsResponse, productsResponse, purchasesResponse] = await Promise.all([
           fetch(`/api/admin/patients/${patientId}`),
           fetch(`/api/admin/patients/${patientId}/recommendations`),
           fetch('/api/admin/products'),
+          fetch(`/api/admin/patients/${patientId}/purchases`),
         ]);
 
         const patientData = (await patientResponse.json()) as PatientDetailResponse;
         const recommendationsData =
           (await recommendationsResponse.json()) as PatientRecommendationsResponse;
         const productsData = (await productsResponse.json()) as ProductsResponse;
+        const purchasesData = (await purchasesResponse.json()) as PatientPurchasesResponse;
 
         if (!patientResponse.ok || !patientData.patient) {
           setErrorMessage(
@@ -236,6 +349,13 @@ export default function AdminPatientPurchaseNewPage() {
           return;
         }
 
+        if (!purchasesResponse.ok || !purchasesData.purchases) {
+          setErrorMessage(
+            buildApiErrorMessage('購入履歴を取得できませんでした', purchasesResponse.status, purchasesData)
+          );
+          return;
+        }
+
         const nextRecommendations = recommendationsData.recommendations;
         const nextProducts = productsData.products;
         const nextRecommendationChoices = nextRecommendations
@@ -249,16 +369,29 @@ export default function AdminPatientPurchaseNewPage() {
         setPatient(patientData.patient);
         setRecommendations(nextRecommendations);
         setProducts(nextProducts);
+        setPurchaseHistory(purchasesData.purchases);
+        setPurchaseHistoryPage(1);
 
         if (firstChoice) {
-          setFormData((current) => ({
-            ...current,
-            purchaseChoice: firstChoice.value,
-            unitPrice:
+          setFormData((current) => {
+            const nextUnitPrice =
               current.unitPrice || typeof firstChoice.price === 'number'
                 ? String(firstChoice.price ?? '')
-                : current.unitPrice,
-          }));
+                : current.unitPrice;
+
+            const quantity = Number(current.quantity);
+            const nextTotalPrice =
+              nextUnitPrice && Number.isInteger(quantity) && quantity > 0
+                ? String(quantity * Number(nextUnitPrice))
+                : current.totalPrice;
+
+            return {
+              ...current,
+              purchaseChoice: firstChoice.value,
+              unitPrice: nextUnitPrice,
+              totalPrice: nextTotalPrice,
+            };
+          });
         }
       } catch (error) {
         console.error(error);
@@ -307,7 +440,10 @@ export default function AdminPatientPurchaseNewPage() {
         return {
           ...nextData,
           unitPrice: String(nextChoice.price),
-          totalPrice: Number.isInteger(quantity) && quantity > 0 ? String(quantity * nextChoice.price) : current.totalPrice,
+          totalPrice:
+            Number.isInteger(quantity) && quantity > 0
+              ? String(quantity * nextChoice.price)
+              : current.totalPrice,
         };
       }
 
@@ -368,10 +504,19 @@ export default function AdminPatientPurchaseNewPage() {
         return;
       }
 
-      setSuccessMessage('購入記録を追加しました。患者側の購入履歴に表示されます。');
-      window.setTimeout(() => {
-        router.push(`/admin/patients/${patientId}`);
-      }, 600);
+      if (data.purchases) {
+        setPurchaseHistory(data.purchases);
+        setPurchaseHistoryPage(1);
+      }
+
+      setFormData((current) => ({
+        ...current,
+        purchasedAt: getTodayDateString(),
+        quantity: '1',
+        totalPrice: '',
+        note: '',
+      }));
+      setSuccessMessage('購入記録を追加しました。下の購入履歴に反映されています。');
     } catch (error) {
       console.error(error);
       setErrorMessage(`購入記録の追加中にエラーが発生しました。${String(error)}`);
@@ -405,135 +550,214 @@ export default function AdminPatientPurchaseNewPage() {
           読み込み中です...
         </div>
       ) : (
-        <SectionCard title="購入内容">
-          {allChoices.length === 0 ? (
-            <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-              購入対象の商品がありません。先に商品マスタを登録してください。
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="purchase-choice">購入対象の商品</Label>
-                <select
-                  id="purchase-choice"
-                  value={formData.purchaseChoice}
-                  onChange={(event) => handlePurchaseChoiceChange(event.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  required
-                >
-                  {recommendationChoices.length > 0 && (
-                    <optgroup label="商品提案から選ぶ">
-                      {recommendationChoices.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.productName} / {item.category} / {item.status}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {productChoices.length > 0 && (
-                    <optgroup label="商品マスタから選ぶ">
-                      {productChoices.map((item) => (
-                        <option key={item.value} value={item.value}>
-                          {item.productName} / {item.category}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-                {selectedChoice && (
-                  <p className="text-xs text-muted-foreground">
-                    {selectedChoice.source === 'recommendation' ? '商品提案' : '商品マスタ'}から登録：
-                    {selectedChoice.reason || '説明・提案理由は未入力'}
-                  </p>
-                )}
+        <div className="space-y-6">
+          <SectionCard title="購入内容">
+            {allChoices.length === 0 ? (
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                購入対象の商品がありません。先に商品マスタを登録してください。
               </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="purchased-at">購入日</Label>
-                  <Input
-                    id="purchased-at"
-                    type="date"
-                    value={formData.purchasedAt}
-                    onChange={(event) =>
-                      setFormData({ ...formData, purchasedAt: event.target.value })
-                    }
+                  <Label htmlFor="purchase-choice">購入対象の商品</Label>
+                  <select
+                    id="purchase-choice"
+                    value={formData.purchaseChoice}
+                    onChange={(event) => handlePurchaseChoiceChange(event.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     required
-                  />
+                  >
+                    {recommendationChoices.length > 0 && (
+                      <optgroup label="商品提案から選ぶ">
+                        {recommendationChoices.map((item) => (
+                          <option key={item.value} value={item.value}>
+                            {item.productName} / {item.category} / {item.status}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {productChoices.length > 0 && (
+                      <optgroup label="商品マスタから選ぶ">
+                        {productChoices.map((item) => (
+                          <option key={item.value} value={item.value}>
+                            {item.productName} / {item.category}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                  {selectedChoice && (
+                    <p className="text-xs text-muted-foreground">
+                      {selectedChoice.source === 'recommendation' ? '商品提案' : '商品マスタ'}から登録：
+                      {selectedChoice.reason || '説明・提案理由は未入力'}
+                    </p>
+                  )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="quantity">数量</Label>
-                  <Input
-                    id="quantity"
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={formData.quantity}
-                    onChange={(event) =>
-                      handleQuantityOrUnitPriceChange({ quantity: event.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="unit-price">単価</Label>
-                  <Input
-                    id="unit-price"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={formData.unitPrice}
-                    onChange={(event) =>
-                      handleQuantityOrUnitPriceChange({ unitPrice: event.target.value })
-                    }
-                    placeholder="例：2500"
-                  />
-                </div>
-              </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="purchased-at">購入日</Label>
+                    <Input
+                      id="purchased-at"
+                      type="date"
+                      value={formData.purchasedAt}
+                      onChange={(event) =>
+                        setFormData({ ...formData, purchasedAt: event.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="quantity">数量</Label>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={formData.quantity}
+                      onChange={(event) =>
+                        handleQuantityOrUnitPriceChange({ quantity: event.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="unit-price">単価</Label>
+                    <Input
+                      id="unit-price"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={formData.unitPrice}
+                      onChange={(event) =>
+                        handleQuantityOrUnitPriceChange({ unitPrice: event.target.value })
+                      }
+                      placeholder="例：2500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="total-price">合計金額</Label>
+                    <Input
+                      id="total-price"
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={formData.totalPrice}
+                      onChange={(event) =>
+                        setFormData({ ...formData, totalPrice: event.target.value })
+                      }
+                      placeholder="自動計算、または手入力"
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="total-price">合計金額</Label>
-                  <Input
-                    id="total-price"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={formData.totalPrice}
-                    onChange={(event) =>
-                      setFormData({ ...formData, totalPrice: event.target.value })
-                    }
-                    placeholder="自動計算、または手入力"
+                  <Label htmlFor="note">メモ</Label>
+                  <textarea
+                    id="note"
+                    className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={formData.note}
+                    onChange={(event) => setFormData({ ...formData, note: event.target.value })}
+                    placeholder="例：1ヶ月分購入、次回来院時に継続確認"
                   />
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="note">メモ</Label>
-                <textarea
-                  id="note"
-                  className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={formData.note}
-                  onChange={(event) => setFormData({ ...formData, note: event.target.value })}
-                  placeholder="例：1ヶ月分購入、次回来院時に継続確認"
-                />
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <Button type="submit" disabled={isSaving}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  {isSaving ? '追加中...' : '購入記録を追加'}
-                </Button>
-                <Link href={`/admin/patients/${patientId}`}>
-                  <Button type="button" variant="outline" disabled={isSaving}>
-                    <ChevronLeft className="mr-2 h-4 w-4" />
-                    患者詳細へ戻る
+                <div className="flex flex-wrap gap-3">
+                  <Button type="submit" disabled={isSaving}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    {isSaving ? '追加中...' : '購入記録を追加'}
                   </Button>
-                </Link>
+                  <Link href={`/admin/patients/${patientId}`}>
+                    <Button type="button" variant="outline" disabled={isSaving}>
+                      <ChevronLeft className="mr-2 h-4 w-4" />
+                      患者詳細へ戻る
+                    </Button>
+                  </Link>
+                </div>
+              </form>
+            )}
+          </SectionCard>
+
+          <SectionCard
+            title="購入履歴"
+            description={`登録済みの購入履歴：${purchaseHistory.length}件`}
+          >
+            {purchaseHistory.length === 0 ? (
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                購入履歴はまだありません。
               </div>
-            </form>
-          )}
-        </SectionCard>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  {currentPurchaseHistory.map((purchase) => (
+                    <div key={purchase.id} className="rounded-lg border p-4">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium">{getPurchaseProductName(purchase)}</p>
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                              {getPurchaseCategory(purchase)}
+                            </span>
+                            <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-xs text-white">
+                              購入済み
+                            </span>
+                          </div>
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            購入日: {formatDate(purchase.purchasedAt)} / 数量: {purchase.quantity}
+                          </p>
+                          {purchase.note && (
+                            <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                              {purchase.note}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-left text-sm md:text-right">
+                          <p className="font-medium">{formatPrice(purchase.totalPrice)}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            単価: {formatPrice(purchase.unitPrice)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-col gap-3 border-t pt-4 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+                  <p>
+                    {purchaseHistoryPage} / {purchaseHistoryTotalPages} ページ
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={purchaseHistoryPage <= 1}
+                      onClick={() => setPurchaseHistoryPage((current) => Math.max(1, current - 1))}
+                    >
+                      前へ
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={purchaseHistoryPage >= purchaseHistoryTotalPages}
+                      onClick={() =>
+                        setPurchaseHistoryPage((current) =>
+                          Math.min(purchaseHistoryTotalPages, current + 1)
+                        )
+                      }
+                    >
+                      次へ
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </SectionCard>
+        </div>
       )}
     </div>
   );
