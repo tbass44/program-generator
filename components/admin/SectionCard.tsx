@@ -241,7 +241,7 @@ export function SectionCard({
                 {actions}
                 {purchaseInfo && (
                   <Link href={purchaseInfo.createHref}>
-                    <Button size="sm">購入記録を追加</Button>
+                    <Button size="sm">購入記録を追加・編集</Button>
                   </Link>
                 )}
               </div>
