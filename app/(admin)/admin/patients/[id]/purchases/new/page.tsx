@@ -42,6 +42,40 @@ type PatientRecommendationsResponse = {
   detail?: unknown;
 };
 
+type ProductMaster = {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  concerns: string;
+  reasonTemplate: string;
+  price: number;
+  inventoryCount: number;
+  url: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type ProductsResponse = {
+  products?: ProductMaster[];
+  error?: string;
+  detail?: unknown;
+};
+
+type PurchaseChoice = {
+  value: string;
+  source: 'recommendation' | 'product';
+  id: string;
+  productId: string | null;
+  recommendationId: string | null;
+  productName: string;
+  category: string;
+  status: string;
+  reason: string;
+  price: number | null;
+};
+
 type CreatePurchaseResponse = {
   purchase?: {
     id: string;
@@ -52,15 +86,13 @@ type CreatePurchaseResponse = {
 };
 
 type PurchaseFormData = {
-  recommendationId: string;
+  purchaseChoice: string;
   purchasedAt: string;
   quantity: string;
   unitPrice: string;
   totalPrice: string;
   note: string;
 };
-
-const purchasableStatuses = ['購入希望', '提案中'];
 
 function getTodayDateString() {
   return new Date().toISOString().slice(0, 10);
@@ -81,6 +113,40 @@ function toNumberOrNull(value: string) {
   return Number(value);
 }
 
+function shouldShowRecommendation(item: PatientProductRecommendation) {
+  return item.status === '購入希望' || item.status === '提案中';
+}
+
+function buildRecommendationChoice(item: PatientProductRecommendation): PurchaseChoice {
+  return {
+    value: `recommendation:${item.id}`,
+    source: 'recommendation',
+    id: item.id,
+    productId: item.productId,
+    recommendationId: item.id,
+    productName: item.productName,
+    category: item.category,
+    status: item.status,
+    reason: item.reason,
+    price: null,
+  };
+}
+
+function buildProductChoice(product: ProductMaster): PurchaseChoice {
+  return {
+    value: `product:${product.id}`,
+    source: 'product',
+    id: product.id,
+    productId: product.id,
+    recommendationId: null,
+    productName: product.name,
+    category: product.category,
+    status: product.status,
+    reason: product.description || product.reasonTemplate,
+    price: product.price,
+  };
+}
+
 export default function AdminPatientPurchaseNewPage() {
   const params = useParams();
   const router = useRouter();
@@ -88,8 +154,9 @@ export default function AdminPatientPurchaseNewPage() {
 
   const [patient, setPatient] = useState<PatientDetail | null>(null);
   const [recommendations, setRecommendations] = useState<PatientProductRecommendation[]>([]);
+  const [products, setProducts] = useState<ProductMaster[]>([]);
   const [formData, setFormData] = useState<PurchaseFormData>({
-    recommendationId: '',
+    purchaseChoice: '',
     purchasedAt: getTodayDateString(),
     quantity: '1',
     unitPrice: '',
@@ -101,14 +168,24 @@ export default function AdminPatientPurchaseNewPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const purchasableRecommendations = useMemo(
-    () => recommendations.filter((item) => purchasableStatuses.includes(item.status)),
+  const recommendationChoices = useMemo(
+    () => recommendations.filter(shouldShowRecommendation).map(buildRecommendationChoice),
     [recommendations]
   );
 
-  const selectedRecommendation = useMemo(
-    () => recommendations.find((item) => item.id === formData.recommendationId) ?? null,
-    [formData.recommendationId, recommendations]
+  const productChoices = useMemo(
+    () => products.filter((item) => item.status === '有効').map(buildProductChoice),
+    [products]
+  );
+
+  const allChoices = useMemo(
+    () => [...recommendationChoices, ...productChoices],
+    [recommendationChoices, productChoices]
+  );
+
+  const selectedChoice = useMemo(
+    () => allChoices.find((item) => item.value === formData.purchaseChoice) ?? null,
+    [allChoices, formData.purchaseChoice]
   );
 
   useEffect(() => {
@@ -123,14 +200,16 @@ export default function AdminPatientPurchaseNewPage() {
         setIsLoading(true);
         setErrorMessage(null);
 
-        const [patientResponse, recommendationsResponse] = await Promise.all([
+        const [patientResponse, recommendationsResponse, productsResponse] = await Promise.all([
           fetch(`/api/admin/patients/${patientId}`),
           fetch(`/api/admin/patients/${patientId}/recommendations`),
+          fetch('/api/admin/products'),
         ]);
 
         const patientData = (await patientResponse.json()) as PatientDetailResponse;
         const recommendationsData =
           (await recommendationsResponse.json()) as PatientRecommendationsResponse;
+        const productsData = (await productsResponse.json()) as ProductsResponse;
 
         if (!patientResponse.ok || !patientData.patient) {
           setErrorMessage(
@@ -150,17 +229,35 @@ export default function AdminPatientPurchaseNewPage() {
           return;
         }
 
+        if (!productsResponse.ok || !productsData.products) {
+          setErrorMessage(
+            buildApiErrorMessage('商品マスタを取得できませんでした', productsResponse.status, productsData)
+          );
+          return;
+        }
+
+        const nextRecommendations = recommendationsData.recommendations;
+        const nextProducts = productsData.products;
+        const nextRecommendationChoices = nextRecommendations
+          .filter(shouldShowRecommendation)
+          .map(buildRecommendationChoice);
+        const nextProductChoices = nextProducts
+          .filter((item) => item.status === '有効')
+          .map(buildProductChoice);
+        const firstChoice = nextRecommendationChoices[0] ?? nextProductChoices[0] ?? null;
+
         setPatient(patientData.patient);
-        setRecommendations(recommendationsData.recommendations);
+        setRecommendations(nextRecommendations);
+        setProducts(nextProducts);
 
-        const firstPurchaseCandidate = recommendationsData.recommendations.find((item) =>
-          purchasableStatuses.includes(item.status)
-        );
-
-        if (firstPurchaseCandidate) {
+        if (firstChoice) {
           setFormData((current) => ({
             ...current,
-            recommendationId: firstPurchaseCandidate.id,
+            purchaseChoice: firstChoice.value,
+            unitPrice:
+              current.unitPrice || typeof firstChoice.price === 'number'
+                ? String(firstChoice.price ?? '')
+                : current.unitPrice,
           }));
         }
       } catch (error) {
@@ -196,6 +293,28 @@ export default function AdminPatientPurchaseNewPage() {
     });
   };
 
+  const handlePurchaseChoiceChange = (value: string) => {
+    const nextChoice = allChoices.find((item) => item.value === value) ?? null;
+
+    setFormData((current) => {
+      const nextData = {
+        ...current,
+        purchaseChoice: value,
+      };
+
+      if (nextChoice?.source === 'product' && typeof nextChoice.price === 'number') {
+        const quantity = Number(current.quantity);
+        return {
+          ...nextData,
+          unitPrice: String(nextChoice.price),
+          totalPrice: Number.isInteger(quantity) && quantity > 0 ? String(quantity * nextChoice.price) : current.totalPrice,
+        };
+      }
+
+      return nextData;
+    });
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -204,8 +323,8 @@ export default function AdminPatientPurchaseNewPage() {
       return;
     }
 
-    if (!formData.recommendationId) {
-      setErrorMessage('購入対象の商品提案を選択してください。');
+    if (!selectedChoice) {
+      setErrorMessage('購入対象の商品を選択してください。');
       return;
     }
 
@@ -232,7 +351,8 @@ export default function AdminPatientPurchaseNewPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          recommendationId: formData.recommendationId,
+          recommendationId: selectedChoice.recommendationId,
+          productId: selectedChoice.productId,
           purchasedAt: formData.purchasedAt,
           quantity,
           unitPrice: toNumberOrNull(formData.unitPrice),
@@ -286,32 +406,44 @@ export default function AdminPatientPurchaseNewPage() {
         </div>
       ) : (
         <SectionCard title="購入内容">
-          {purchasableRecommendations.length === 0 ? (
+          {allChoices.length === 0 ? (
             <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-              購入記録にできる商品提案がありません。先に商品提案を作成してください。
+              購入対象の商品がありません。先に商品マスタを登録してください。
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="recommendation">購入対象の商品提案</Label>
+                <Label htmlFor="purchase-choice">購入対象の商品</Label>
                 <select
-                  id="recommendation"
-                  value={formData.recommendationId}
-                  onChange={(event) =>
-                    setFormData({ ...formData, recommendationId: event.target.value })
-                  }
+                  id="purchase-choice"
+                  value={formData.purchaseChoice}
+                  onChange={(event) => handlePurchaseChoiceChange(event.target.value)}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   required
                 >
-                  {purchasableRecommendations.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.productName} / {item.category} / {item.status}
-                    </option>
-                  ))}
+                  {recommendationChoices.length > 0 && (
+                    <optgroup label="商品提案から選ぶ">
+                      {recommendationChoices.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.productName} / {item.category} / {item.status}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {productChoices.length > 0 && (
+                    <optgroup label="商品マスタから選ぶ">
+                      {productChoices.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.productName} / {item.category}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
-                {selectedRecommendation && (
+                {selectedChoice && (
                   <p className="text-xs text-muted-foreground">
-                    提案理由: {selectedRecommendation.reason || '未入力'}
+                    {selectedChoice.source === 'recommendation' ? '商品提案' : '商品マスタ'}から登録：
+                    {selectedChoice.reason || '説明・提案理由は未入力'}
                   </p>
                 )}
               </div>
