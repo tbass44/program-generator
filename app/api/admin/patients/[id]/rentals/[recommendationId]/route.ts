@@ -16,12 +16,16 @@ type RentalRow = {
   patient_id: string;
   status: RentalStatusDb;
   reason: string | null;
+  rental_started_at: string | null;
+  rental_returned_at: string | null;
   updated_at: string;
 };
 
 type UpdateRentalBody = {
   status?: unknown;
   reason?: unknown;
+  rentalStartedAt?: unknown;
+  rentalReturnedAt?: unknown;
 };
 
 function getRequiredEnv(key: string): string {
@@ -139,6 +143,26 @@ function normalizeOptionalText(value: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
+function normalizeDateInput(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const date = new Date(`${trimmed}T00:00:00.000Z`);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toISOString();
+}
+
 function validateIds(patientId: string, recommendationId: string, request: Request, paramId: string) {
   if (!patientId || !isUuid(patientId)) {
     return {
@@ -175,7 +199,7 @@ async function confirmRental(
 ) {
   const { data: rental, error: rentalError } = await supabaseAdmin
     .from('patient_product_recommendations')
-    .select('id, patient_id, status, reason, updated_at')
+    .select('id, patient_id, status, reason, rental_started_at, rental_returned_at, updated_at')
     .eq('id', recommendationId)
     .eq('patient_id', patientId)
     .in('status', ['rental_requested', 'renting', 'rental_returned'])
@@ -240,16 +264,21 @@ export async function PATCH(
     }
 
     const now = new Date().toISOString();
+    const rentalStartedAt = normalizeDateInput(body.rentalStartedAt) ?? rental.rental_started_at ?? rental.updated_at;
+    const rentalReturnedAt = status === 'rental_returned' ? normalizeDateInput(body.rentalReturnedAt) ?? now : null;
+
     const { data: updatedRental, error: updateError } = await adminResult.supabaseAdmin
       .from('patient_product_recommendations')
       .update({
         status,
         reason: normalizeOptionalText(body.reason),
+        rental_started_at: rentalStartedAt,
+        rental_returned_at: rentalReturnedAt,
         updated_at: now,
       })
       .eq('id', recommendationId)
       .eq('patient_id', patientId)
-      .select('id, patient_id, status, reason, updated_at')
+      .select('id, patient_id, status, reason, rental_started_at, rental_returned_at, updated_at')
       .single<RentalRow>();
 
     if (updateError) {
@@ -265,6 +294,8 @@ export async function PATCH(
         patientId: updatedRental.patient_id,
         status: toLabelStatus(updatedRental.status),
         reason: updatedRental.reason ?? '',
+        rentalStartedAt: updatedRental.rental_started_at,
+        rentalReturnedAt: updatedRental.rental_returned_at,
         updatedAt: updatedRental.updated_at,
       },
     });
