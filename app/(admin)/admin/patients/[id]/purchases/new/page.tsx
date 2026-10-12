@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ChevronLeft, Plus } from 'lucide-react';
+import { ChevronLeft, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -128,6 +128,13 @@ type CreatePurchaseResponse = {
     id: string;
   };
   purchases?: PurchaseHistory[];
+  error?: string;
+  detail?: unknown;
+};
+
+type DeletePurchaseResponse = {
+  deleted?: boolean;
+  id?: string;
   error?: string;
   detail?: unknown;
 };
@@ -260,6 +267,7 @@ export default function AdminPatientPurchaseNewPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [deletingPurchaseId, setDeletingPurchaseId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -525,6 +533,46 @@ export default function AdminPatientPurchaseNewPage() {
     }
   };
 
+  const handleDeletePurchase = async (purchase: PurchaseHistory) => {
+    if (!patientId) {
+      setErrorMessage('患者IDを取得できませんでした。');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `購入履歴「${getPurchaseProductName(purchase)}」を削除します。\nこの操作は元に戻せません。削除してもよろしいですか？`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingPurchaseId(purchase.id);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      const response = await fetch(`/api/admin/patients/${patientId}/purchases/${purchase.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = (await response.json()) as DeletePurchaseResponse;
+
+      if (!response.ok || !data.deleted) {
+        setErrorMessage(buildApiErrorMessage('購入履歴を削除できませんでした', response.status, data));
+        return;
+      }
+
+      setPurchaseHistory((current) => current.filter((item) => item.id !== purchase.id));
+      setSuccessMessage('購入履歴を削除しました。');
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(`購入履歴の削除中にエラーが発生しました。${String(error)}`);
+    } finally {
+      setDeletingPurchaseId(null);
+    }
+  };
+
   return (
     <div>
       <PageHeader
@@ -714,11 +762,23 @@ export default function AdminPatientPurchaseNewPage() {
                             </p>
                           )}
                         </div>
-                        <div className="text-left text-sm md:text-right">
-                          <p className="font-medium">{formatPrice(purchase.totalPrice)}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            単価: {formatPrice(purchase.unitPrice)}
-                          </p>
+                        <div className="flex flex-col gap-2 text-left text-sm md:items-end md:text-right">
+                          <div>
+                            <p className="font-medium">{formatPrice(purchase.totalPrice)}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              単価: {formatPrice(purchase.unitPrice)}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={deletingPurchaseId === purchase.id}
+                            onClick={() => handleDeletePurchase(purchase)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            {deletingPurchaseId === purchase.id ? '削除中...' : '削除'}
+                          </Button>
                         </div>
                       </div>
                     </div>
