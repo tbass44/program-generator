@@ -27,6 +27,8 @@ type RentalRecommendationRow = {
   category: ProductCategoryDb;
   reason: string | null;
   status: RentalStatusDb;
+  rental_started_at: string | null;
+  rental_returned_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -173,7 +175,8 @@ function formatRental(
     status: toLabelStatus(row.status),
     programSummary: program?.summary ?? program?.memo ?? '',
     programCreatedAt: program?.created_at ?? null,
-    rentalStartedAt: row.created_at,
+    rentalStartedAt: row.rental_started_at ?? row.created_at,
+    rentalReturnedAt: row.rental_returned_at,
     rentalUpdatedAt: row.updated_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -230,9 +233,10 @@ export async function GET(
 
     const { data: rentals, error: rentalsError } = await adminResult.supabaseAdmin
       .from('patient_product_recommendations')
-      .select('id, patient_id, program_id, product_id, category, reason, status, created_at, updated_at')
+      .select('id, patient_id, program_id, product_id, category, reason, status, rental_started_at, rental_returned_at, created_at, updated_at')
       .eq('patient_id', patientId)
       .in('status', rentalStatuses)
+      .order('rental_started_at', { ascending: false, nullsFirst: false })
       .order('updated_at', { ascending: false })
       .returns<RentalRecommendationRow[]>();
 
