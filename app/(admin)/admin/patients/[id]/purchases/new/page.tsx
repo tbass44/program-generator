@@ -60,6 +60,8 @@ type PurchaseFormData = {
   note: string;
 };
 
+const purchasableStatuses = ['購入希望', '提案中'];
+
 function getTodayDateString() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -99,8 +101,8 @@ export default function AdminPatientPurchaseNewPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const purchaseRecommendations = useMemo(
-    () => recommendations.filter((item) => item.status === '購入希望'),
+  const purchasableRecommendations = useMemo(
+    () => recommendations.filter((item) => purchasableStatuses.includes(item.status)),
     [recommendations]
   );
 
@@ -151,14 +153,14 @@ export default function AdminPatientPurchaseNewPage() {
         setPatient(patientData.patient);
         setRecommendations(recommendationsData.recommendations);
 
-        const firstPurchaseRequest = recommendationsData.recommendations.find(
-          (item) => item.status === '購入希望'
+        const firstPurchaseCandidate = recommendationsData.recommendations.find((item) =>
+          purchasableStatuses.includes(item.status)
         );
 
-        if (firstPurchaseRequest) {
+        if (firstPurchaseCandidate) {
           setFormData((current) => ({
             ...current,
-            recommendationId: firstPurchaseRequest.id,
+            recommendationId: firstPurchaseCandidate.id,
           }));
         }
       } catch (error) {
@@ -284,9 +286,9 @@ export default function AdminPatientPurchaseNewPage() {
         </div>
       ) : (
         <SectionCard title="購入内容">
-          {purchaseRecommendations.length === 0 ? (
+          {purchasableRecommendations.length === 0 ? (
             <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-              購入希望の商品提案がありません。先に商品提案を「購入希望」にしてください。
+              購入記録にできる商品提案がありません。先に商品提案を作成してください。
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -301,9 +303,9 @@ export default function AdminPatientPurchaseNewPage() {
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   required
                 >
-                  {purchaseRecommendations.map((item) => (
+                  {purchasableRecommendations.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.productName} / {item.category}
+                      {item.productName} / {item.category} / {item.status}
                     </option>
                   ))}
                 </select>
