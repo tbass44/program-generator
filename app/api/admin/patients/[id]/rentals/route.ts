@@ -58,7 +58,23 @@ function getRequiredEnv(key: string): string {
 }
 
 function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function getPatientIdFromRequest(request: Request, paramId: string) {
+  if (paramId && isUuid(paramId)) {
+    return paramId;
+  }
+
+  const pathname = new URL(request.url).pathname;
+  const pathMatch = pathname.match(/\/api\/admin\/patients\/([0-9a-f-]{36})\/rentals/i);
+  const pathValue = pathMatch?.[1] ?? '';
+
+  if (pathValue && isUuid(pathValue)) {
+    return pathValue;
+  }
+
+  return '';
 }
 
 function createSupabaseAdminClient() {
@@ -165,7 +181,7 @@ function formatRental(
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -181,11 +197,16 @@ export async function GET(
       );
     }
 
-    const patientId = params.id;
+    const patientId = getPatientIdFromRequest(request, params.id);
 
     if (!patientId || !isUuid(patientId)) {
       return NextResponse.json(
-        { error: 'Invalid patient id format', detail: 'patient id must be UUID' },
+        {
+          error: 'Invalid patient id format',
+          detail: 'patient id must be UUID',
+          receivedId: params.id,
+          pathname: new URL(request.url).pathname,
+        },
         { status: 400 }
       );
     }
