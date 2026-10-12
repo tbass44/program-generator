@@ -46,7 +46,12 @@ const categoryLabels: Record<string, string> = {
 const patientDetailCollapsibleTitles = new Set([
   '購入希望・購入関連の商品',
   'レンタル中の商品',
+  'レンタル履歴',
   '通院履歴',
+  'プラン一覧',
+  '商品提案履歴',
+  '回数券使用履歴',
+  '購入履歴',
 ]);
 
 function isPatientDetailPage(pathname: string) {
