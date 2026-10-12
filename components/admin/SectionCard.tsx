@@ -43,6 +43,24 @@ const categoryLabels: Record<string, string> = {
   skincare: 'スキンケア',
 };
 
+const patientDetailCollapsibleTitles = new Set([
+  '購入希望・購入関連の商品',
+  'レンタル中の商品',
+  '通院履歴',
+]);
+
+function isPatientDetailPage(pathname: string) {
+  return /^\/admin\/patients\/[^/]+$/.test(pathname);
+}
+
+function shouldUsePatientDetailToggle(pathname: string, title?: string) {
+  if (!title || !isPatientDetailPage(pathname)) {
+    return false;
+  }
+
+  return patientDetailCollapsibleTitles.has(title);
+}
+
 function getPatientPurchaseInfo(pathname: string, title?: string) {
   if (title !== '購入希望・購入関連の商品') {
     return null;
@@ -190,6 +208,19 @@ export function SectionCard({
 }: SectionCardProps) {
   const pathname = usePathname();
   const purchaseInfo = getPatientPurchaseInfo(pathname, title);
+  const shouldShowMoreToggle = shouldUsePatientDetailToggle(pathname, title);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  useEffect(() => {
+    setIsExpanded(false);
+  }, [pathname, title]);
+
+  const content = (
+    <>
+      {children}
+      {purchaseInfo && <PatientPurchaseHistoryInline patientId={purchaseInfo.patientId} />}
+    </>
+  );
 
   return (
     <Card className={className}>
@@ -214,8 +245,28 @@ export function SectionCard({
         </CardHeader>
       )}
       <CardContent className={title || actions || purchaseInfo ? 'pt-0' : ''}>
-        {children}
-        {purchaseInfo && <PatientPurchaseHistoryInline patientId={purchaseInfo.patientId} />}
+        {shouldShowMoreToggle ? (
+          <div>
+            <div className={isExpanded ? '' : 'relative max-h-[520px] overflow-hidden'}>
+              {content}
+              {!isExpanded && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-background to-transparent" />
+              )}
+            </div>
+            <div className="mt-4 flex justify-center border-t pt-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsExpanded((current) => !current)}
+              >
+                {isExpanded ? '閉じる' : 'もっと見る'}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          content
+        )}
       </CardContent>
     </Card>
   );
