@@ -54,6 +54,8 @@ const patientDetailCollapsibleTitles = new Set([
   '購入履歴',
 ]);
 
+const patientRentalManagementTitles = new Set(['レンタル中の商品', 'レンタル履歴']);
+
 function isPatientDetailPage(pathname: string) {
   return /^\/admin\/patients\/[^/]+$/.test(pathname);
 }
@@ -66,22 +68,47 @@ function shouldUsePatientDetailToggle(pathname: string, title?: string) {
   return patientDetailCollapsibleTitles.has(title);
 }
 
-function getPatientPurchaseInfo(pathname: string, title?: string) {
-  if (title !== '購入希望・購入関連の商品') {
-    return null;
-  }
-
+function getPatientIdFromDetailPath(pathname: string) {
   const match = pathname.match(/^\/admin\/patients\/([^/]+)$/);
 
   if (!match?.[1]) {
     return null;
   }
 
-  const patientId = match[1];
+  return match[1];
+}
+
+function getPatientPurchaseInfo(pathname: string, title?: string) {
+  if (title !== '購入希望・購入関連の商品') {
+    return null;
+  }
+
+  const patientId = getPatientIdFromDetailPath(pathname);
+
+  if (!patientId) {
+    return null;
+  }
 
   return {
     patientId,
     createHref: `/admin/patients/${patientId}/purchases`,
+  };
+}
+
+function getPatientRentalInfo(pathname: string, title?: string) {
+  if (!title || !patientRentalManagementTitles.has(title)) {
+    return null;
+  }
+
+  const patientId = getPatientIdFromDetailPath(pathname);
+
+  if (!patientId) {
+    return null;
+  }
+
+  return {
+    patientId,
+    manageHref: `/admin/patients/${patientId}/rentals`,
   };
 }
 
@@ -213,6 +240,7 @@ export function SectionCard({
 }: SectionCardProps) {
   const pathname = usePathname();
   const purchaseInfo = getPatientPurchaseInfo(pathname, title);
+  const rentalInfo = getPatientRentalInfo(pathname, title);
   const shouldShowMoreToggle = shouldUsePatientDetailToggle(pathname, title);
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -229,14 +257,14 @@ export function SectionCard({
 
   return (
     <Card className={className}>
-      {(title || actions || purchaseInfo) && (
+      {(title || actions || purchaseInfo || rentalInfo) && (
         <CardHeader className="pb-4">
           <div className="flex items-start justify-between gap-4">
             <div>
               {title && <CardTitle className="text-lg">{title}</CardTitle>}
               {description && <CardDescription className="mt-1">{description}</CardDescription>}
             </div>
-            {(actions || purchaseInfo) && (
+            {(actions || purchaseInfo || rentalInfo) && (
               <div className="flex shrink-0 items-center gap-2">
                 {actions}
                 {purchaseInfo && (
@@ -244,12 +272,17 @@ export function SectionCard({
                     <Button size="sm">購入記録を追加・編集</Button>
                   </Link>
                 )}
+                {rentalInfo && (
+                  <Link href={rentalInfo.manageHref}>
+                    <Button size="sm" variant="outline">レンタル履歴を管理</Button>
+                  </Link>
+                )}
               </div>
             )}
           </div>
         </CardHeader>
       )}
-      <CardContent className={title || actions || purchaseInfo ? 'pt-0' : ''}>
+      <CardContent className={title || actions || purchaseInfo || rentalInfo ? 'pt-0' : ''}>
         {shouldShowMoreToggle ? (
           <div>
             <div className={isExpanded ? '' : 'relative max-h-[520px] overflow-hidden'}>
