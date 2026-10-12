@@ -81,7 +81,7 @@ function getPatientPurchaseInfo(pathname: string, title?: string) {
 
   return {
     patientId,
-    createHref: `/admin/patients/${patientId}/purchases/new`,
+    createHref: `/admin/patients/${patientId}/purchases`,
   };
 }
 
