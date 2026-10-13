@@ -161,6 +161,38 @@ function toLabelStatus(status: PatientProductStatusDb): PatientProductStatusLabe
   }
 }
 
+function isRentalStatus(status: PatientProductStatusDb) {
+  return status === 'rental_requested' || status === 'renting' || status === 'rental_returned';
+}
+
+function formatDateLabel(value: string | null) {
+  if (!value) {
+    return '未設定';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString('ja-JP');
+}
+
+function buildRentalReason(row: RecommendationRow) {
+  const baseReason = row.reason?.trim();
+  const rentalLines = [
+    `レンタル開始日: ${formatDateLabel(row.rental_started_at ?? row.created_at)}`,
+    `返却日: ${formatDateLabel(row.rental_returned_at)}`,
+  ];
+
+  if (!baseReason) {
+    return rentalLines.join('\n');
+  }
+
+  return `${baseReason}\n${rentalLines.join('\n')}`;
+}
+
 function formatRecommendation(
   row: RecommendationRow,
   productMap: Map<string, ProductRow>,
@@ -168,6 +200,7 @@ function formatRecommendation(
 ) {
   const product = row.product_id ? productMap.get(row.product_id) : undefined;
   const program = row.program_id ? programMap.get(row.program_id) : undefined;
+  const rentalStatus = isRentalStatus(row.status);
 
   return {
     id: row.id,
@@ -177,14 +210,14 @@ function formatRecommendation(
     productName: product?.name ?? '商品情報なし',
     productUrl: product?.product_url ?? '',
     category: toLabelCategory(row.category),
-    reason: row.reason ?? '',
+    reason: rentalStatus ? buildRentalReason(row) : row.reason ?? '',
     status: toLabelStatus(row.status),
     programSummary: program?.summary ?? program?.memo ?? '',
     programCreatedAt: program?.created_at ?? null,
     rentalStartedAt: row.rental_started_at,
     rentalReturnedAt: row.rental_returned_at,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt: rentalStatus ? row.rental_started_at ?? row.created_at : row.created_at,
+    updatedAt: rentalStatus ? row.rental_returned_at ?? row.updated_at : row.updated_at,
   };
 }
 
