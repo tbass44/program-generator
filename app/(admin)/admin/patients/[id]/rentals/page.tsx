@@ -130,6 +130,14 @@ function formatDate(value: string | null | undefined) {
   return date.toLocaleDateString('ja-JP');
 }
 
+function formatDateInputValue(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
 function toDateInputValue(value: string | null | undefined) {
   if (!value) {
     return '';
@@ -141,20 +149,42 @@ function toDateInputValue(value: string | null | undefined) {
     return '';
   }
 
-  return date.toISOString().slice(0, 10);
+  return formatDateInputValue(date);
 }
 
 function getTodayDateInputValue() {
-  return new Date().toISOString().slice(0, 10);
+  return formatDateInputValue(new Date());
+}
+
+function addOneMonthToDateInputValue(value: string) {
+  const [yearText, monthText, dayText] = value.split('-');
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+
+  if (!year || !month || !day) {
+    return '';
+  }
+
+  const date = new Date(year, month - 1, day);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  date.setMonth(date.getMonth() + 1);
+  return formatDateInputValue(date);
 }
 
 function getInitialCreateForm(products: ProductMaster[]): RentalCreateForm {
+  const rentalStartedAt = getTodayDateInputValue();
+
   return {
     productId: products[0]?.id ?? '',
     status: 'レンタル中',
     reason: '',
-    rentalStartedAt: getTodayDateInputValue(),
-    rentalReturnedAt: '',
+    rentalStartedAt,
+    rentalReturnedAt: addOneMonthToDateInputValue(rentalStartedAt),
   };
 }
 
@@ -186,7 +216,7 @@ export default function AdminPatientRentalsPage() {
     status: 'レンタル中',
     reason: '',
     rentalStartedAt: getTodayDateInputValue(),
-    rentalReturnedAt: '',
+    rentalReturnedAt: addOneMonthToDateInputValue(getTodayDateInputValue()),
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -275,6 +305,14 @@ export default function AdminPatientRentalsPage() {
     fetchInitialData();
   }, [patientId]);
 
+  const handleCreateRentalStartedAtChange = (value: string) => {
+    setCreateForm((current) => ({
+      ...current,
+      rentalStartedAt: value,
+      rentalReturnedAt: addOneMonthToDateInputValue(value),
+    }));
+  };
+
   const handleCreateRental = async () => {
     if (!patientId) {
       setErrorMessage('患者IDを取得できませんでした。患者詳細画面から開き直してください。');
@@ -325,19 +363,22 @@ export default function AdminPatientRentalsPage() {
       status: rental.status || 'レンタル中',
       reason: rental.reason || '',
       rentalStartedAt: toDateInputValue(rental.rentalStartedAt) || getTodayDateInputValue(),
-      rentalReturnedAt: toDateInputValue(rental.rentalReturnedAt),
+      rentalReturnedAt:
+        toDateInputValue(rental.rentalReturnedAt) ||
+        addOneMonthToDateInputValue(toDateInputValue(rental.rentalStartedAt) || getTodayDateInputValue()),
     });
     setErrorMessage(null);
     setSuccessMessage('レンタル履歴を編集中です。内容を修正して「保存」を押してください。');
   };
 
   const handleCancelEdit = () => {
+    const rentalStartedAt = getTodayDateInputValue();
     setEditingRentalId(null);
     setEditForm({
       status: 'レンタル中',
       reason: '',
-      rentalStartedAt: getTodayDateInputValue(),
-      rentalReturnedAt: '',
+      rentalStartedAt,
+      rentalReturnedAt: addOneMonthToDateInputValue(rentalStartedAt),
     });
     setSuccessMessage(null);
   };
@@ -516,9 +557,7 @@ export default function AdminPatientRentalsPage() {
                       id="create-rental-started-at"
                       type="date"
                       value={createForm.rentalStartedAt}
-                      onChange={(event) =>
-                        setCreateForm((current) => ({ ...current, rentalStartedAt: event.target.value }))
-                      }
+                      onChange={(event) => handleCreateRentalStartedAtChange(event.target.value)}
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     />
                   </div>
@@ -536,14 +575,11 @@ export default function AdminPatientRentalsPage() {
                       onChange={(event) =>
                         setCreateForm((current) => ({ ...current, rentalReturnedAt: event.target.value }))
                       }
-                      disabled={createForm.status !== 'レンタル終了'}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     />
-                    {createForm.status !== 'レンタル終了' && (
-                      <p className="text-xs text-muted-foreground">
-                        返却日はステータスが「レンタル終了」のときだけ保存されます。
-                      </p>
-                    )}
+                    <p className="text-xs text-muted-foreground">
+                      初期値はレンタル開始日の1カ月後です。予定返却日としても使えます。
+                    </p>
                   </div>
 
                   <div className="space-y-2 md:col-span-3">
@@ -670,14 +706,8 @@ export default function AdminPatientRentalsPage() {
                                           rentalReturnedAt: event.target.value,
                                         }))
                                       }
-                                      disabled={editForm.status !== 'レンタル終了'}
-                                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                     />
-                                    {editForm.status !== 'レンタル終了' && (
-                                      <p className="text-xs text-muted-foreground">
-                                        返却日はステータスが「レンタル終了」のときだけ保存されます。
-                                      </p>
-                                    )}
                                   </div>
                                 </div>
 
