@@ -176,7 +176,12 @@ function formatDateLabel(value: string | null) {
     return value;
   }
 
-  return date.toLocaleDateString('ja-JP');
+  /**
+   * SupabaseにはJSTの0時をUTCに変換した値が入るため、
+   * Vercelサーバーのデフォルトタイムゾーンで表示すると前日にズレる。
+   * 患者詳細ページ用の補足表示では、必ず日本時間で日付化する。
+   */
+  return date.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' });
 }
 
 function buildRentalReason(row: RecommendationRow) {
