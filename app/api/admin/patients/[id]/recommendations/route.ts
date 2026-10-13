@@ -46,6 +46,8 @@ type RecommendationRow = {
   category: ProductCategoryDb;
   reason: string | null;
   status: PatientProductStatusDb;
+  rental_started_at: string | null;
+  rental_returned_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -179,6 +181,8 @@ function formatRecommendation(
     status: toLabelStatus(row.status),
     programSummary: program?.summary ?? program?.memo ?? '',
     programCreatedAt: program?.created_at ?? null,
+    rentalStartedAt: row.rental_started_at,
+    rentalReturnedAt: row.rental_returned_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -243,7 +247,7 @@ export async function GET(
 
     const { data: recommendations, error: recommendationsError } = await adminResult.supabaseAdmin
       .from('patient_product_recommendations')
-      .select('id, patient_id, program_id, product_id, category, reason, status, created_at, updated_at')
+      .select('id, patient_id, program_id, product_id, category, reason, status, rental_started_at, rental_returned_at, created_at, updated_at')
       .eq('patient_id', patientId)
       .order('created_at', { ascending: false })
       .returns<RecommendationRow[]>();
