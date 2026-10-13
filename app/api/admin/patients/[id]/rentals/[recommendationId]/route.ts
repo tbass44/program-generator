@@ -154,7 +154,7 @@ function normalizeDateInput(value: unknown): string | null {
     return null;
   }
 
-  const date = new Date(`${trimmed}T00:00:00.000Z`);
+  const date = new Date(`${trimmed}T00:00:00.000+09:00`);
 
   if (Number.isNaN(date.getTime())) {
     return null;
@@ -265,7 +265,8 @@ export async function PATCH(
 
     const now = new Date().toISOString();
     const rentalStartedAt = normalizeDateInput(body.rentalStartedAt) ?? rental.rental_started_at ?? rental.updated_at;
-    const rentalReturnedAt = status === 'rental_returned' ? normalizeDateInput(body.rentalReturnedAt) ?? now : null;
+    // 返却日は予定返却日としても使うため、ステータスに関係なく保存する。
+    const rentalReturnedAt = normalizeDateInput(body.rentalReturnedAt);
 
     const { data: updatedRental, error: updateError } = await adminResult.supabaseAdmin
       .from('patient_product_recommendations')
