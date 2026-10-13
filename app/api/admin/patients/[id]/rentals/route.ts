@@ -40,6 +40,10 @@ type ProductRow = {
   product_url: string | null;
 };
 
+type ProductWithStatusRow = ProductRow & {
+  status: 'active' | 'inactive';
+};
+
 type ProgramRow = {
   id: string;
   summary: string | null;
@@ -426,7 +430,8 @@ export async function POST(
     const productId = typeof body.productId === 'string' ? body.productId : '';
     const status = toDbStatus(body.status);
     const rentalStartedAt = normalizeOptionalDate(body.rentalStartedAt) ?? new Date().toISOString();
-    const rentalReturnedAt = status === 'rental_returned' ? normalizeOptionalDate(body.rentalReturnedAt) : null;
+    // 返却日は予定返却日としても使うため、ステータスに関係なく保存する。
+    const rentalReturnedAt = normalizeOptionalDate(body.rentalReturnedAt);
 
     if (!productId || !isUuid(productId)) {
       return NextResponse.json(
@@ -465,7 +470,7 @@ export async function POST(
       .from('products')
       .select('id, name, category, product_url, status')
       .eq('id', productId)
-      .maybeSingle<ProductRow & { status: 'active' | 'inactive' }>();
+      .maybeSingle<ProductWithStatusRow>();
 
     if (productError) {
       return NextResponse.json(
