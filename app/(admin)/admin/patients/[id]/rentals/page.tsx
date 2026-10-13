@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, usePathname } from 'next/navigation';
-import { ChevronLeft, Pencil, Save, Trash2, X } from 'lucide-react';
+import { ChevronLeft, Pencil, Plus, Save, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader, SectionCard } from '@/components/admin';
 
@@ -31,12 +31,27 @@ type RentalItem = {
   updatedAt: string;
 };
 
+type ProductMaster = {
+  id: string;
+  name: string;
+  category: string;
+  status: string;
+};
+
+type ProductsResponse = {
+  products?: ProductMaster[];
+  error?: string;
+  detail?: unknown;
+};
+
 type RentalsResponse = {
   patient?: PatientDetail;
   rentals?: RentalItem[];
   error?: string;
   detail?: unknown;
 };
+
+type CreateRentalResponse = RentalsResponse;
 
 type UpdateRentalResponse = {
   rental?: {
@@ -64,6 +79,10 @@ type RentalEditForm = {
   reason: string;
   rentalStartedAt: string;
   rentalReturnedAt: string;
+};
+
+type RentalCreateForm = RentalEditForm & {
+  productId: string;
 };
 
 const rentalPageSize = 5;
@@ -129,6 +148,16 @@ function getTodayDateInputValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function getInitialCreateForm(products: ProductMaster[]): RentalCreateForm {
+  return {
+    productId: products[0]?.id ?? '',
+    status: 'レンタル中',
+    reason: '',
+    rentalStartedAt: getTodayDateInputValue(),
+    rentalReturnedAt: '',
+  };
+}
+
 function getStatusBadgeClass(status: string) {
   switch (status) {
     case 'レンタル希望':
@@ -149,8 +178,10 @@ export default function AdminPatientRentalsPage() {
 
   const [patient, setPatient] = useState<PatientDetail | null>(null);
   const [rentals, setRentals] = useState<RentalItem[]>([]);
+  const [products, setProducts] = useState<ProductMaster[]>([]);
   const [rentalPage, setRentalPage] = useState(1);
   const [editingRentalId, setEditingRentalId] = useState<string | null>(null);
+  const [createForm, setCreateForm] = useState<RentalCreateForm>(getInitialCreateForm([]));
   const [editForm, setEditForm] = useState<RentalEditForm>({
     status: 'レンタル中',
     reason: '',
@@ -158,10 +189,16 @@ export default function AdminPatientRentalsPage() {
     rentalReturnedAt: '',
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingRentalId, setDeletingRentalId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const activeProducts = useMemo(
+    () => products.filter((product) => product.status === '有効'),
+    [products]
+  );
 
   const rentalTotalPages = Math.max(1, Math.ceil(rentals.length / rentalPageSize));
 
@@ -175,6 +212,12 @@ export default function AdminPatientRentalsPage() {
       setRentalPage(rentalTotalPages);
     }
   }, [rentalPage, rentalTotalPages]);
+
+  useEffect(() => {
+    if (!createForm.productId && activeProducts.length > 0) {
+      setCreateForm((current) => ({ ...current, productId: activeProducts[0].id }));
+    }
+  }, [activeProducts, createForm.productId]);
 
   const refreshRentals = async () => {
     if (!patientId) {
@@ -197,12 +240,30 @@ export default function AdminPatientRentalsPage() {
     return true;
   };
 
+  const fetchProducts = async () => {
+    const response = await fetch('/api/admin/products', { cache: 'no-store' });
+    const data = (await response.json()) as ProductsResponse;
+
+    if (!response.ok || !data.products) {
+      setErrorMessage(buildApiErrorMessage('商品マスタを取得できませんでした', response.status, data));
+      setProducts([]);
+      return false;
+    }
+
+    setProducts(data.products);
+    setCreateForm((current) => ({
+      ...current,
+      productId: current.productId || data.products?.find((product) => product.status === '有効')?.id || '',
+    }));
+    return true;
+  };
+
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
         setIsLoading(true);
         setErrorMessage(null);
-        await refreshRentals();
+        await Promise.all([refreshRentals(), fetchProducts()]);
       } catch (error) {
         console.error(error);
         setErrorMessage(`レンタル履歴の取得中にエラーが発生しました。${String(error)}`);
@@ -213,6 +274,50 @@ export default function AdminPatientRentalsPage() {
 
     fetchInitialData();
   }, [patientId]);
+
+  const handleCreateRental = async () => {
+    if (!patientId) {
+      setErrorMessage('患者IDを取得できませんでした。患者詳細画面から開き直してください。');
+      return;
+    }
+
+    if (!createForm.productId) {
+      setErrorMessage('レンタル商品を選択してください。');
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      const response = await fetch(`/api/admin/patients/${patientId}/rentals`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(createForm),
+      });
+
+      const data = (await response.json()) as CreateRentalResponse;
+
+      if (!response.ok || !data.rentals || !data.patient) {
+        setErrorMessage(buildApiErrorMessage('レンタル履歴を追加できませんでした', response.status, data));
+        return;
+      }
+
+      setPatient(data.patient);
+      setRentals(data.rentals);
+      setRentalPage(1);
+      setCreateForm(getInitialCreateForm(activeProducts));
+      setSuccessMessage('レンタル履歴を追加しました。');
+    } catch (error) {
+      console.error(error);
+      setErrorMessage(`レンタル履歴の追加中にエラーが発生しました。${String(error)}`);
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const handleEditRental = (rental: RentalItem) => {
     setEditingRentalId(rental.id);
@@ -351,222 +456,339 @@ export default function AdminPatientRentalsPage() {
           読み込み中です...
         </div>
       ) : (
-        <SectionCard
-          title="レンタル履歴"
-          description={`登録済みのレンタル履歴：${rentals.length}件`}
-        >
-          {rentals.length === 0 ? (
-            <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-              レンタル履歴はまだありません。
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-3">
-                {currentRentals.map((rental) => {
-                  const isEditing = editingRentalId === rental.id;
+        <div className="space-y-6">
+          <SectionCard
+            title="レンタル記録を追加"
+            description="商品マスタから選択して、患者さんのレンタル履歴を追加します"
+          >
+            {activeProducts.length === 0 ? (
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                有効な商品マスタがありません。先に商品マスタでレンタル対象の商品を有効にしてください。
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-4">
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium" htmlFor="create-rental-product">
+                      レンタル商品
+                    </label>
+                    <select
+                      id="create-rental-product"
+                      value={createForm.productId}
+                      onChange={(event) =>
+                        setCreateForm((current) => ({ ...current, productId: event.target.value }))
+                      }
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      {activeProducts.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.name} / {product.category}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                  return (
-                    <div key={rental.id} className="rounded-lg border p-4">
-                      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium">{rental.productName}</p>
-                            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                              {rental.category}
-                            </span>
-                            <span className={`rounded-full px-2 py-0.5 text-xs ${getStatusBadgeClass(rental.status)}`}>
-                              {rental.status}
-                            </span>
-                            {isEditing && (
-                              <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
-                                編集中
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium" htmlFor="create-rental-status">
+                      ステータス
+                    </label>
+                    <select
+                      id="create-rental-status"
+                      value={createForm.status}
+                      onChange={(event) =>
+                        setCreateForm((current) => ({ ...current, status: event.target.value }))
+                      }
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      {rentalStatuses.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium" htmlFor="create-rental-started-at">
+                      レンタル開始日
+                    </label>
+                    <input
+                      id="create-rental-started-at"
+                      type="date"
+                      value={createForm.rentalStartedAt}
+                      onChange={(event) =>
+                        setCreateForm((current) => ({ ...current, rentalStartedAt: event.target.value }))
+                      }
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium" htmlFor="create-rental-returned-at">
+                      返却日
+                    </label>
+                    <input
+                      id="create-rental-returned-at"
+                      type="date"
+                      value={createForm.rentalReturnedAt}
+                      onChange={(event) =>
+                        setCreateForm((current) => ({ ...current, rentalReturnedAt: event.target.value }))
+                      }
+                      disabled={createForm.status !== 'レンタル終了'}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    />
+                    {createForm.status !== 'レンタル終了' && (
+                      <p className="text-xs text-muted-foreground">
+                        返却日はステータスが「レンタル終了」のときだけ保存されます。
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 md:col-span-3">
+                    <label className="text-sm font-medium" htmlFor="create-rental-reason">
+                      メモ
+                    </label>
+                    <textarea
+                      id="create-rental-reason"
+                      value={createForm.reason}
+                      onChange={(event) =>
+                        setCreateForm((current) => ({ ...current, reason: event.target.value }))
+                      }
+                      className="flex min-h-[88px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      placeholder="例：ヘルスウェーブを2週間レンタル、次回来院時に使用感を確認"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button type="button" disabled={isCreating} onClick={handleCreateRental}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    {isCreating ? '追加中...' : 'レンタル履歴を追加'}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </SectionCard>
+
+          <SectionCard
+            title="レンタル履歴"
+            description={`登録済みのレンタル履歴：${rentals.length}件`}
+          >
+            {rentals.length === 0 ? (
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                レンタル履歴はまだありません。
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-3">
+                  {currentRentals.map((rental) => {
+                    const isEditing = editingRentalId === rental.id;
+
+                    return (
+                      <div key={rental.id} className="rounded-lg border p-4">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-medium">{rental.productName}</p>
+                              <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                {rental.category}
                               </span>
+                              <span className={`rounded-full px-2 py-0.5 text-xs ${getStatusBadgeClass(rental.status)}`}>
+                                {rental.status}
+                              </span>
+                              {isEditing && (
+                                <span className="rounded-full bg-blue-600 px-2 py-0.5 text-xs text-white">
+                                  編集中
+                                </span>
+                              )}
+                            </div>
+
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              開始日: {formatDate(rental.rentalStartedAt)} / 返却日: {formatDate(rental.rentalReturnedAt)} / 最終更新: {formatDate(rental.rentalUpdatedAt)}
+                            </p>
+
+                            {rental.programSummary && (
+                              <p className="mt-2 text-sm text-muted-foreground">
+                                関連プログラム: {rental.programSummary}
+                              </p>
+                            )}
+
+                            {isEditing ? (
+                              <div className="mt-4 space-y-4">
+                                <div className="grid gap-4 md:grid-cols-3">
+                                  <div className="space-y-2">
+                                    <label className="text-sm font-medium" htmlFor={`rental-status-${rental.id}`}>
+                                      ステータス
+                                    </label>
+                                    <select
+                                      id={`rental-status-${rental.id}`}
+                                      value={editForm.status}
+                                      onChange={(event) =>
+                                        setEditForm((current) => ({ ...current, status: event.target.value }))
+                                      }
+                                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                    >
+                                      {rentalStatuses.map((status) => (
+                                        <option key={status} value={status}>
+                                          {status}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="text-sm font-medium" htmlFor={`rental-started-at-${rental.id}`}>
+                                      レンタル開始日
+                                    </label>
+                                    <input
+                                      id={`rental-started-at-${rental.id}`}
+                                      type="date"
+                                      value={editForm.rentalStartedAt}
+                                      onChange={(event) =>
+                                        setEditForm((current) => ({
+                                          ...current,
+                                          rentalStartedAt: event.target.value,
+                                        }))
+                                      }
+                                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="text-sm font-medium" htmlFor={`rental-returned-at-${rental.id}`}>
+                                      返却日
+                                    </label>
+                                    <input
+                                      id={`rental-returned-at-${rental.id}`}
+                                      type="date"
+                                      value={editForm.rentalReturnedAt}
+                                      onChange={(event) =>
+                                        setEditForm((current) => ({
+                                          ...current,
+                                          rentalReturnedAt: event.target.value,
+                                        }))
+                                      }
+                                      disabled={editForm.status !== 'レンタル終了'}
+                                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                                    />
+                                    {editForm.status !== 'レンタル終了' && (
+                                      <p className="text-xs text-muted-foreground">
+                                        返却日はステータスが「レンタル終了」のときだけ保存されます。
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium" htmlFor={`rental-reason-${rental.id}`}>
+                                    メモ・提案理由
+                                  </label>
+                                  <textarea
+                                    id={`rental-reason-${rental.id}`}
+                                    value={editForm.reason}
+                                    onChange={(event) =>
+                                      setEditForm((current) => ({ ...current, reason: event.target.value }))
+                                    }
+                                    className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                    placeholder="例：次回来院時に返却予定、使用感を確認"
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              rental.reason && (
+                                <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                                  {rental.reason}
+                                </p>
+                              )
                             )}
                           </div>
 
-                          <p className="mt-2 text-sm text-muted-foreground">
-                            開始日: {formatDate(rental.rentalStartedAt)} / 返却日: {formatDate(rental.rentalReturnedAt)} / 最終更新: {formatDate(rental.rentalUpdatedAt)}
-                          </p>
-
-                          {rental.programSummary && (
-                            <p className="mt-2 text-sm text-muted-foreground">
-                              関連プログラム: {rental.programSummary}
-                            </p>
-                          )}
-
-                          {isEditing ? (
-                            <div className="mt-4 space-y-4">
-                              <div className="grid gap-4 md:grid-cols-3">
-                                <div className="space-y-2">
-                                  <label className="text-sm font-medium" htmlFor={`rental-status-${rental.id}`}>
-                                    ステータス
-                                  </label>
-                                  <select
-                                    id={`rental-status-${rental.id}`}
-                                    value={editForm.status}
-                                    onChange={(event) =>
-                                      setEditForm((current) => ({ ...current, status: event.target.value }))
-                                    }
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                  >
-                                    {rentalStatuses.map((status) => (
-                                      <option key={status} value={status}>
-                                        {status}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-
-                                <div className="space-y-2">
-                                  <label className="text-sm font-medium" htmlFor={`rental-started-at-${rental.id}`}>
-                                    レンタル開始日
-                                  </label>
-                                  <input
-                                    id={`rental-started-at-${rental.id}`}
-                                    type="date"
-                                    value={editForm.rentalStartedAt}
-                                    onChange={(event) =>
-                                      setEditForm((current) => ({
-                                        ...current,
-                                        rentalStartedAt: event.target.value,
-                                      }))
-                                    }
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                  />
-                                </div>
-
-                                <div className="space-y-2">
-                                  <label className="text-sm font-medium" htmlFor={`rental-returned-at-${rental.id}`}>
-                                    返却日
-                                  </label>
-                                  <input
-                                    id={`rental-returned-at-${rental.id}`}
-                                    type="date"
-                                    value={editForm.rentalReturnedAt}
-                                    onChange={(event) =>
-                                      setEditForm((current) => ({
-                                        ...current,
-                                        rentalReturnedAt: event.target.value,
-                                      }))
-                                    }
-                                    disabled={editForm.status !== 'レンタル終了'}
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                                  />
-                                  {editForm.status !== 'レンタル終了' && (
-                                    <p className="text-xs text-muted-foreground">
-                                      返却日はステータスが「レンタル終了」のときだけ保存されます。
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="space-y-2">
-                                <label className="text-sm font-medium" htmlFor={`rental-reason-${rental.id}`}>
-                                  メモ・提案理由
-                                </label>
-                                <textarea
-                                  id={`rental-reason-${rental.id}`}
-                                  value={editForm.reason}
-                                  onChange={(event) =>
-                                    setEditForm((current) => ({ ...current, reason: event.target.value }))
-                                  }
-                                  className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                                  placeholder="例：次回来院時に返却予定、使用感を確認"
-                                />
-                              </div>
-                            </div>
-                          ) : (
-                            rental.reason && (
-                              <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
-                                {rental.reason}
-                              </p>
-                            )
-                          )}
-                        </div>
-
-                        <div className="flex flex-wrap gap-2 md:justify-end">
-                          {isEditing ? (
-                            <>
-                              <Button
-                                type="button"
-                                size="sm"
-                                disabled={isSaving}
-                                onClick={() => handleUpdateRental(rental)}
-                              >
-                                <Save className="mr-2 h-4 w-4" />
-                                {isSaving ? '保存中...' : '保存'}
-                              </Button>
+                          <div className="flex flex-wrap gap-2 md:justify-end">
+                            {isEditing ? (
+                              <>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  disabled={isSaving}
+                                  onClick={() => handleUpdateRental(rental)}
+                                >
+                                  <Save className="mr-2 h-4 w-4" />
+                                  {isSaving ? '保存中...' : '保存'}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={isSaving}
+                                  onClick={handleCancelEdit}
+                                >
+                                  <X className="mr-2 h-4 w-4" />
+                                  キャンセル
+                                </Button>
+                              </>
+                            ) : (
                               <Button
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                disabled={isSaving}
-                                onClick={handleCancelEdit}
+                                disabled={isSaving || deletingRentalId === rental.id}
+                                onClick={() => handleEditRental(rental)}
                               >
-                                <X className="mr-2 h-4 w-4" />
-                                キャンセル
+                                <Pencil className="mr-2 h-4 w-4" />
+                                編集
                               </Button>
-                            </>
-                          ) : (
+                            )}
+
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
                               disabled={isSaving || deletingRentalId === rental.id}
-                              onClick={() => handleEditRental(rental)}
+                              onClick={() => handleDeleteRental(rental)}
                             >
-                              <Pencil className="mr-2 h-4 w-4" />
-                              編集
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              {deletingRentalId === rental.id ? '削除中...' : '削除'}
                             </Button>
-                          )}
-
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            disabled={isSaving || deletingRentalId === rental.id}
-                            onClick={() => handleDeleteRental(rental)}
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            {deletingRentalId === rental.id ? '削除中...' : '削除'}
-                          </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
 
-              <div className="flex flex-col gap-3 border-t pt-4 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
-                <p>
-                  {rentalPage} / {rentalTotalPages} ページ
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={rentalPage <= 1}
-                    onClick={() => setRentalPage((current) => Math.max(1, current - 1))}
-                  >
-                    前へ
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={rentalPage >= rentalTotalPages}
-                    onClick={() =>
-                      setRentalPage((current) => Math.min(rentalTotalPages, current + 1))
-                    }
-                  >
-                    次へ
-                  </Button>
+                <div className="flex flex-col gap-3 border-t pt-4 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+                  <p>
+                    {rentalPage} / {rentalTotalPages} ページ
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={rentalPage <= 1}
+                      onClick={() => setRentalPage((current) => Math.max(1, current - 1))}
+                    >
+                      前へ
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={rentalPage >= rentalTotalPages}
+                      onClick={() =>
+                        setRentalPage((current) => Math.min(rentalTotalPages, current + 1))
+                      }
+                    >
+                      次へ
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </SectionCard>
+            )}
+          </SectionCard>
+        </div>
       )}
 
       <div className="mt-6">
