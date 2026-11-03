@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import liff from '@line/liff';
+import { redirectToLineEntry } from '@/lib/patient-line-navigation';
 import { PlanStatusCard } from '@/components/patient';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -127,7 +128,7 @@ export default function PlansPage() {
         await liff.init({ liffId });
 
         if (!liff.isLoggedIn()) {
-          liff.login({ redirectUri: window.location.href });
+          redirectToLineEntry();
           return;
         }
 
