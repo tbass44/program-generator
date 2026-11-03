@@ -1,0 +1,47 @@
+name: Supabase Free project activity
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Three database reads a day, away from the top of the hour.
+    # UTC: 01:23, 09:23, 17:23 (JST: 10:23, 18:23, 02:23)
+    - cron: '23 1,9,17 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  read-supabase:
+    name: Read active product IDs from Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check database activity via PostgREST
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${SUPABASE_URL:-}" || -z "${SUPABASE_PUBLISHABLE_KEY:-}" ]]; then
+            echo "::error::Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY in repository Actions secrets."
+            exit 1
+          fi
+
+          # SELECT executes a real DB query but never reads patient information.
+          # A successful empty result also counts as a database request.
+          endpoint="${SUPABASE_URL%/}/rest/v1/products?select=id&limit=1"
+          curl --fail --silent --show-error \
+            --retry 2 --retry-all-errors --retry-delay 8 \
+            --connect-timeout 10 --max-time 30 \
+            --header "apikey: ${SUPABASE_PUBLISHABLE_KEY}" \
+            --header "Accept: application/json" \
+            --output /dev/null \
+            "${endpoint}"
+
+          echo "Supabase database query succeeded."
+
+# Supabase Free may still pause for insufficient genuine activity;
+# this scheduled job is a best-effort mitigation, not an uptime guarantee.
+# Public GitHub repositories can have schedules disabled after 60 days of inactivity.
