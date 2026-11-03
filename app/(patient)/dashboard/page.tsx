@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import liff from '@line/liff';
+import { redirectToLineEntry, retryLineLogin } from '@/lib/patient-line-navigation';
 import {
   PlanStatusCard,
   ProgramCard,
@@ -244,17 +245,7 @@ function shouldRetryLineLogin(message: string) {
   );
 }
 
-function retryLineLogin() {
-  try {
-    if (liff.isLoggedIn()) {
-      liff.logout();
-    }
-  } catch (error) {
-    console.error(error);
-  }
 
-  liff.login({ redirectUri: window.location.href });
-}
 
 function formatDetail(detail: unknown) {
   if (!detail) {
@@ -307,7 +298,7 @@ export default function DashboardPage() {
         await liff.init({ liffId });
 
         if (!liff.isLoggedIn()) {
-          liff.login({ redirectUri: window.location.href });
+          redirectToLineEntry();
           return;
         }
 
