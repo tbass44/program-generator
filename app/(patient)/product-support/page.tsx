@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import liff from '@line/liff';
+import { redirectToLineEntry, retryLineLogin } from '@/lib/patient-line-navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { SectionHeader } from '@/components/patient';
@@ -15,8 +16,6 @@ import {
   Sparkles,
   Star,
 } from 'lucide-react';
-
-const NEXT_PATH_STORAGE_KEY = 'patientNextPath';
 
 type Tab = 'recommended' | 'purchase_requested' | 'all';
 
@@ -105,23 +104,9 @@ const categoryMeta: Record<
   },
 };
 
-function getCurrentPath() {
-  if (typeof window === 'undefined') {
-    return '/product-support';
-  }
 
-  return `${window.location.pathname}${window.location.search}`;
-}
 
-function redirectToLineEntry() {
-  try {
-    window.sessionStorage.setItem(NEXT_PATH_STORAGE_KEY, getCurrentPath());
-  } catch (error) {
-    console.error(error);
-  }
 
-  window.location.href = '/line';
-}
 
 function getCategoryMeta(value: string | null | undefined) {
   if (value && value in categoryMeta) {
@@ -205,17 +190,7 @@ function shouldRetryLineLogin(message: string) {
   );
 }
 
-function retryLineLogin() {
-  try {
-    if (liff.isLoggedIn()) {
-      liff.logout();
-    }
-  } catch (error) {
-    console.error(error);
-  }
 
-  redirectToLineEntry();
-}
 
 function ProductSupportCard({ item }: { item: ProductSupportItem }) {
   const category = item.product?.category ?? item.category;
