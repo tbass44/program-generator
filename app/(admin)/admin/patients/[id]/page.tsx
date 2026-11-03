@@ -62,6 +62,8 @@ type PatientProductRecommendation = {
   status: string;
   programSummary: string;
   programCreatedAt: string | null;
+  rentalStartedAt: string | null;
+  rentalReturnedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -167,6 +169,14 @@ function formatDate(value: string | null) {
   }
 
   return new Date(value).toLocaleDateString('ja-JP');
+}
+
+// レンタル日付は日本時間の暦日を表示する（UTC表示の前日ずれを防ぐ）。
+function formatRentalDate(value: string | null) {
+  if (!value) return '未設定';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '未設定';
+  return date.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' });
 }
 
 function statusBadgeVariant(status: string): 'default' | 'secondary' | 'outline' {
@@ -944,6 +954,10 @@ export default function AdminPatientDetailPage() {
                       <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
                         {item.reason || '提案理由は未入力です。'}
                       </p>
+                      <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                        <span>レンタル開始日: {formatRentalDate(item.rentalStartedAt ?? item.createdAt)}</span>
+                        <span>返却日（予定含む）: {formatRentalDate(item.rentalReturnedAt)}</span>
+                      </div>
                     </div>
                     {item.programId && (
                       <Link href={`/admin/programs/${item.programId}`}>
@@ -1241,8 +1255,9 @@ export default function AdminPatientDetailPage() {
                           {item.reason || '提案理由は未入力です。'}
                         </p>
                         <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                          <span>提案日: {formatDate(item.createdAt)}</span>
-                          <span>更新日: {formatDate(item.updatedAt)}</span>
+                          <span>レンタル開始日: {formatRentalDate(item.rentalStartedAt ?? item.createdAt)}</span>
+                          <span>返却日（予定含む）: {formatRentalDate(item.rentalReturnedAt)}</span>
+                          <span>更新日: {formatRentalDate(item.updatedAt)}</span>
                         </div>
                       </div>
                       {item.programId && (
