@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import liff from '@line/liff';
+import { getPatientNextPath, redirectToLineEntry, retryLineLogin } from '@/lib/patient-line-navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -53,18 +54,6 @@ function isRevokedTokenError(error: unknown) {
   return toErrorDetail(error).toLowerCase().includes('access token revoked');
 }
 
-function retryLineLogin() {
-  try {
-    liff.logout();
-  } catch (error) {
-    console.error(error);
-  }
-
-  window.setTimeout(() => {
-    liff.login({ redirectUri: window.location.href });
-  }, 500);
-}
-
 function toStatusMessage(data: LinkResult) {
   if (data.error === 'Invalid link code') {
     return '連携コードが正しくありません。';
@@ -87,6 +76,7 @@ function toStatusMessage(data: LinkResult) {
 
 export default function LineLinkPage() {
   const [status, setStatus] = useState('LIFFを初期化しています...');
+  const [nextPath, setNextPath] = useState('/dashboard');
   const [idToken, setIdToken] = useState<string | null>(null);
   const [linkCode, setLinkCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -95,6 +85,7 @@ export default function LineLinkPage() {
   useEffect(() => {
     const initLiff = async () => {
       try {
+        setNextPath(getPatientNextPath());
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
 
         if (!liffId) {
@@ -105,7 +96,7 @@ export default function LineLinkPage() {
         await liff.init({ liffId });
 
         if (!liff.isLoggedIn()) {
-          liff.login({ redirectUri: window.location.href });
+          redirectToLineEntry();
           return;
         }
 
@@ -267,7 +258,7 @@ export default function LineLinkPage() {
             </dl>
 
             {isLinked && (
-              <Link href="/dashboard" className="mt-5 block">
+              <Link href={nextPath} className="mt-5 block">
                 <Button className="w-full">患者画面へ進む</Button>
               </Link>
             )}
