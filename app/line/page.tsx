@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import liff from '@line/liff';
-import { getPatientNextPath } from '@/lib/patient-line-navigation';
+import { clearPatientNextPath, getPatientNextPath } from '@/lib/patient-line-navigation';
 import { Button } from '@/components/ui/button';
 
 const LIFF_INIT_TIMEOUT_MS = 10000;
@@ -286,7 +286,7 @@ export default function LineEntryPage() {
                   </div>
 
                   <div className="pt-2">
-                    <Link href={nextPath} className="block">
+                    <Link href={nextPath} onClick={clearPatientNextPath} className="block">
                       <Button className="w-full">患者画面へ進む</Button>
                     </Link>
                   </div>
