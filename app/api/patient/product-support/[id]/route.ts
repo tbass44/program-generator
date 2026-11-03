@@ -61,6 +61,10 @@ function getRequiredEnv(key: string): string {
   return value;
 }
 
+function isValidUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 async function verifyLineIdToken(idToken: string): Promise<{ userId: string }> {
   const lineChannelId = getRequiredEnv('LINE_CHANNEL_ID');
 
@@ -98,6 +102,13 @@ export async function POST(
   { params }: ProductSupportDetailRouteContext
 ) {
   try {
+    if (!isValidUuid(params.id)) {
+      return NextResponse.json(
+        { error: 'Invalid product recommendation id' },
+        { status: 400 }
+      );
+    }
+
     const body = (await request.json()) as ProductSupportDetailRequestBody;
     const idToken = body.idToken;
 
