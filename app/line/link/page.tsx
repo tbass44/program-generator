@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import liff from '@line/liff';
-import { getPatientNextPath, redirectToLineEntry, retryLineLogin } from '@/lib/patient-line-navigation';
+import { clearPatientNextPath, getPatientNextPath, redirectToLineEntry, retryLineLogin } from '@/lib/patient-line-navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -258,7 +258,7 @@ export default function LineLinkPage() {
             </dl>
 
             {isLinked && (
-              <Link href={nextPath} className="mt-5 block">
+              <Link href={nextPath} onClick={clearPatientNextPath} className="mt-5 block">
                 <Button className="w-full">患者画面へ進む</Button>
               </Link>
             )}
