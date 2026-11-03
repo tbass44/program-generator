@@ -187,6 +187,7 @@ export async function POST(request: Request, { params }: RouteContext) {
         `
         )
         .eq('program_id', program.id)
+        .eq('patient_id', patient.id)
         .order('created_at', { ascending: false });
 
     if (recommendationsError) {
