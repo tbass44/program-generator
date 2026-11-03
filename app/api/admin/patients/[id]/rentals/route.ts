@@ -28,6 +28,7 @@ type RentalRecommendationRow = {
   reason: string | null;
   status: RentalStatusDb;
   rental_started_at: string | null;
+  rental_due_at: string | null;
   rental_returned_at: string | null;
   created_at: string;
   updated_at: string;
@@ -56,6 +57,7 @@ type CreateRentalBody = {
   status?: unknown;
   reason?: unknown;
   rentalStartedAt?: unknown;
+  rentalDueAt?: unknown;
   rentalReturnedAt?: unknown;
 };
 
@@ -209,6 +211,19 @@ function normalizeOptionalDate(value: unknown): string | null {
   return date.toISOString();
 }
 
+function isMissingRentalDueColumn(error: { message: string; code?: string } | null) {
+  return Boolean(error && /rental_due_at/i.test(error.message) &&
+    (error.code === 'PGRST204' || error.code === '42703' ||
+      /column|schema cache|does not exist/i.test(error.message)));
+}
+
+function migrationRequiredResponse() {
+  return NextResponse.json({
+    error: 'Rental date migration required',
+    detail: 'Supabase SQL Editorで supabase/migrations/20261103_split_rental_due_and_returned_dates.sql を実行してください。',
+  }, { status: 409 });
+}
+
 function formatRental(
   row: RentalRecommendationRow,
   productMap: Map<string, ProductRow>,
@@ -230,6 +245,7 @@ function formatRental(
     programSummary: program?.summary ?? program?.memo ?? '',
     programCreatedAt: program?.created_at ?? null,
     rentalStartedAt: row.rental_started_at ?? row.created_at,
+    rentalDueAt: row.rental_due_at,
     rentalReturnedAt: row.rental_returned_at,
     rentalUpdatedAt: row.updated_at,
     createdAt: row.created_at,
@@ -252,14 +268,32 @@ async function fetchRentalRows(
   supabaseAdmin: ReturnType<typeof createSupabaseAdminClient>,
   patientId: string
 ) {
-  return supabaseAdmin
+  const selectNew = 'id, patient_id, program_id, product_id, category, reason, status, rental_started_at, rental_due_at, rental_returned_at, created_at, updated_at';
+  const selectLegacy = 'id, patient_id, program_id, product_id, category, reason, status, rental_started_at, rental_returned_at, created_at, updated_at';
+  const query = (columns: string) => supabaseAdmin
     .from('patient_product_recommendations')
-    .select('id, patient_id, program_id, product_id, category, reason, status, rental_started_at, rental_returned_at, created_at, updated_at')
+    .select(columns)
     .eq('patient_id', patientId)
     .in('status', rentalStatuses)
     .order('rental_started_at', { ascending: false, nullsFirst: false })
     .order('updated_at', { ascending: false })
     .returns<RentalRecommendationRow[]>();
+
+  const result = await query(selectNew);
+  if (!isMissingRentalDueColumn(result.error)) return result;
+
+  // マイグレーション前も閲覧は維持する。予定日と実返却日は状態で区別する。
+  const legacy = await query(selectLegacy);
+  if (legacy.error) return legacy;
+
+  return {
+    data: (legacy.data ?? []).map((row) => ({
+      ...row,
+      rental_due_at: row.status === 'rental_returned' ? null : row.rental_returned_at,
+      rental_returned_at: row.status === 'rental_returned' ? row.rental_returned_at : null,
+    })),
+    error: null,
+  };
 }
 
 async function formatRentals(
@@ -430,8 +464,11 @@ export async function POST(
     const productId = typeof body.productId === 'string' ? body.productId : '';
     const status = toDbStatus(body.status);
     const rentalStartedAt = normalizeOptionalDate(body.rentalStartedAt) ?? new Date().toISOString();
-    // 返却日は予定返却日としても使うため、ステータスに関係なく保存する。
-    const rentalReturnedAt = normalizeOptionalDate(body.rentalReturnedAt);
+    const rentalDueAt = normalizeOptionalDate(body.rentalDueAt);
+    // 実返却日はレンタル終了時だけ保持する。
+    const rentalReturnedAt = status === 'rental_returned'
+      ? normalizeOptionalDate(body.rentalReturnedAt)
+      : null;
 
     if (!productId || !isUuid(productId)) {
       return NextResponse.json(
@@ -503,8 +540,11 @@ export async function POST(
         reason: normalizeOptionalText(body.reason),
         status,
         rental_started_at: rentalStartedAt,
+        rental_due_at: rentalDueAt,
         rental_returned_at: rentalReturnedAt,
       });
+
+    if (isMissingRentalDueColumn(insertError)) return migrationRequiredResponse();
 
     if (insertError) {
       return NextResponse.json(
