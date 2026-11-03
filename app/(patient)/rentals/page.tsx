@@ -32,6 +32,9 @@ type RentalItem = {
   category: string | null;
   reason: string | null;
   status: 'rental_requested' | 'renting' | 'rental_returned' | string;
+  rental_started_at: string | null;
+  rental_due_at: string | null;
+  rental_returned_at: string | null;
   created_at: string;
   updated_at: string;
   product: Product | null;
@@ -91,7 +94,7 @@ function formatDate(value: string | null | undefined) {
     return value;
   }
 
-  return date.toLocaleDateString('ja-JP');
+  return date.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' });
 }
 
 function getStatusLabel(status: string) {
@@ -204,6 +207,11 @@ function RentalCard({ rental }: { rental: RentalItem }) {
                 </p>
               )}
 
+              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                <span>レンタル開始日: {formatDate(rental.rental_started_at ?? rental.created_at)}</span>
+                <span>返却予定日: {formatDate(rental.rental_due_at)}</span>
+                <span>実返却日: {rental.status === 'rental_returned' ? formatDate(rental.rental_returned_at) : '未返却'}</span>
+              </div>
               <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
