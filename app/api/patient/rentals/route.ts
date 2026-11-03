@@ -38,6 +38,9 @@ type RentalRecommendationRow = {
   category: string | null;
   reason: string | null;
   status: 'rental_requested' | 'renting' | 'rental_returned' | string;
+  rental_started_at: string | null;
+  rental_due_at: string | null;
+  rental_returned_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -154,26 +157,33 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: rentalRows, error: rentalsError } = await supabaseAdmin
+    const selectRentals = (columns: string) => supabaseAdmin
       .from('patient_product_recommendations')
-      .select(
-        `
-        id,
-        patient_id,
-        program_id,
-        product_id,
-        category,
-        reason,
-        status,
-        created_at,
-        updated_at
-      `
-      )
+      .select(columns)
       .eq('patient_id', patient.id)
       .in('status', rentalStatuses)
       .order('updated_at', { ascending: false })
       .order('created_at', { ascending: false })
       .returns<RentalRecommendationRow[]>();
+
+    let { data: rentalRows, error: rentalsError } = await selectRentals(
+      'id, patient_id, program_id, product_id, category, reason, status, rental_started_at, rental_due_at, rental_returned_at, created_at, updated_at'
+    );
+
+    if (rentalsError && /rental_due_at/i.test(rentalsError.message) &&
+      (rentalsError.code === 'PGRST204' || rentalsError.code === '42703' ||
+       /column|schema cache|does not exist/i.test(rentalsError.message))) {
+      // SQL移行前も既存履歴は読めるようにする。
+      const legacy = await selectRentals(
+        'id, patient_id, program_id, product_id, category, reason, status, rental_started_at, rental_returned_at, created_at, updated_at'
+      );
+      rentalRows = (legacy.data ?? []).map((rental) => ({
+        ...rental,
+        rental_due_at: rental.status === 'rental_returned' ? null : rental.rental_returned_at,
+        rental_returned_at: rental.status === 'rental_returned' ? rental.rental_returned_at : null,
+      }));
+      rentalsError = legacy.error;
+    }
 
     if (rentalsError) {
       return NextResponse.json(
