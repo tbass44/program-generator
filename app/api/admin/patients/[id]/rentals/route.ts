@@ -402,14 +402,6 @@ export async function GET(
       );
     }
 
-    // レンタル終了は実際の返却日が確定した状態として扱う。
-    if (status === 'rental_returned' && !rentalReturnedAt) {
-      return NextResponse.json(
-        { error: 'Actual return date is required', detail: 'レンタル終了には実返却日を入力してください。' },
-        { status: 400 }
-      );
-    }
-
     const { data: patient, error: patientError } = await fetchPatient(
       adminResult.supabaseAdmin,
       patientId
@@ -491,6 +483,14 @@ export async function POST(
           error: 'Invalid rental status',
           detail: 'status must be one of レンタル希望 / レンタル中 / レンタル終了',
         },
+        { status: 400 }
+      );
+    }
+
+    // レンタル終了は実際の返却日が確定した状態として扱う。
+    if (status === 'rental_returned' && !rentalReturnedAt) {
+      return NextResponse.json(
+        { error: 'Actual return date is required', detail: 'レンタル終了には実返却日を入力してください。' },
         { status: 400 }
       );
     }
