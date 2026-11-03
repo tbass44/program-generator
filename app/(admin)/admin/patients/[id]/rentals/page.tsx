@@ -25,6 +25,7 @@ type RentalItem = {
   programSummary: string;
   programCreatedAt: string | null;
   rentalStartedAt: string;
+  rentalDueAt: string | null;
   rentalReturnedAt: string | null;
   rentalUpdatedAt: string;
   createdAt: string;
@@ -60,6 +61,7 @@ type UpdateRentalResponse = {
     status: string;
     reason: string;
     rentalStartedAt: string | null;
+    rentalDueAt: string | null;
     rentalReturnedAt: string | null;
     updatedAt: string;
   };
@@ -78,6 +80,7 @@ type RentalEditForm = {
   status: string;
   reason: string;
   rentalStartedAt: string;
+  rentalDueAt: string;
   rentalReturnedAt: string;
 };
 
@@ -168,6 +171,16 @@ function addOneMonthToDateInputValue(value: string) {
   return `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
 }
 
+function withStatus<T extends RentalEditForm>(form: T, status: string): T {
+  return {
+    ...form,
+    status,
+    rentalReturnedAt: status === 'レンタル終了'
+      ? form.rentalReturnedAt || getTodayDateInputValue()
+      : '',
+  };
+}
+
 function getInitialCreateForm(products: ProductMaster[]): RentalCreateForm {
   const rentalStartedAt = getTodayDateInputValue();
 
@@ -176,7 +189,8 @@ function getInitialCreateForm(products: ProductMaster[]): RentalCreateForm {
     status: 'レンタル中',
     reason: '',
     rentalStartedAt,
-    rentalReturnedAt: addOneMonthToDateInputValue(rentalStartedAt),
+    rentalDueAt: addOneMonthToDateInputValue(rentalStartedAt),
+    rentalReturnedAt: '',
   };
 }
 
@@ -208,7 +222,8 @@ export default function AdminPatientRentalsPage() {
     status: 'レンタル中',
     reason: '',
     rentalStartedAt: getTodayDateInputValue(),
-    rentalReturnedAt: addOneMonthToDateInputValue(getTodayDateInputValue()),
+    rentalDueAt: addOneMonthToDateInputValue(getTodayDateInputValue()),
+    rentalReturnedAt: '',
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -301,7 +316,7 @@ export default function AdminPatientRentalsPage() {
     setCreateForm((current) => ({
       ...current,
       rentalStartedAt: value,
-      rentalReturnedAt: addOneMonthToDateInputValue(value),
+      rentalDueAt: addOneMonthToDateInputValue(value),
     }));
   };
 
@@ -355,9 +370,8 @@ export default function AdminPatientRentalsPage() {
       status: rental.status || 'レンタル中',
       reason: rental.reason || '',
       rentalStartedAt: toDateInputValue(rental.rentalStartedAt) || getTodayDateInputValue(),
-      rentalReturnedAt:
-        toDateInputValue(rental.rentalReturnedAt) ||
-        addOneMonthToDateInputValue(toDateInputValue(rental.rentalStartedAt) || getTodayDateInputValue()),
+      rentalDueAt: toDateInputValue(rental.rentalDueAt),
+      rentalReturnedAt: toDateInputValue(rental.rentalReturnedAt),
     });
     setErrorMessage(null);
     setSuccessMessage('レンタル履歴を編集中です。内容を修正して「保存」を押してください。');
@@ -370,7 +384,8 @@ export default function AdminPatientRentalsPage() {
       status: 'レンタル中',
       reason: '',
       rentalStartedAt,
-      rentalReturnedAt: addOneMonthToDateInputValue(rentalStartedAt),
+      rentalDueAt: addOneMonthToDateInputValue(rentalStartedAt),
+      rentalReturnedAt: '',
     });
     setSuccessMessage(null);
   };
@@ -395,6 +410,7 @@ export default function AdminPatientRentalsPage() {
           status: editForm.status,
           reason: editForm.reason,
           rentalStartedAt: editForm.rentalStartedAt,
+          rentalDueAt: editForm.rentalDueAt,
           rentalReturnedAt: editForm.rentalReturnedAt,
         }),
       });
@@ -529,7 +545,7 @@ export default function AdminPatientRentalsPage() {
                       id="create-rental-status"
                       value={createForm.status}
                       onChange={(event) =>
-                        setCreateForm((current) => ({ ...current, status: event.target.value }))
+                        setCreateForm((current) => withStatus(current, event.target.value))
                       }
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     >
@@ -557,22 +573,31 @@ export default function AdminPatientRentalsPage() {
 
                 <div className="grid gap-4 md:grid-cols-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium" htmlFor="create-rental-returned-at">
-                      返却日
-                    </label>
+                    <label className="text-sm font-medium" htmlFor="create-rental-due-at">返却予定日</label>
                     <input
-                      id="create-rental-returned-at"
+                      id="create-rental-due-at"
                       type="date"
-                      value={createForm.rentalReturnedAt}
-                      onChange={(event) =>
-                        setCreateForm((current) => ({ ...current, rentalReturnedAt: event.target.value }))
-                      }
+                      value={createForm.rentalDueAt}
+                      onChange={(event) => setCreateForm((current) => ({ ...current, rentalDueAt: event.target.value }))}
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     />
                     <p className="text-xs text-muted-foreground">
-                      初期値はレンタル開始日の1カ月後です。予定返却日としても使えます。
+                      初期値は開始日の1カ月後です。実際の返却日は別に登録します。
                     </p>
                   </div>
+
+                  {createForm.status === 'レンタル終了' && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium" htmlFor="create-rental-returned-at">実返却日</label>
+                      <input
+                        id="create-rental-returned-at"
+                        type="date"
+                        value={createForm.rentalReturnedAt}
+                        onChange={(event) => setCreateForm((current) => ({ ...current, rentalReturnedAt: event.target.value }))}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      />
+                    </div>
+                  )}
 
                   <div className="space-y-2 md:col-span-3">
                     <label className="text-sm font-medium" htmlFor="create-rental-reason">
@@ -634,7 +659,7 @@ export default function AdminPatientRentalsPage() {
                             </div>
 
                             <p className="mt-2 text-sm text-muted-foreground">
-                              開始日: {formatDate(rental.rentalStartedAt)} / 返却日: {formatDate(rental.rentalReturnedAt)} / 最終更新: {formatDate(rental.rentalUpdatedAt)}
+                              開始日: {formatDate(rental.rentalStartedAt)} / 返却予定日: {formatDate(rental.rentalDueAt)} / 実返却日: {rental.status === 'レンタル終了' ? formatDate(rental.rentalReturnedAt) : '未返却'} / 最終更新: {formatDate(rental.rentalUpdatedAt)}
                             </p>
 
                             {rental.programSummary && (
@@ -654,7 +679,7 @@ export default function AdminPatientRentalsPage() {
                                       id={`rental-status-${rental.id}`}
                                       value={editForm.status}
                                       onChange={(event) =>
-                                        setEditForm((current) => ({ ...current, status: event.target.value }))
+                                        setEditForm((current) => withStatus(current, event.target.value))
                                       }
                                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                     >
@@ -685,22 +710,28 @@ export default function AdminPatientRentalsPage() {
                                   </div>
 
                                   <div className="space-y-2">
-                                    <label className="text-sm font-medium" htmlFor={`rental-returned-at-${rental.id}`}>
-                                      返却日
-                                    </label>
+                                    <label className="text-sm font-medium" htmlFor="edit-rental-due-at">返却予定日</label>
                                     <input
-                                      id={`rental-returned-at-${rental.id}`}
+                                      id="edit-rental-due-at"
                                       type="date"
-                                      value={editForm.rentalReturnedAt}
-                                      onChange={(event) =>
-                                        setEditForm((current) => ({
-                                          ...current,
-                                          rentalReturnedAt: event.target.value,
-                                        }))
-                                      }
+                                      value={editForm.rentalDueAt}
+                                      onChange={(event) => setEditForm((current) => ({ ...current, rentalDueAt: event.target.value }))}
                                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                                     />
                                   </div>
+
+                                  {editForm.status === 'レンタル終了' && (
+                                    <div className="space-y-2">
+                                      <label className="text-sm font-medium" htmlFor="edit-rental-returned-at">実返却日</label>
+                                      <input
+                                        id="edit-rental-returned-at"
+                                        type="date"
+                                        value={editForm.rentalReturnedAt}
+                                        onChange={(event) => setEditForm((current) => ({ ...current, rentalReturnedAt: event.target.value }))}
+                                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                      />
+                                    </div>
+                                  )}
                                 </div>
 
                                 <div className="space-y-2">
