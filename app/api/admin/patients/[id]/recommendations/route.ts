@@ -47,6 +47,7 @@ type RecommendationRow = {
   reason: string | null;
   status: PatientProductStatusDb;
   rental_started_at: string | null;
+  rental_due_at: string | null;
   rental_returned_at: string | null;
   created_at: string;
   updated_at: string;
@@ -161,6 +162,12 @@ function toLabelStatus(status: PatientProductStatusDb): PatientProductStatusLabe
   }
 }
 
+function isMissingRentalDueColumn(error: { message: string; code?: string } | null) {
+  return Boolean(error && /rental_due_at/i.test(error.message) &&
+    (error.code === 'PGRST204' || error.code === '42703' ||
+      /column|schema cache|does not exist/i.test(error.message)));
+}
+
 function formatRecommendation(
   row: RecommendationRow,
   productMap: Map<string, ProductRow>,
@@ -182,6 +189,7 @@ function formatRecommendation(
     programSummary: program?.summary ?? program?.memo ?? '',
     programCreatedAt: program?.created_at ?? null,
     rentalStartedAt: row.rental_started_at,
+    rentalDueAt: row.rental_due_at,
     rentalReturnedAt: row.rental_returned_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -245,12 +253,30 @@ export async function GET(
       );
     }
 
-    const { data: recommendations, error: recommendationsError } = await adminResult.supabaseAdmin
+    const fetchRecommendations = (columns: string) => adminResult.supabaseAdmin
       .from('patient_product_recommendations')
-      .select('id, patient_id, program_id, product_id, category, reason, status, rental_started_at, rental_returned_at, created_at, updated_at')
+      .select(columns)
       .eq('patient_id', patientId)
       .order('created_at', { ascending: false })
       .returns<RecommendationRow[]>();
+
+    let { data: recommendations, error: recommendationsError } = await fetchRecommendations(
+      'id, patient_id, program_id, product_id, category, reason, status, rental_started_at, rental_due_at, rental_returned_at, created_at, updated_at'
+    );
+
+    if (isMissingRentalDueColumn(recommendationsError)) {
+      // DB移行前は参照だけ従来形式で継続する。
+      const legacy = await fetchRecommendations(
+        'id, patient_id, program_id, product_id, category, reason, status, rental_started_at, rental_returned_at, created_at, updated_at'
+      );
+      recommendations = (legacy.data ?? []).map((row) => ({
+        ...row,
+        rental_due_at: row.status === 'renting' || row.status === 'rental_requested'
+          ? row.rental_returned_at : null,
+        rental_returned_at: row.status === 'rental_returned' ? row.rental_returned_at : null,
+      }));
+      recommendationsError = legacy.error;
+    }
 
     if (recommendationsError) {
       return NextResponse.json(
