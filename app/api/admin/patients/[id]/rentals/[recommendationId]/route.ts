@@ -17,6 +17,7 @@ type RentalRow = {
   status: RentalStatusDb;
   reason: string | null;
   rental_started_at: string | null;
+  rental_due_at: string | null;
   rental_returned_at: string | null;
   updated_at: string;
 };
@@ -25,6 +26,7 @@ type UpdateRentalBody = {
   status?: unknown;
   reason?: unknown;
   rentalStartedAt?: unknown;
+  rentalDueAt?: unknown;
   rentalReturnedAt?: unknown;
 };
 
@@ -192,20 +194,47 @@ function validateIds(patientId: string, recommendationId: string, request: Reque
   return { ok: true as const };
 }
 
+function isMissingRentalDueColumn(error: { message: string; code?: string } | null) {
+  return Boolean(error && /rental_due_at/i.test(error.message) &&
+    (error.code === 'PGRST204' || error.code === '42703' ||
+      /column|schema cache|does not exist/i.test(error.message)));
+}
+
+function migrationRequiredResponse() {
+  return NextResponse.json({
+    error: 'Rental date migration required',
+    detail: 'Supabase SQL Editorで supabase/migrations/20261103_split_rental_due_and_returned_dates.sql を実行してください。',
+  }, { status: 409 });
+}
+
 async function confirmRental(
   supabaseAdmin: ReturnType<typeof createSupabaseAdminClient>,
   patientId: string,
   recommendationId: string
 ) {
-  const { data: rental, error: rentalError } = await supabaseAdmin
+  const get = (columns: string) => supabaseAdmin
     .from('patient_product_recommendations')
-    .select('id, patient_id, status, reason, rental_started_at, rental_returned_at, updated_at')
+    .select(columns)
     .eq('id', recommendationId)
     .eq('patient_id', patientId)
     .in('status', ['rental_requested', 'renting', 'rental_returned'])
     .maybeSingle<RentalRow>();
 
-  return { rental, rentalError };
+  const current = await get('id, patient_id, status, reason, rental_started_at, rental_due_at, rental_returned_at, updated_at');
+  if (!isMissingRentalDueColumn(current.error)) {
+    return { rental: current.data, rentalError: current.error };
+  }
+
+  const legacy = await get('id, patient_id, status, reason, rental_started_at, rental_returned_at, updated_at');
+  const row = legacy.data;
+  return {
+    rental: row ? {
+      ...row,
+      rental_due_at: row.status === 'rental_returned' ? null : row.rental_returned_at,
+      rental_returned_at: row.status === 'rental_returned' ? row.rental_returned_at : null,
+    } : null,
+    rentalError: legacy.error,
+  };
 }
 
 export async function PATCH(
@@ -265,8 +294,10 @@ export async function PATCH(
 
     const now = new Date().toISOString();
     const rentalStartedAt = normalizeDateInput(body.rentalStartedAt) ?? rental.rental_started_at ?? rental.updated_at;
-    // 返却日は予定返却日としても使うため、ステータスに関係なく保存する。
-    const rentalReturnedAt = normalizeDateInput(body.rentalReturnedAt);
+    const rentalDueAt = normalizeDateInput(body.rentalDueAt);
+    const rentalReturnedAt = status === 'rental_returned'
+      ? normalizeDateInput(body.rentalReturnedAt)
+      : null;
 
     const { data: updatedRental, error: updateError } = await adminResult.supabaseAdmin
       .from('patient_product_recommendations')
@@ -274,13 +305,16 @@ export async function PATCH(
         status,
         reason: normalizeOptionalText(body.reason),
         rental_started_at: rentalStartedAt,
+        rental_due_at: rentalDueAt,
         rental_returned_at: rentalReturnedAt,
         updated_at: now,
       })
       .eq('id', recommendationId)
       .eq('patient_id', patientId)
-      .select('id, patient_id, status, reason, rental_started_at, rental_returned_at, updated_at')
+      .select('id, patient_id, status, reason, rental_started_at, rental_due_at, rental_returned_at, updated_at')
       .single<RentalRow>();
+
+    if (isMissingRentalDueColumn(updateError)) return migrationRequiredResponse();
 
     if (updateError) {
       return NextResponse.json(
@@ -296,6 +330,7 @@ export async function PATCH(
         status: toLabelStatus(updatedRental.status),
         reason: updatedRental.reason ?? '',
         rentalStartedAt: updatedRental.rental_started_at,
+        rentalDueAt: updatedRental.rental_due_at,
         rentalReturnedAt: updatedRental.rental_returned_at,
         updatedAt: updatedRental.updated_at,
       },
