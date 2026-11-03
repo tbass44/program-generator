@@ -26,6 +26,17 @@ export function getPatientNextPath(): string {
 }
 
 
+/** 戻り先を使用した後は消し、次回のLINE入口で古い画面を開かないようにする。 */
+export function clearPatientNextPath() {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.sessionStorage.removeItem(NEXT_PATH_STORAGE_KEY);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 /**
  * 患者ページを直接開いた場合も、LIFF認証後に戻れるよう現在地を保存する。
  * sessionStorageが利用できない場合もnextクエリで復帰先を引き継ぐ。
