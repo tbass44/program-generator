@@ -117,38 +117,28 @@ function getPatientIdFromParams(idParam: string | string[] | undefined, pathname
 }
 
 function formatDate(value: string | null | undefined) {
-  if (!value) {
-    return '未設定';
-  }
-
+  if (!value) return '未設定';
   const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString('ja-JP');
+  if (Number.isNaN(date.getTime())) return '未設定';
+  return date.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' });
 }
 
+// データベースのUTC日時も、日付入力欄では日本時間の暦日に変換する。
 function formatDateInputValue(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const getPart = (type: string) => parts.find((part) => part.type === type)?.value ?? '';
+  return `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
 }
 
 function toDateInputValue(value: string | null | undefined) {
-  if (!value) {
-    return '';
-  }
-
+  if (!value) return '';
   const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-
+  if (Number.isNaN(date.getTime())) return '';
   return formatDateInputValue(date);
 }
 
@@ -156,24 +146,26 @@ function getTodayDateInputValue() {
   return formatDateInputValue(new Date());
 }
 
+// 翌月に同日がなければ月末に合わせる（1/31 → 2/28または2/29）。
 function addOneMonthToDateInputValue(value: string) {
-  const [yearText, monthText, dayText] = value.split('-');
-  const year = Number(yearText);
-  const month = Number(monthText);
-  const day = Number(dayText);
-
-  if (!year || !month || !day) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return '';
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const original = new Date(Date.UTC(year, month - 1, day));
+  if (
+    original.getUTCFullYear() !== year ||
+    original.getUTCMonth() + 1 !== month ||
+    original.getUTCDate() !== day
+  ) {
     return '';
   }
-
-  const date = new Date(year, month - 1, day);
-
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-
-  date.setMonth(date.getMonth() + 1);
-  return formatDateInputValue(date);
+  const next = new Date(Date.UTC(year, month, 1));
+  const nextYear = next.getUTCFullYear();
+  const nextMonth = next.getUTCMonth() + 1;
+  const lastDay = new Date(Date.UTC(nextYear, nextMonth, 0)).getUTCDate();
+  return `${nextYear}-${String(nextMonth).padStart(2, '0')}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
 }
 
 function getInitialCreateForm(products: ProductMaster[]): RentalCreateForm {
