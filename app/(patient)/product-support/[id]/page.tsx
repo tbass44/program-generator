@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import liff from '@line/liff';
+import { redirectToLineEntry, retryLineLogin } from '@/lib/patient-line-navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -78,35 +79,11 @@ function getParamId(id: string | string[] | undefined) {
   return id ?? '';
 }
 
-function getCurrentPath() {
-  if (typeof window === 'undefined') {
-    return '/product-support';
-  }
 
-  return `${window.location.pathname}${window.location.search}`;
-}
 
-function redirectToLineEntry() {
-  try {
-    window.sessionStorage.setItem('patientNextPath', getCurrentPath());
-  } catch (error) {
-    console.error(error);
-  }
 
-  window.location.href = '/line';
-}
 
-function retryLineLogin() {
-  try {
-    if (liff.isLoggedIn()) {
-      liff.logout();
-    }
-  } catch (error) {
-    console.error(error);
-  }
 
-  redirectToLineEntry();
-}
 
 function shouldRetryLineLogin(message: string) {
   const lower = message.toLowerCase();
