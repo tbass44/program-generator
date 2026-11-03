@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import liff from '@line/liff';
+import { redirectToLineEntry } from '@/lib/patient-line-navigation';
 import { ProgramCard } from '@/components/patient';
 
 type PatientProgram = {
@@ -71,7 +72,7 @@ export default function ProgramsPage() {
         await liff.init({ liffId });
 
         if (!liff.isLoggedIn()) {
-          liff.login({ redirectUri: window.location.href });
+          redirectToLineEntry();
           return;
         }
 
