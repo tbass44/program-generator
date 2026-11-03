@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import liff from '@line/liff';
+import { getPatientNextPath } from '@/lib/patient-line-navigation';
 import { Button } from '@/components/ui/button';
 
 const LIFF_INIT_TIMEOUT_MS = 10000;
-const NEXT_PATH_STORAGE_KEY = 'patientNextPath';
 
 type LineProfile = {
   userId: string;
@@ -37,30 +37,6 @@ type LineMeResponse = {
 
 function buildLiffUrl(liffId: string) {
   return `https://liff.line.me/${liffId}`;
-}
-
-function isSafePath(value: string | null) {
-  return Boolean(value && value.startsWith('/') && !value.startsWith('//'));
-}
-
-function getSafeNextPath() {
-  if (typeof window === 'undefined') {
-    return '/dashboard';
-  }
-
-  const queryNext = new URLSearchParams(window.location.search).get('next');
-
-  if (isSafePath(queryNext)) {
-    return queryNext as string;
-  }
-
-  const storedNext = window.sessionStorage.getItem(NEXT_PATH_STORAGE_KEY);
-
-  if (isSafePath(storedNext)) {
-    return storedNext as string;
-  }
-
-  return '/dashboard';
 }
 
 function toErrorDetail(error: unknown) {
@@ -129,7 +105,7 @@ export default function LineEntryPage() {
     const initLiff = async () => {
       try {
         setErrorDetail(null);
-        const safeNextPath = getSafeNextPath();
+        const safeNextPath = getPatientNextPath();
         setNextPath(safeNextPath);
 
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
@@ -324,7 +300,7 @@ export default function LineEntryPage() {
                     本人確認後、患者データとLINEアカウントを紐づけます。
                   </dd>
 
-                  <Link href="/line/link" className="mt-4 block">
+                  <Link href={`/line/link?next=${encodeURIComponent(nextPath)}`} className="mt-4 block">
                     <Button className="w-full">連携コードを入力する</Button>
                   </Link>
                 </div>
