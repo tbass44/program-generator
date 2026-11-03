@@ -165,11 +165,15 @@ export default function LineEntryPage() {
 
         setLineMeResult(data);
 
-        if (data.linked) {
-          setStatus('患者データとLINEアカウントが紐づいています。');
-        } else {
-          setStatus('まだ患者データとLINEアカウントが紐づいていません。');
+        if (data.linked && data.patient) {
+          setStatus('患者データとの連携を確認しました。患者画面へ移動しています...');
+          // URLのnextは患者向けの安全なパスに検証済み。戻る操作で認証画面に戻さない。
+          clearPatientNextPath();
+          window.location.replace(safeNextPath);
+          return;
         }
+
+        setStatus('まだ患者データとLINEアカウントが紐づいていません。');
       } catch (error) {
         console.error(error);
         const detail = toErrorDetail(error);
