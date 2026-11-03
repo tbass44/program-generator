@@ -217,6 +217,7 @@ export async function POST(request: Request) {
             .from('programs')
             .select('id, summary')
             .in('id', programIds)
+            .eq('patient_id', patient.id)
             .returns<ProgramRow[]>()
         : Promise.resolve({ data: [] as ProgramRow[], error: null }),
     ]);
