@@ -174,7 +174,16 @@ export default function LineLinkPage() {
         return;
       }
 
-      setStatus('LINE連携が完了しました。');
+      if (!data.linked || !data.patient) {
+        setStatus('LINE連携の結果を確認できませんでした。再度確認してください。');
+        return;
+      }
+
+      setStatus('LINE連携が完了しました。患者画面へ移動しています...');
+      // 初回連携も通常ログインと同じ導線に統一する。戻り先は患者画面に限定済み。
+      const destination = getPatientNextPath();
+      clearPatientNextPath();
+      window.location.replace(destination);
     } catch (error) {
       console.error(error);
       setResult({
