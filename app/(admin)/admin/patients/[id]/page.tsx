@@ -63,6 +63,7 @@ type PatientProductRecommendation = {
   programSummary: string;
   programCreatedAt: string | null;
   rentalStartedAt: string | null;
+  rentalDueAt: string | null;
   rentalReturnedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -956,7 +957,8 @@ export default function AdminPatientDetailPage() {
                       </p>
                       <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
                         <span>レンタル開始日: {formatRentalDate(item.rentalStartedAt ?? item.createdAt)}</span>
-                        <span>返却日（予定含む）: {formatRentalDate(item.rentalReturnedAt)}</span>
+                        <span>返却予定日: {formatRentalDate(item.rentalDueAt)}</span>
+                        <span>実返却日: {item.status === 'レンタル終了' ? formatRentalDate(item.rentalReturnedAt) : '未返却'}</span>
                       </div>
                     </div>
                     {item.programId && (
@@ -1256,7 +1258,8 @@ export default function AdminPatientDetailPage() {
                         </p>
                         <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
                           <span>レンタル開始日: {formatRentalDate(item.rentalStartedAt ?? item.createdAt)}</span>
-                          <span>返却日（予定含む）: {formatRentalDate(item.rentalReturnedAt)}</span>
+                          <span>返却予定日: {formatRentalDate(item.rentalDueAt)}</span>
+                        <span>実返却日: {item.status === 'レンタル終了' ? formatRentalDate(item.rentalReturnedAt) : '未返却'}</span>
                           <span>更新日: {formatRentalDate(item.updatedAt)}</span>
                         </div>
                       </div>
