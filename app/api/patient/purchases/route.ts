@@ -284,6 +284,7 @@ export async function POST(request: Request) {
           .from('programs')
           .select('id, summary, created_at')
           .in('id', programIds)
+          .eq('patient_id', patient.id)
           .returns<ProgramRow[]>()
       : Promise.resolve({ data: [] as ProgramRow[], error: null });
     const historyRecommendationsPromise = historyRecommendationIds.length > 0
