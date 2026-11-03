@@ -3,12 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import liff from '@line/liff';
+import { redirectToLineEntry, retryLineLogin } from '@/lib/patient-line-navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, ChevronRight, ExternalLink, ReceiptText, ShoppingBag, Sparkles } from 'lucide-react';
-
-const NEXT_PATH_STORAGE_KEY = 'patientNextPath';
 
 type Product = {
   id: string;
@@ -84,23 +83,9 @@ const categoryLabels: Record<string, string> = {
   skincare: 'スキンケア',
 };
 
-function getCurrentPath() {
-  if (typeof window === 'undefined') {
-    return '/purchases';
-  }
 
-  return `${window.location.pathname}${window.location.search}`;
-}
 
-function redirectToLineEntry() {
-  try {
-    window.sessionStorage.setItem(NEXT_PATH_STORAGE_KEY, getCurrentPath());
-  } catch (error) {
-    console.error(error);
-  }
 
-  window.location.href = '/line';
-}
 
 function formatDate(value: string | null | undefined) {
   if (!value) {
@@ -143,17 +128,7 @@ function shouldRetryLineLogin(message: string) {
   );
 }
 
-function retryLineLogin() {
-  try {
-    if (liff.isLoggedIn()) {
-      liff.logout();
-    }
-  } catch (error) {
-    console.error(error);
-  }
 
-  redirectToLineEntry();
-}
 
 function formatDetail(detail: unknown) {
   if (!detail) {
