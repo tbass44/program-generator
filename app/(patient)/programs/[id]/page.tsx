@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ChevronLeft, Clock, Calendar, FileText, Package } from 'lucide-react';
 import Link from 'next/link';
 import liff from '@line/liff';
+import { redirectToLineEntry } from '@/lib/patient-line-navigation';
 
 type PatientProgram = {
   id: string;
@@ -92,7 +93,7 @@ export default function ProgramDetailPage() {
         await liff.init({ liffId });
 
         if (!liff.isLoggedIn()) {
-          liff.login({ redirectUri: window.location.href });
+          redirectToLineEntry();
           return;
         }
 
