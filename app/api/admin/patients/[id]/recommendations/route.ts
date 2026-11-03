@@ -161,43 +161,6 @@ function toLabelStatus(status: PatientProductStatusDb): PatientProductStatusLabe
   }
 }
 
-function isRentalStatus(status: PatientProductStatusDb) {
-  return status === 'rental_requested' || status === 'renting' || status === 'rental_returned';
-}
-
-function formatDateLabel(value: string | null) {
-  if (!value) {
-    return '未設定';
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  /**
-   * SupabaseにはJSTの0時をUTCに変換した値が入るため、
-   * Vercelサーバーのデフォルトタイムゾーンで表示すると前日にズレる。
-   * 患者詳細ページ用の補足表示では、必ず日本時間で日付化する。
-   */
-  return date.toLocaleDateString('ja-JP', { timeZone: 'Asia/Tokyo' });
-}
-
-function buildRentalReason(row: RecommendationRow) {
-  const baseReason = row.reason?.trim();
-  const rentalLines = [
-    `レンタル開始日: ${formatDateLabel(row.rental_started_at ?? row.created_at)}`,
-    `返却日: ${formatDateLabel(row.rental_returned_at)}`,
-  ];
-
-  if (!baseReason) {
-    return rentalLines.join('\n');
-  }
-
-  return `${baseReason}\n${rentalLines.join('\n')}`;
-}
-
 function formatRecommendation(
   row: RecommendationRow,
   productMap: Map<string, ProductRow>,
@@ -205,7 +168,6 @@ function formatRecommendation(
 ) {
   const product = row.product_id ? productMap.get(row.product_id) : undefined;
   const program = row.program_id ? programMap.get(row.program_id) : undefined;
-  const rentalStatus = isRentalStatus(row.status);
 
   return {
     id: row.id,
@@ -215,14 +177,14 @@ function formatRecommendation(
     productName: product?.name ?? '商品情報なし',
     productUrl: product?.product_url ?? '',
     category: toLabelCategory(row.category),
-    reason: rentalStatus ? buildRentalReason(row) : row.reason ?? '',
+    reason: row.reason ?? '',
     status: toLabelStatus(row.status),
     programSummary: program?.summary ?? program?.memo ?? '',
     programCreatedAt: program?.created_at ?? null,
     rentalStartedAt: row.rental_started_at,
     rentalReturnedAt: row.rental_returned_at,
-    createdAt: rentalStatus ? row.rental_started_at ?? row.created_at : row.created_at,
-    updatedAt: rentalStatus ? row.rental_returned_at ?? row.updated_at : row.updated_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
