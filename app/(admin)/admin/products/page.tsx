@@ -97,12 +97,17 @@ export default function AdminProductsPage() {
         title="商品管理"
         description="商品マスタの登録・編集を行います"
         actions={
-          <Link href="/admin/products/new">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              新規商品登録
-            </Button>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/admin/products/catalog-import">
+              <Button variant="outline">PDF一括登録</Button>
+            </Link>
+            <Link href="/admin/products/new">
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                新規商品登録
+              </Button>
+            </Link>
+          </div>
         }
       />
 

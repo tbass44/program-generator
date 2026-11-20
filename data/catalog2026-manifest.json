@@ -1,0 +1,757 @@
+{
+  "catalog": "健美生活2026",
+  "generatedAt": "2026-11-20",
+  "productCount": 187,
+  "items": [
+    {
+      "itemNo": 1,
+      "title": "エブリ ビタミン",
+      "productIds": [
+        "314fd7ca-1cdd-450d-bcf6-95c630fbff39"
+      ]
+    },
+    {
+      "itemNo": 2,
+      "title": "エブリ ミネラル",
+      "productIds": [
+        "731e2d83-ec0d-425c-8090-55d12f1aa4a2"
+      ]
+    },
+    {
+      "itemNo": 3,
+      "title": "エブリ コラーゲン＆アミノ",
+      "productIds": [
+        "a8684f8d-1823-4ebe-9a01-229eeb8eead4"
+      ]
+    },
+    {
+      "itemNo": 4,
+      "title": "エブリ 亜鉛 Zn",
+      "productIds": [
+        "014bd84e-953f-4f08-a83f-4626c9f23dc3"
+      ]
+    },
+    {
+      "itemNo": 5,
+      "title": "エブリ 鉄 Fe",
+      "productIds": [
+        "9c185e00-86b2-44a3-90da-e09e6a9348a4"
+      ]
+    },
+    {
+      "itemNo": 6,
+      "title": "エブリ オメガ3 DHA&EPA",
+      "productIds": [
+        "f24e7b58-7e6b-4afc-ba0b-343cbcc46a6a"
+      ]
+    },
+    {
+      "itemNo": 7,
+      "title": "エブリ 植物酵素",
+      "productIds": [
+        "76e11371-5867-4419-a5ca-f69b27ae5341"
+      ]
+    },
+    {
+      "itemNo": 8,
+      "title": "エブリ シートマスク",
+      "productIds": [
+        "349dc611-6315-4c15-8468-6e7d9e2c1fe8"
+      ]
+    },
+    {
+      "itemNo": 9,
+      "title": "エブリ クレイ",
+      "productIds": [
+        "d8911187-1186-4358-a6a2-a5accb311ccd"
+      ]
+    },
+    {
+      "itemNo": 10,
+      "title": "ヘルスビューティウェーブ NEO D.C.Version",
+      "productIds": [
+        "598e4ad5-82fb-46be-912a-05c5aa0937f4",
+        "fe079793-2755-4678-8f11-20df07cac84c"
+      ]
+    },
+    {
+      "itemNo": 11,
+      "title": "ヘルスビューティウェーブ かろやかLIGHT",
+      "productIds": [
+        "87efe4e4-a63d-446b-a965-b412c0e8a4a7",
+        "df4922aa-8c6e-4ce6-86f9-04cf994448ce"
+      ]
+    },
+    {
+      "itemNo": 12,
+      "title": "ナチュラルモーニング 専用シーツ",
+      "productIds": [
+        "de04aa43-83bc-4d40-9495-faf87cf332bc",
+        "43e0802d-8c8b-4b53-985c-c6bdc1e16a7f",
+        "50294c45-07d2-4ca8-9c14-59c42e007df4",
+        "8224b428-ad56-4f0e-a5be-3903ddee3811"
+      ]
+    },
+    {
+      "itemNo": 13,
+      "title": "専用マイヤーボックスシーツⅡ ヒートヘルス",
+      "productIds": [
+        "3698dd69-e06d-4c59-8584-ad05341903dd",
+        "1a37609a-28cf-4709-a18d-b24aa954ede7",
+        "02f9263d-0684-40b9-8ea5-602656e7cb8b",
+        "15c1a136-cb45-4909-b064-52acdbb3db1a"
+      ]
+    },
+    {
+      "itemNo": 14,
+      "title": "専用ハニカムメッシュ クールシーツ",
+      "productIds": [
+        "41a2cf3c-4cad-4982-9fec-1eaa7778c8d0",
+        "2c16fa4b-c13e-4450-a614-b30ca432d116"
+      ]
+    },
+    {
+      "itemNo": 15,
+      "title": "専用遠赤外線トルマリン敷パッド",
+      "productIds": [
+        "20755226-9af7-44e5-b15b-e77467d4b770",
+        "09a7786d-afff-4eb2-9d0d-32628b1accc0",
+        "d66f5157-25e6-4723-b2a2-d287b9f26cd0"
+      ]
+    },
+    {
+      "itemNo": 16,
+      "title": "禅 Ze+N マットレス",
+      "productIds": [
+        "b2af03a6-c042-4142-8429-63bb7461bbbe"
+      ]
+    },
+    {
+      "itemNo": 17,
+      "title": "禅 Ze+N 専用シーツ",
+      "productIds": [
+        "3dcc4c0b-2e6e-4592-a9a9-23fe144e51e8"
+      ]
+    },
+    {
+      "itemNo": 18,
+      "title": "すややか D.C.Version1",
+      "productIds": [
+        "877c118a-16a0-419e-9177-fb867e97b73a"
+      ]
+    },
+    {
+      "itemNo": 19,
+      "title": "すややか D.C.Version2",
+      "productIds": [
+        "d1defa12-ca3a-4047-b0ba-76b09fcca19b"
+      ]
+    },
+    {
+      "itemNo": 20,
+      "title": "すややか D.C.Version3",
+      "productIds": [
+        "5193ab60-637b-4c2c-9a8b-59cc0bbd6161"
+      ]
+    },
+    {
+      "itemNo": 21,
+      "title": "すややか D.C.Version4",
+      "productIds": [
+        "12c46f25-f812-4b46-a55d-c07c9a76cc19"
+      ]
+    },
+    {
+      "itemNo": 22,
+      "title": "すややか SUYAYAKA",
+      "productIds": [
+        "12ebe021-a18d-4e39-96de-8d9e855c26b2",
+        "bb82c659-b6ea-441d-95cf-e26d60c3ee3b"
+      ]
+    },
+    {
+      "itemNo": 23,
+      "title": "高級トルマリンシート入り毛布",
+      "productIds": [
+        "5ccaf7b8-9747-4ac3-b441-00fc592a56b4",
+        "f27729d7-9a5f-4fcd-8255-2fc028953f5f"
+      ]
+    },
+    {
+      "itemNo": 24,
+      "title": "遠赤外線掛布団",
+      "productIds": [
+        "99716093-53e8-44d6-957e-5f5243143fdb",
+        "9fe71705-3a33-48bf-a06f-241758b71ff2"
+      ]
+    },
+    {
+      "itemNo": 25,
+      "title": "トルマリン羽毛掛布団",
+      "productIds": [
+        "2eb5cb63-4f61-42c5-94ee-186498ed49a6",
+        "01e71d4f-8103-4221-b6fc-f40d3567fc8f"
+      ]
+    },
+    {
+      "itemNo": 26,
+      "title": "Balance Fit 座布団",
+      "productIds": [
+        "2cea8ddb-7c4f-4211-8984-c7f7906c4312"
+      ]
+    },
+    {
+      "itemNo": 27,
+      "title": "まもリスク",
+      "productIds": [
+        "6ad95a56-ae7a-4b9a-986f-5e1a42a44e5f"
+      ]
+    },
+    {
+      "itemNo": 28,
+      "title": "ヒップアップパワーガード レディース",
+      "productIds": [
+        "5386522d-c558-4ea6-86f8-5d9448361cc9",
+        "a48cb223-c0ab-49cd-8e82-486ac082c04f",
+        "a76a1dcb-d719-46a6-807c-9d2b25c26dec",
+        "a6184ef9-6af5-49aa-b5d1-60fb0260772a",
+        "f10215ec-9e32-40fd-a5a5-7902e43a3ca5",
+        "9288fc16-992f-4276-ac76-8a21d19f9cee",
+        "75e333ff-66c5-4f16-82b1-420d11eb0142",
+        "3a972eb3-41b8-4f7f-91f9-c34a429f628e"
+      ]
+    },
+    {
+      "itemNo": 29,
+      "title": "パワーガード ボクサータイプ レディース",
+      "productIds": [
+        "053f71eb-c2cf-4a84-baf4-2526b1b09c96",
+        "2839a097-f85f-4036-b8b7-715372554dda",
+        "0eb95ab9-dfac-4d02-8f22-a0725bf2fa59",
+        "0daaa017-e7ae-4209-961e-400a15d50560",
+        "d51e0beb-8546-4ee4-bfcc-205eafbfce96",
+        "7ec9ccf5-4411-407c-a8a6-e47cfba6bb50",
+        "267edb45-e690-4467-8692-c2bb948531b4",
+        "da453acc-3254-4174-af73-d2f8bcab0a58"
+      ]
+    },
+    {
+      "itemNo": 30,
+      "title": "パワーガード ショーツタイプ レディース",
+      "productIds": [
+        "95c29193-024b-4216-b559-c5db148bd737",
+        "a679b631-1c5c-4afe-8151-2e7e01656f8a",
+        "a7df804e-1296-47bf-a8b2-bf22e8310489",
+        "6929c9be-741b-442d-8351-54268c869d88",
+        "060b6ef1-4f30-44e2-96c9-5efd3580af02",
+        "933fc8ce-8543-404c-a154-ea0ff86803f3",
+        "2495de4b-a8cf-4d80-9564-a82bb9e7a02c",
+        "a5840ea5-d3ca-4f79-acf8-9ca53ea28e39",
+        "0695c602-8d90-4443-85cb-a311a538eeec",
+        "698b062c-3986-4b5c-a10f-59bfd857085c"
+      ]
+    },
+    {
+      "itemNo": 31,
+      "title": "パワーガード ロングタイプ レディース",
+      "productIds": [
+        "4c0d82b7-c1db-4442-9636-7b0d25b6169c",
+        "be74be9b-2c3a-460d-9556-96e291a70ffb",
+        "ad895f88-f645-48c2-b8b6-cf584a5b25d7",
+        "a4b82c89-61bc-4605-9e6b-43b1a57d1353",
+        "c10a64f6-d771-4fa6-b260-7b71710f42f4",
+        "ad2f78fc-1de8-41cf-9c63-e916a7a586b3",
+        "176258f3-5403-4e80-9c37-44da6860c764",
+        "f7d49347-e25b-4d68-8c42-d6ba6c548f13",
+        "0c368c49-51f0-40fd-9987-350013274d36",
+        "a1dcac59-cbff-429d-8571-714ed07508be"
+      ]
+    },
+    {
+      "itemNo": 32,
+      "title": "パワーガード ブリーフタイプ メンズ",
+      "productIds": [
+        "76b238c3-2650-40a6-a14e-9f37447c4a86",
+        "22e59b1b-b1f4-4196-a3b0-df195feb9155",
+        "2866a523-e432-4481-8e54-7f674f65f6ff",
+        "11624e69-f178-4814-85a7-953249ebd27d",
+        "2b047c8f-fdf9-4854-adb8-d23ef2e3b7cb"
+      ]
+    },
+    {
+      "itemNo": 33,
+      "title": "パワーガード ロングタイプ メンズ",
+      "productIds": [
+        "9dcae79e-4c72-4745-9cde-297c76079bff",
+        "a1c8d27d-1e12-4884-8e4b-fb0c94e216b8",
+        "08df3bbf-7f05-4313-a2a3-244f1c3a0c69",
+        "4de5414e-82b8-471f-bb24-c9c00388c643",
+        "8757fc2d-7194-463c-9c8e-a5682bfcb676"
+      ]
+    },
+    {
+      "itemNo": 34,
+      "title": "パワーガード ボクサータイプ メンズ",
+      "productIds": [
+        "a262eba1-d31a-49c8-a6ea-edc0bc636300",
+        "3bc53735-1848-4ead-a958-9316c09be31b",
+        "0f9f7cbb-7853-4a4c-8cc9-492fb9d1b5ed",
+        "18f35d24-0722-4957-b155-7c325c5807a9",
+        "ba7596ab-d9bf-468f-bcfe-786a8c226f91",
+        "f996971c-a4dc-4736-a37b-cdf9b1a8f00b",
+        "dce5dc3e-259d-49a5-9dcb-6a859acf019d",
+        "8d550bc5-4d07-4661-a2f4-e6078965c96b"
+      ]
+    },
+    {
+      "itemNo": 35,
+      "title": "シルフィットサポーター ひじ用",
+      "productIds": [
+        "ec838306-8240-4cff-9715-035d865d1aa9",
+        "481e0b97-7a51-480a-b1d4-429bb1c9ffc6",
+        "858806a9-8fc4-4659-b11b-6790db87c96d",
+        "f03f16a2-d63c-474b-b450-26906caec60a"
+      ]
+    },
+    {
+      "itemNo": 36,
+      "title": "シルフィットサポーター ひざ用",
+      "productIds": [
+        "b4aec651-2aff-4692-b249-b042d2543f64",
+        "af3512b3-0377-4f6f-b11d-2e2c5986aa19",
+        "6582dcd8-01b3-4cc9-80f0-0d0054692080",
+        "cf66ccbe-1b8b-464c-86da-ffc1c2b2af36"
+      ]
+    },
+    {
+      "itemNo": 37,
+      "title": "シルフィットサポーター 手首用",
+      "productIds": [
+        "8d2ab677-30c8-405c-9512-cc2ec2dac0dc",
+        "a62c4166-92b9-49fc-b177-9e3e7492ff0d",
+        "0af413bf-2bcd-4f5e-a3cb-4e8ee6b24b2e",
+        "c13363fa-7516-4831-95c8-b5b80cc029fe"
+      ]
+    },
+    {
+      "itemNo": 38,
+      "title": "シルフィットサポーター 足首用",
+      "productIds": [
+        "4c2b44f4-58f7-4a76-abd2-e3caf5b53f41",
+        "58f57fd4-d30b-4428-a6ba-65ddc31017d7",
+        "9fa85e6e-1cc4-4d05-bbf8-16a87201922e",
+        "07a81f18-364b-4018-8f74-ae4760f0e541"
+      ]
+    },
+    {
+      "itemNo": 39,
+      "title": "ダンスト",
+      "productIds": [
+        "0f755f63-de3a-485f-804b-0f58ca8f7f3c"
+      ]
+    },
+    {
+      "itemNo": 40,
+      "title": "運動まくら あおたけ",
+      "productIds": [
+        "9e61da10-65d1-442a-9883-bc858b4429d9"
+      ]
+    },
+    {
+      "itemNo": 41,
+      "title": "運動まくら あおたけ ハード",
+      "productIds": [
+        "f635d42d-9063-40cd-911e-d0e07809f989"
+      ]
+    },
+    {
+      "itemNo": 42,
+      "title": "ボディコントロールバンド BCB",
+      "productIds": [
+        "72d6f48a-66b7-427a-b4fa-7b69a5eaab6a"
+      ]
+    },
+    {
+      "itemNo": 43,
+      "title": "ビューティコントロールバンド HBCB",
+      "productIds": [
+        "d548dddf-2eec-4e7f-9f34-1448e1eef07f"
+      ]
+    },
+    {
+      "itemNo": 44,
+      "title": "あおたけ・BCB 運動方法",
+      "productIds": [
+        "9e61da10-65d1-442a-9883-bc858b4429d9",
+        "72d6f48a-66b7-427a-b4fa-7b69a5eaab6a"
+      ]
+    },
+    {
+      "itemNo": 45,
+      "title": "ヘルスレスベラ GS",
+      "productIds": [
+        "e8eb47eb-ff73-4a5a-b801-b77e0d5c4019",
+        "91f139fa-e839-498f-94c1-942b407547c7"
+      ]
+    },
+    {
+      "itemNo": 46,
+      "title": "ナノカルファミリー プラス",
+      "productIds": [
+        "f804921d-5121-4d06-8c6e-a504cf7c5693",
+        "c2a490fd-c579-4718-96d6-ab75435be390",
+        "04162213-42e7-4955-a732-0328cb93d19f",
+        "c8b00f71-f1d6-483d-afa1-e91829740597"
+      ]
+    },
+    {
+      "itemNo": 47,
+      "title": "ナノカルファミリー",
+      "productIds": [
+        "f6357289-d271-4673-af79-443a087f6631",
+        "b317de4f-9553-4fdd-854c-07e942994339"
+      ]
+    },
+    {
+      "itemNo": 48,
+      "title": "ナノカルタブレット",
+      "productIds": [
+        "a279cf6e-7f77-48ea-a242-7e802b3187eb",
+        "a4aec7ab-8986-4136-94eb-94736cb1046e"
+      ]
+    },
+    {
+      "itemNo": 49,
+      "title": "マッスルメート",
+      "productIds": [
+        "33476f7e-6382-4f32-a256-6558a30dd097",
+        "a2ca0ad9-c41d-4fc4-9ea0-d9b67c3482a0"
+      ]
+    },
+    {
+      "itemNo": 50,
+      "title": "コンドロメート 顆粒",
+      "productIds": [
+        "8862c060-b90d-48b5-b345-67a49f046501",
+        "3cb657ef-24ee-490c-acf0-34a095adc798"
+      ]
+    },
+    {
+      "itemNo": 51,
+      "title": "コンドロメート G",
+      "productIds": [
+        "57d482aa-2f76-4686-808e-04115026e10c",
+        "3fdb1911-0168-42e5-a34e-fabc5203140a"
+      ]
+    },
+    {
+      "itemNo": 52,
+      "title": "キャッツクロニン DX",
+      "productIds": [
+        "aa44a473-978c-41f9-aa79-e7a1fb621e62",
+        "023f5992-1cbf-4392-9697-06adea67cb9d"
+      ]
+    },
+    {
+      "itemNo": 53,
+      "title": "アガリクスピエダーデ 原液",
+      "productIds": [
+        "d3395d1d-ece7-4c5e-a0c4-0deed3136477"
+      ]
+    },
+    {
+      "itemNo": 54,
+      "title": "アガリクスピエダーデ 顆粒",
+      "productIds": [
+        "393844f9-5850-48d8-b52b-9f4b96693afb",
+        "efce6896-20c3-46a4-a605-77e00b7478bc"
+      ]
+    },
+    {
+      "itemNo": 55,
+      "title": "アガリクスピエダーデ ロイヤル",
+      "productIds": [
+        "27f00c85-acf0-4bbb-b324-872a89f08f8e"
+      ]
+    },
+    {
+      "itemNo": 56,
+      "title": "ピクノミン AG",
+      "productIds": [
+        "82e74ae6-7b64-4b12-90cb-b176ceab641d",
+        "4efe5c0c-5f3b-4b7d-9822-6591959c88a1"
+      ]
+    },
+    {
+      "itemNo": 57,
+      "title": "ユーグレラ",
+      "productIds": [
+        "94e159a2-5be1-4a2c-a0c2-75ae1667b180",
+        "3c49932e-5db3-46cb-a035-aaab4ffe5ea6"
+      ]
+    },
+    {
+      "itemNo": 58,
+      "title": "ラクテアニン",
+      "productIds": [
+        "92bc453f-1c96-4542-adb7-8ad42533a3dd",
+        "3754d681-736e-4618-af09-949389c692d6"
+      ]
+    },
+    {
+      "itemNo": 59,
+      "title": "フィブリキュア",
+      "productIds": [
+        "b97f8c8d-b85d-46d3-9ed4-7bb27f1630bd",
+        "8d5524c8-4ef3-42b5-b1cc-d601011976ca"
+      ]
+    },
+    {
+      "itemNo": 60,
+      "title": "ナノシェイプ Soy",
+      "productIds": [
+        "baf44098-41ca-42dc-8252-3f9453bfb22b"
+      ]
+    },
+    {
+      "itemNo": 61,
+      "title": "ビタミニン",
+      "productIds": [
+        "9d1428c9-4ceb-4bee-9ef3-33ec8fa26b26"
+      ]
+    },
+    {
+      "itemNo": 62,
+      "title": "スリムキュット",
+      "productIds": [
+        "a1197a96-8c4b-442b-8973-81ccb3f5cec1"
+      ]
+    },
+    {
+      "itemNo": 63,
+      "title": "美FURI TypeA 痩・骨・腸",
+      "productIds": [
+        "fc55db1a-a17d-4d9a-842f-386030c09efc",
+        "51b4dead-c49c-461f-a2a9-791d88c4dd19"
+      ]
+    },
+    {
+      "itemNo": 64,
+      "title": "スペシャルケアセット",
+      "productIds": [
+        "654549ee-d086-48bf-82b8-42e62bd50156"
+      ]
+    },
+    {
+      "itemNo": 65,
+      "title": "エクセレンスC R",
+      "productIds": [
+        "400fd54d-b1cc-40c2-984f-d5aa567d4751"
+      ]
+    },
+    {
+      "itemNo": 66,
+      "title": "コラキューティス R",
+      "productIds": [
+        "5c591648-90b1-46c5-a09c-b56d5bce3d01"
+      ]
+    },
+    {
+      "itemNo": 67,
+      "title": "リンクルフラフィ R",
+      "productIds": [
+        "894b77d9-f0ef-480f-aac0-03ecbec81656"
+      ]
+    },
+    {
+      "itemNo": 68,
+      "title": "ホワイティスピュア R",
+      "productIds": [
+        "042e1c0e-6c38-43ae-a5f2-a54484622d54"
+      ]
+    },
+    {
+      "itemNo": 69,
+      "title": "バーニングセル R",
+      "productIds": [
+        "08899b13-fcb2-40cc-89c8-c8aeab173f30"
+      ]
+    },
+    {
+      "itemNo": 70,
+      "title": "フェイスクレイウォッシュ",
+      "productIds": [
+        "f77be7ba-6963-4b81-8834-aec36da6f94a"
+      ]
+    },
+    {
+      "itemNo": 71,
+      "title": "クレイウォッシュフォーム",
+      "productIds": [
+        "b9488841-7149-43f9-98d2-cd8af33bb28f"
+      ]
+    },
+    {
+      "itemNo": 72,
+      "title": "ピーリーエッセンス",
+      "productIds": [
+        "07622ca0-d6ae-4219-8a86-d0722eede351"
+      ]
+    },
+    {
+      "itemNo": 73,
+      "title": "クレイスムースローション",
+      "productIds": [
+        "efc4ffaf-07a0-40db-8dc9-9d5392d4d8ef"
+      ]
+    },
+    {
+      "itemNo": 74,
+      "title": "プラドゥーブル",
+      "productIds": [
+        "21402c8a-44bd-4c5e-aaa4-5fb70335c374"
+      ]
+    },
+    {
+      "itemNo": 75,
+      "title": "ミネラルクレイクリーム",
+      "productIds": [
+        "6d5b3802-3526-438a-96f5-efb81fad2482"
+      ]
+    },
+    {
+      "itemNo": 76,
+      "title": "クレイスムースエッセンス",
+      "productIds": [
+        "a3baf334-1e36-4a1c-8d48-0c3c8fd0da48"
+      ]
+    },
+    {
+      "itemNo": 77,
+      "title": "クレイオール L",
+      "productIds": [
+        "edbbb937-4fd0-4e09-adbf-1c03cf19fdc4"
+      ]
+    },
+    {
+      "itemNo": 78,
+      "title": "クレイヘアコンディショナー",
+      "productIds": []
+    },
+    {
+      "itemNo": 79,
+      "title": "UVサンガード",
+      "productIds": [
+        "f2f56155-bd4f-4448-a787-cce4c02a9226"
+      ]
+    },
+    {
+      "itemNo": 80,
+      "title": "BABYサンスクリーン",
+      "productIds": [
+        "286c7ccb-90da-49cb-9dc4-da96ba7afb56"
+      ]
+    },
+    {
+      "itemNo": 81,
+      "title": "フレッシュカバーメークアップ",
+      "productIds": [
+        "a24ca79e-fc40-4c90-a32d-136ca77997b7",
+        "a6d2c934-5322-40a0-bfae-98f4db732a35"
+      ]
+    },
+    {
+      "itemNo": 82,
+      "title": "フレッシュカバーコンパクト リフィル",
+      "productIds": [
+        "c6eefaf0-3d94-4c2a-82cf-e418fe691442",
+        "77185ba7-c3e0-4eca-bd23-47f3dc33e652"
+      ]
+    },
+    {
+      "itemNo": 83,
+      "title": "ミネラルクレイモイスチャーパック",
+      "productIds": [
+        "63d39166-0b1e-4845-a8f4-6b7bfe3c42f6"
+      ]
+    },
+    {
+      "itemNo": 84,
+      "title": "ミネラルクレイクールパック",
+      "productIds": [
+        "d43260c9-c79d-4d9c-82f4-365849895504"
+      ]
+    },
+    {
+      "itemNo": 85,
+      "title": "クレイトリートメント リペアシートマスク",
+      "productIds": [
+        "9fd99d0b-aadc-40a2-b7af-158dcd4c7081"
+      ]
+    },
+    {
+      "itemNo": 86,
+      "title": "ミネラルクレイモイスト",
+      "productIds": [
+        "bfd639fe-a585-4d5f-85e5-12244fd6cb2c"
+      ]
+    },
+    {
+      "itemNo": 87,
+      "title": "ミネラルクレイモイストラージ",
+      "productIds": [
+        "577a0ee4-fec7-4c31-950c-9f0e8bdbbd92"
+      ]
+    },
+    {
+      "itemNo": 88,
+      "title": "ミネラルクレイボディクリーム",
+      "productIds": [
+        "8e9300be-71ef-4dc9-b883-4f3306b49d24"
+      ]
+    },
+    {
+      "itemNo": 89,
+      "title": "デンタルクレイ",
+      "productIds": [
+        "fc57c429-49b8-4e05-942b-f0b26d62261d"
+      ]
+    },
+    {
+      "itemNo": 90,
+      "title": "クレイホットクレンジング",
+      "productIds": [
+        "4bca17be-caf2-4260-a029-0c2c5ddfc9f8"
+      ]
+    },
+    {
+      "itemNo": 91,
+      "title": "クレイクールローション",
+      "productIds": [
+        "75d0cea3-6551-44a9-86c0-ef6d86032aac"
+      ]
+    },
+    {
+      "itemNo": 92,
+      "title": "クレセラボディミスト",
+      "productIds": [
+        "809e0ac8-495d-457e-8554-8de28d90ce37"
+      ]
+    },
+    {
+      "itemNo": 93,
+      "title": "クレセラボディミルク",
+      "productIds": [
+        "3ed74f9b-8f16-41b7-983f-9a605b553eff"
+      ]
+    },
+    {
+      "itemNo": 94,
+      "title": "クレセラスカルプシルキーバブル",
+      "productIds": [
+        "3b59689a-b662-4e96-b7b5-5e481adf91e4"
+      ]
+    }
+  ],
+  "notes": "照合済みの商品ID（本番2026-11-20時点）。未照合：フィルムノーブルオイル、フレッシュカバーコンパクト 専用スポンジ、ヘアートリートメント。既存PDFは上書きしない。"
+}
