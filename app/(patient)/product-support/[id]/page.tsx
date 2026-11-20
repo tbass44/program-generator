@@ -168,7 +168,6 @@ export default function ProductSupportDetailPage() {
   const id = getParamId(params.id);
   const [patientName, setPatientName] = useState<string | null>(null);
   const [item, setItem] = useState<ProductSupportDetailItem | null>(null);
-  const [debugMessage, setDebugMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -178,7 +177,6 @@ export default function ProductSupportDetailPage() {
       try {
         setIsLoading(true);
         setErrorMessage(null);
-        setDebugMessage(null);
         setStatusMessage('LINE認証を確認しています...');
 
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
@@ -237,24 +235,12 @@ export default function ProductSupportDetailPage() {
             setErrorMessage(`商品詳細を取得できませんでした。${detail ? ` ${detail}` : ''}`);
           }
 
-          if (data.debug) {
-            setDebugMessage(
-              `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 提案ID: ${data.debug.recommendationId ?? '-'}`
-            );
-          }
-
           return;
         }
 
         setPatientName(data.patient?.name ?? data.debug?.patientName ?? null);
         setItem(data.item);
         setStatusMessage('商品詳細を取得しました。');
-
-        if (data.debug) {
-          setDebugMessage(
-            `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 提案ID: ${data.debug.recommendationId ?? '-'}`
-          );
-        }
       } catch (error) {
         console.error(error);
         const message = error instanceof Error ? error.message : String(error);
@@ -290,7 +276,6 @@ export default function ProductSupportDetailPage() {
         </p>
         {isLoading && <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>}
         {errorMessage && <p className="mt-2 text-xs text-red-500">{errorMessage}</p>}
-        {debugMessage && <p className="mt-2 text-[11px] text-gray-400">{debugMessage}</p>}
       </header>
 
       {!isLoading && !errorMessage && item && (
