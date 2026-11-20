@@ -85,7 +85,6 @@ function formatDetail(detail: unknown) {
 export default function VisitsPage() {
   const [patientName, setPatientName] = useState<string | null>(null);
   const [visits, setVisits] = useState<PatientVisit[]>([]);
-  const [debugMessage, setDebugMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -95,7 +94,6 @@ export default function VisitsPage() {
       try {
         setIsLoading(true);
         setErrorMessage(null);
-        setDebugMessage(null);
         setStatusMessage('LINE認証を確認しています...');
 
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
@@ -150,24 +148,12 @@ export default function VisitsPage() {
             );
           }
 
-          if (data.debug) {
-            setDebugMessage(
-              `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 件数: ${data.debug.visitsCount ?? '-'}`
-            );
-          }
-
           return;
         }
 
         setPatientName(data.patient?.name ?? data.debug?.patientName ?? null);
         setVisits(data.visits ?? []);
         setStatusMessage('通院履歴を取得しました。');
-
-        if (data.debug) {
-          setDebugMessage(
-            `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 件数: ${data.debug.visitsCount ?? data.visits?.length ?? 0}`
-          );
-        }
       } catch (error) {
         console.error(error);
         const message = error instanceof Error ? error.message : String(error);
@@ -201,9 +187,6 @@ export default function VisitsPage() {
         )}
         {errorMessage && (
           <p className="mt-2 text-xs text-red-500">{errorMessage}</p>
-        )}
-        {debugMessage && (
-          <p className="mt-2 text-[11px] text-gray-400">{debugMessage}</p>
         )}
       </header>
 
