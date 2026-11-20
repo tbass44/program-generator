@@ -29,6 +29,8 @@ import {
 } from '@/components/admin';
 import type { ProductMaster } from '@/components/admin';
 
+const PAGE_SIZE = 20;
+
 type ProductsResponse = {
   products?: ProductMaster[];
   error?: string;
@@ -43,6 +45,7 @@ function formatApiError(status: number, data: ProductsResponse) {
 export default function AdminProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState('すべて');
   const [statusFilter, setStatusFilter] = useState('すべて');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [products, setProducts] = useState<ProductMaster[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -85,6 +88,9 @@ export default function AdminProductsPage() {
     return true;
   });
 
+  const visibleProducts = filteredProducts.slice(0, visibleCount);
+  const hasMoreProducts = visibleCount < filteredProducts.length;
+
   return (
     <div>
       <PageHeader
@@ -110,7 +116,10 @@ export default function AdminProductsPage() {
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">カテゴリ</p>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <Select value={categoryFilter} onValueChange={(value) => {
+              setCategoryFilter(value);
+              setVisibleCount(PAGE_SIZE);
+            }}>
               <SelectTrigger className="w-[220px]">
                 <SelectValue />
               </SelectTrigger>
@@ -127,7 +136,10 @@ export default function AdminProductsPage() {
 
           <div className="space-y-1">
             <p className="text-xs text-muted-foreground">ステータス</p>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select value={statusFilter} onValueChange={(value) => {
+              setStatusFilter(value);
+              setVisibleCount(PAGE_SIZE);
+            }}>
               <SelectTrigger className="w-[160px]">
                 <SelectValue />
               </SelectTrigger>
@@ -176,7 +188,7 @@ export default function AdminProductsPage() {
               </TableRow>
             )}
 
-            {!isLoading && filteredProducts.map((product) => (
+            {!isLoading && visibleProducts.map((product) => (
               <TableRow key={product.id}>
                 <TableCell className="font-medium">{product.name}</TableCell>
                 <TableCell>
@@ -217,6 +229,22 @@ export default function AdminProductsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {!isLoading && !errorMessage && filteredProducts.length > 0 && (
+        <div className="mt-4 flex flex-col items-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            {visibleProducts.length}件 / 全{filteredProducts.length}件を表示中
+          </p>
+          {hasMoreProducts && (
+            <Button
+              variant="outline"
+              onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+            >
+              もっと見る
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
