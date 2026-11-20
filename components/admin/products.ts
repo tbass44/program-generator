@@ -15,6 +15,7 @@ export interface ProductMaster {
   price: number;
   inventoryCount: number;
   url: string;
+  pdfUrl?: string;
   status: ProductMasterStatus;
 }
 
