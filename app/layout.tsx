@@ -10,7 +10,7 @@ import PageTitle from '@/components/PageTitle';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: '改善プログラム｜カイロシガ整体院',
+  title: '改善プログラム｜カイロシガ MyCare',
   description: '整体院向け患者管理・改善プログラム管理アプリ',
   openGraph: {
     images: [
