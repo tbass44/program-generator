@@ -321,13 +321,29 @@ export default function ProductSupportDetailPage() {
               </p>
 
               {product?.pdf_url && (
-                <a href={product.pdf_url} target="_blank" rel="noopener noreferrer" className="mt-4 block">
-                  <Button variant="outline" className="w-full">
-                    <ScrollText className="mr-2 h-4 w-4" />
-                    商品資料（PDF）を見る
-                    <ExternalLink className="ml-2 h-4 w-4" />
-                  </Button>
-                </a>
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <ScrollText className="h-4 w-4 text-gray-600" />
+                    <h4 className="text-sm font-semibold text-gray-900">商品資料（PDF）</h4>
+                  </div>
+                  <div className="overflow-hidden rounded-lg border bg-gray-50">
+                    <iframe
+                      src={product.pdf_url}
+                      title={`${productName}の商品資料（PDFプレビュー）`}
+                      className="block h-[340px] w-full sm:h-[460px]"
+                      loading="lazy"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    この画面で資料を確認できます。表示されない場合は下のボタンから開いてください。
+                  </p>
+                  <a href={product.pdf_url} target="_blank" rel="noopener noreferrer" className="block">
+                    <Button variant="outline" className="w-full">
+                      PDFを大きく表示する
+                      <ExternalLink className="ml-2 h-4 w-4" />
+                    </Button>
+                  </a>
+                </div>
               )}
 
               {product?.product_url && (
