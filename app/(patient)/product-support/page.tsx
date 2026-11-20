@@ -248,7 +248,6 @@ export default function ProductSupportPage() {
   const [activeTab, setActiveTab] = useState<Tab>('recommended');
   const [patientName, setPatientName] = useState<string | null>(null);
   const [items, setItems] = useState<ProductSupportItem[]>([]);
-  const [debugMessage, setDebugMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -290,7 +289,6 @@ export default function ProductSupportPage() {
       try {
         setIsLoading(true);
         setErrorMessage(null);
-        setDebugMessage(null);
         setStatusMessage('LINE認証を確認しています...');
 
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
@@ -343,24 +341,12 @@ export default function ProductSupportPage() {
             );
           }
 
-          if (data.debug) {
-            setDebugMessage(
-              `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 件数: ${data.debug.recommendationsCount ?? '-'}`
-            );
-          }
-
           return;
         }
 
         setPatientName(data.patient?.name ?? data.debug?.patientName ?? null);
         setItems(data.productSupport ?? []);
         setStatusMessage('商品サポート情報を取得しました。');
-
-        if (data.debug) {
-          setDebugMessage(
-            `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 提案中: ${data.debug.recommendedCount ?? 0} / 購入希望: ${data.debug.purchaseRequestedCount ?? 0} / 合計: ${data.debug.recommendationsCount ?? 0}`
-          );
-        }
       } catch (error) {
         console.error(error);
         const message = error instanceof Error ? error.message : String(error);
@@ -393,7 +379,6 @@ export default function ProductSupportPage() {
         </p>
         {isLoading && <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>}
         {errorMessage && <p className="mt-2 text-xs text-red-500">{errorMessage}</p>}
-        {debugMessage && <p className="mt-2 text-[11px] text-gray-400">{debugMessage}</p>}
       </header>
 
       <div className="mb-6 flex gap-2">
