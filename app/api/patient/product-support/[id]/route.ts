@@ -224,6 +224,17 @@ export async function POST(
         : Promise.resolve({ data: null, error: null }),
     ]);
 
+    const documentResult = recommendation.product_id
+      ? await supabaseAdmin.from('product_pdf_documents')
+          .select('id, title, pdf_url, created_at')
+          .eq('product_id', recommendation.product_id)
+          .order('created_at', { ascending: true })
+      : { data: [], error: null };
+
+    if (documentResult.error) {
+      return NextResponse.json({ error: 'Failed to fetch PDF documents' }, { status: 500 });
+    }
+
     if (productResult.error) {
       return NextResponse.json(
         {
@@ -249,6 +260,7 @@ export async function POST(
       item: {
         ...recommendation,
         product: productResult.data,
+        pdfDocuments: documentResult.data ?? [],
         program: programResult.data,
       },
       debug: {
