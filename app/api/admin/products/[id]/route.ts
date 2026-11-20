@@ -47,6 +47,7 @@ type ProductRow = {
   price: number;
   inventory_count: number;
   product_url: string | null;
+  pdf_url: string | null;
   status: ProductStatusDb;
   created_at: string;
   updated_at: string;
@@ -254,6 +255,7 @@ function formatProduct(row: ProductRow) {
     price: row.price,
     inventoryCount: row.inventory_count,
     url: row.product_url ?? '',
+    pdfUrl: row.pdf_url ?? '',
     status: toLabelStatus(row.status),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -273,6 +275,7 @@ const productSelect = `
   price,
   inventory_count,
   product_url,
+  pdf_url,
   status,
   created_at,
   updated_at

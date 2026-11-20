@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Save, Trash2 } from 'lucide-react';
+import { Save, Trash2, Upload, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageHeader, ProductForm, SectionCard } from '@/components/admin';
 import type { ProductFormValues } from '@/components/admin/ProductForm';
@@ -61,6 +61,7 @@ export default function AdminProductEditPage({ params }: { params: { id: string 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -90,6 +91,7 @@ export default function AdminProductEditPage({ params }: { params: { id: string 
           price: String(data.product.price),
           inventoryCount: String(data.product.inventoryCount),
           url: data.product.url,
+          pdfUrl: data.product.pdfUrl ?? '',
           status: data.product.status,
         });
       } catch (error) {
@@ -146,6 +148,48 @@ export default function AdminProductEditPage({ params }: { params: { id: string 
       toast.error('商品情報を更新できませんでした');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const uploadPdf = async (file: File) => {
+    if (file.type !== 'application/pdf' || file.size > 10 * 1024 * 1024 || file.size === 0) {
+      toast.error('10MB以下のPDFを選択してください');
+      return;
+    }
+    const body = new FormData();
+    body.append('file', file);
+    try {
+      setIsUploadingPdf(true);
+      const response = await fetch(`/api/admin/products/${params.id}/pdf`, {
+        method: 'POST',
+        body,
+      });
+      const result = (await response.json()) as { pdfUrl?: string; error?: string };
+      if (!response.ok || !result.pdfUrl) {
+        toast.error(result.error ?? 'PDFを登録できませんでした');
+        return;
+      }
+      setValues((current) => ({ ...current, pdfUrl: result.pdfUrl }));
+      toast.success('商品資料を登録しました');
+    } catch {
+      toast.error('PDFのアップロード中にエラーが発生しました');
+    } finally {
+      setIsUploadingPdf(false);
+    }
+  };
+
+  const removePdf = async () => {
+    if (!window.confirm('登録済みのPDFを削除しますか？')) return;
+    try {
+      setIsUploadingPdf(true);
+      const response = await fetch(`/api/admin/products/${params.id}/pdf`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to remove PDF');
+      setValues((current) => ({ ...current, pdfUrl: '' }));
+      toast.success('PDFを削除しました');
+    } catch {
+      toast.error('PDFを削除できませんでした');
+    } finally {
+      setIsUploadingPdf(false);
     }
   };
 
@@ -213,6 +257,33 @@ export default function AdminProductEditPage({ params }: { params: { id: string 
 
       <SectionCard>
         <ProductForm values={values} onChange={updateField} />
+        <div className="mt-6 space-y-3 rounded-lg border p-4">
+          <p className="font-medium">商品資料（PDF）</p>
+          <p className="text-sm text-muted-foreground">患者さんの商品詳細画面から閲覧できる資料です。最大10MB。</p>
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-4 py-2 text-sm hover:bg-muted">
+            <Upload className="h-4 w-4" />
+            {isUploadingPdf ? '処理中...' : values.pdfUrl ? 'PDFを差し替える' : 'PDFをアップロード'}
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              className="sr-only"
+              disabled={isUploadingPdf || isSaving || isDeleting}
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                if (file) void uploadPdf(file);
+                event.currentTarget.value = '';
+              }}
+            />
+          </label>
+          {values.pdfUrl && (
+            <div className="flex flex-wrap items-center gap-3">
+              <a href={values.pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-primary underline">
+                <FileText className="h-4 w-4" /> 登録済みPDFを見る
+              </a>
+              <Button variant="outline" size="sm" disabled={isUploadingPdf} onClick={removePdf}>PDFを削除</Button>
+            </div>
+          )}
+        </div>
         <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <Button onClick={handleSave} disabled={isSaving || isDeleting}>

@@ -22,6 +22,7 @@ export interface ProductFormValues {
   price: string;
   inventoryCount: string;
   url: string;
+  pdfUrl?: string;
   status: ProductMasterStatus;
 }
 
