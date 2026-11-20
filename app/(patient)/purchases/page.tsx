@@ -275,7 +275,6 @@ export default function PurchasesPage() {
   const [patientName, setPatientName] = useState<string | null>(null);
   const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequestItem[]>([]);
   const [purchaseHistory, setPurchaseHistory] = useState<PurchaseHistoryItem[]>([]);
-  const [debugMessage, setDebugMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -285,7 +284,6 @@ export default function PurchasesPage() {
       try {
         setIsLoading(true);
         setErrorMessage(null);
-        setDebugMessage(null);
         setStatusMessage('LINE認証を確認しています...');
 
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
@@ -337,12 +335,6 @@ export default function PurchasesPage() {
             setErrorMessage(`購入情報を取得できませんでした。${detail ? ` ${detail}` : ''}`);
           }
 
-          if (data.debug) {
-            setDebugMessage(
-              `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 購入希望: ${data.debug.purchaseRequestsCount ?? '-'} / 購入履歴: ${data.debug.purchaseHistoryCount ?? '-'}`
-            );
-          }
-
           return;
         }
 
@@ -350,12 +342,6 @@ export default function PurchasesPage() {
         setPurchaseRequests(data.purchaseRequests ?? []);
         setPurchaseHistory(data.purchaseHistory ?? []);
         setStatusMessage('購入情報を取得しました。');
-
-        if (data.debug) {
-          setDebugMessage(
-            `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 購入希望: ${data.debug.purchaseRequestsCount ?? data.purchaseRequests?.length ?? 0} / 購入履歴: ${data.debug.purchaseHistoryCount ?? data.purchaseHistory?.length ?? 0}`
-          );
-        }
       } catch (error) {
         console.error(error);
         const message = error instanceof Error ? error.message : String(error);
@@ -388,7 +374,6 @@ export default function PurchasesPage() {
         </p>
         {isLoading && <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>}
         {errorMessage && <p className="mt-2 text-xs text-red-500">{errorMessage}</p>}
-        {debugMessage && <p className="mt-2 text-[11px] text-gray-400">{debugMessage}</p>}
       </header>
 
       {!isLoading && !errorMessage && hasNoPurchaseData && (
