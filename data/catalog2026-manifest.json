@@ -136,22 +136,30 @@
     {
       "itemNo": 18,
       "title": "すややか D.C.Version1",
-      "productIds": []
+      "productIds": [
+        "877c118a-16a0-419e-9177-fb867e97b73a"
+      ]
     },
     {
       "itemNo": 19,
       "title": "すややか D.C.Version2",
-      "productIds": []
+      "productIds": [
+        "d1defa12-ca3a-4047-b0ba-76b09fcca19b"
+      ]
     },
     {
       "itemNo": 20,
       "title": "すややか D.C.Version3",
-      "productIds": []
+      "productIds": [
+        "5193ab60-637b-4c2c-9a8b-59cc0bbd6161"
+      ]
     },
     {
       "itemNo": 21,
       "title": "すややか D.C.Version4",
-      "productIds": []
+      "productIds": [
+        "12c46f25-f812-4b46-a55d-c07c9a76cc19"
+      ]
     },
     {
       "itemNo": 22,
@@ -744,5 +752,6 @@
         "3b59689a-b662-4e96-b7b5-5e481adf91e4"
       ]
     }
-  ]
+  ],
+  "notes": "照合済みの商品ID（本番2026-11-20時点）。未照合：フィルムノーブルオイル、フレッシュカバーコンパクト 専用スポンジ、ヘアートリートメント。既存PDFは上書きしない。"
 }
