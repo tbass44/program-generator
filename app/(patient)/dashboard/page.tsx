@@ -270,7 +270,6 @@ export default function DashboardPage() {
   const [recommendations, setRecommendations] = useState<DashboardRecommendation[]>([]);
   const [recentVisits, setRecentVisits] = useState<DashboardVisit[]>([]);
   const [rentals, setRentals] = useState<DashboardRecommendation[]>([]);
-  const [debugMessage, setDebugMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -285,7 +284,6 @@ export default function DashboardPage() {
       try {
         setIsLoading(true);
         setErrorMessage(null);
-        setDebugMessage(null);
         setStatusMessage('LINE認証を確認しています...');
 
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
@@ -337,12 +335,6 @@ export default function DashboardPage() {
             setErrorMessage(`患者情報を取得できませんでした。${detail ? ` ${detail}` : ''}`);
           }
 
-          if (data.debug) {
-            setDebugMessage(
-              `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 商品: ${data.debug.recommendationsCount ?? '-'} / 通院: ${data.debug.visitsCount ?? '-'} / レンタル: ${data.debug.rentalsCount ?? '-'}`
-            );
-          }
-
           return;
         }
 
@@ -357,12 +349,6 @@ export default function DashboardPage() {
           setCurrentProgram(toProgramCardViewModel(data.currentProgram));
         } else {
           setCurrentProgram(null);
-        }
-
-        if (data.debug) {
-          setDebugMessage(
-            `患者ID: ${data.debug.patientId ?? '-'} / 患者名: ${data.debug.patientName ?? '-'} / 商品: ${data.debug.recommendationsCount ?? 0} / 通院: ${data.debug.visitsCount ?? 0} / レンタル: ${data.debug.rentalsCount ?? 0}`
-          );
         }
       } catch (error) {
         console.error(error);
@@ -393,7 +379,6 @@ export default function DashboardPage() {
         <p className="text-sm text-gray-500">本日の状態を確認しましょう</p>
         {isLoading && <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>}
         {errorMessage && <p className="mt-2 text-xs text-red-500">{errorMessage}</p>}
-        {debugMessage && <p className="mt-2 text-[11px] text-gray-400">{debugMessage}</p>}
       </header>
 
       {!canShowDashboard && !isLoading && (
