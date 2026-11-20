@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 
-const SITE_NAME = 'カイロシガ整体院';
+const SITE_NAME = 'カイロシガ MyCare';
 
 /** Browser tab titles for administrator and patient screens. */
 function getPageTitle(pathname: string): string {
