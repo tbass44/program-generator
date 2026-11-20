@@ -17,6 +17,7 @@ type Product = {
   description: string | null;
   price: number | null;
   product_url: string | null;
+  pdf_url: string | null;
 };
 
 type Program = {
@@ -318,6 +319,16 @@ export default function ProductSupportDetailPage() {
               <p className="whitespace-pre-wrap text-sm leading-6 text-gray-600">
                 {product?.description || '商品説明は未登録です。'}
               </p>
+
+              {product?.pdf_url && (
+                <a href={product.pdf_url} target="_blank" rel="noopener noreferrer" className="mt-4 block">
+                  <Button variant="outline" className="w-full">
+                    <ScrollText className="mr-2 h-4 w-4" />
+                    商品資料（PDF）を見る
+                    <ExternalLink className="ml-2 h-4 w-4" />
+                  </Button>
+                </a>
+              )}
 
               {product?.product_url && (
                 <a
