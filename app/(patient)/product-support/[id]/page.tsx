@@ -28,6 +28,13 @@ type Program = {
   created_at: string;
 };
 
+type PdfDocument = {
+  id: string;
+  title: string;
+  pdf_url: string;
+  created_at: string;
+};
+
 type ProductSupportDetailItem = {
   id: string;
   patient_id: string;
@@ -39,6 +46,7 @@ type ProductSupportDetailItem = {
   created_at: string;
   updated_at: string;
   product: Product | null;
+  pdfDocuments: PdfDocument[];
   program: Program | null;
 };
 
@@ -170,6 +178,7 @@ export default function ProductSupportDetailPage() {
   const [patientName, setPatientName] = useState<string | null>(null);
   const [item, setItem] = useState<ProductSupportDetailItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [activePdfId, setActivePdfId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -241,6 +250,7 @@ export default function ProductSupportDetailPage() {
 
         setPatientName(data.patient?.name ?? data.debug?.patientName ?? null);
         setItem(data.item);
+        setActivePdfId(data.item.pdfDocuments?.[0]?.id ?? null);
         setStatusMessage('商品詳細を取得しました。');
       } catch (error) {
         console.error(error);
@@ -263,6 +273,8 @@ export default function ProductSupportDetailPage() {
   const product = item?.product ?? null;
   const category = product?.category ?? item?.category ?? null;
   const productName = product?.name ?? '商品名未設定';
+  const pdfDocuments = item?.pdfDocuments ?? [];
+  const selectedPdf = pdfDocuments.find((document) => document.id === activePdfId) ?? pdfDocuments[0];
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6">
@@ -320,24 +332,45 @@ export default function ProductSupportDetailPage() {
                 {product?.description || '商品説明は未登録です。'}
               </p>
 
-              {product?.pdf_url && (
+              {selectedPdf && (
                 <div className="mt-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <ScrollText className="h-4 w-4 text-gray-600" />
-                    <h4 className="text-sm font-semibold text-gray-900">商品資料（PDF）</h4>
+                    <h4 className="text-sm font-semibold text-gray-900">
+                      商品資料（{pdfDocuments.length}件）
+                    </h4>
                   </div>
+                  {pdfDocuments.length > 1 && (
+                    <div className="flex flex-wrap gap-2" aria-label="表示するPDF資料を選択">
+                      {pdfDocuments.map((document) => (
+                        <button
+                          key={document.id}
+                          type="button"
+                          onClick={() => setActivePdfId(document.id)}
+                          aria-pressed={selectedPdf.id === document.id}
+                          className={`rounded-md border px-3 py-2 text-sm ${selectedPdf.id === document.id
+                            ? 'border-teal-600 bg-teal-50 font-semibold text-teal-700'
+                            : 'bg-white text-gray-700'}`}
+                        >
+                          {document.title}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-sm font-medium text-gray-900">{selectedPdf.title}</p>
                   <div className="overflow-hidden rounded-lg border bg-gray-50">
                     <iframe
-                      src={product.pdf_url}
-                      title={`${productName}の商品資料（PDFプレビュー）`}
+                      key={selectedPdf.id}
+                      src={selectedPdf.pdf_url}
+                      title={`${productName} - ${selectedPdf.title}（PDFプレビュー）`}
                       className="block h-[340px] w-full sm:h-[460px]"
                       loading="lazy"
                     />
                   </div>
                   <p className="text-xs text-gray-500">
-                    この画面で資料を確認できます。表示されない場合は下のボタンから開いてください。
+                    資料が表示されない場合は下のボタンから開いてください。
                   </p>
-                  <a href={product.pdf_url} target="_blank" rel="noopener noreferrer" className="block">
+                  <a href={selectedPdf.pdf_url} target="_blank" rel="noopener noreferrer" className="block">
                     <Button variant="outline" className="w-full">
                       PDFを大きく表示する
                       <ExternalLink className="ml-2 h-4 w-4" />
