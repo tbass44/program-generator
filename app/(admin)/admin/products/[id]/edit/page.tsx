@@ -25,6 +25,18 @@ type ProductResponse = {
 /**
  * 商品削除APIで扱うレスポンスの型。
  */
+type PdfDocument = {
+  id: string;
+  title: string;
+  pdf_url: string;
+  created_at: string;
+};
+
+type PdfListResponse = {
+  documents?: PdfDocument[];
+  error?: string;
+};
+
 type DeleteProductResponse = {
   ok?: boolean;
   error?: string;
@@ -62,6 +74,9 @@ export default function AdminProductEditPage({ params }: { params: { id: string 
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  const [pdfDocuments, setPdfDocuments] = useState<PdfDocument[]>([]);
+  const [pdfTitle, setPdfTitle] = useState('');
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -80,6 +95,15 @@ export default function AdminProductEditPage({ params }: { params: { id: string 
         if (!response.ok || !data.product) {
           setErrorMessage(formatApiError(response.status, data));
           return;
+        }
+
+        const documentsResponse = await fetch(`/api/admin/products/${params.id}/pdf`);
+        const documentsData = (await documentsResponse.json()) as PdfListResponse;
+        if (!documentsResponse.ok || !documentsData.documents) {
+          setPdfError(documentsData.error ?? '商品資料を取得できませんでした');
+        } else {
+          setPdfDocuments(documentsData.documents);
+          setPdfError(null);
         }
 
         setValues({
@@ -158,19 +182,21 @@ export default function AdminProductEditPage({ params }: { params: { id: string 
     }
     const body = new FormData();
     body.append('file', file);
+    body.append('title', pdfTitle.trim() || file.name.replace(/\.pdf$/i, ''));
     try {
       setIsUploadingPdf(true);
       const response = await fetch(`/api/admin/products/${params.id}/pdf`, {
         method: 'POST',
         body,
       });
-      const result = (await response.json()) as { pdfUrl?: string; error?: string };
-      if (!response.ok || !result.pdfUrl) {
+      const result = (await response.json()) as { document?: PdfDocument; error?: string };
+      if (!response.ok || !result.document) {
         toast.error(result.error ?? 'PDFを登録できませんでした');
         return;
       }
-      setValues((current) => ({ ...current, pdfUrl: result.pdfUrl }));
-      toast.success('商品資料を登録しました');
+      setPdfDocuments((current) => [...current, result.document!]);
+      setPdfTitle('');
+      toast.success('商品資料を追加しました');
     } catch {
       toast.error('PDFのアップロード中にエラーが発生しました');
     } finally {
@@ -178,13 +204,16 @@ export default function AdminProductEditPage({ params }: { params: { id: string 
     }
   };
 
-  const removePdf = async () => {
-    if (!window.confirm('登録済みのPDFを削除しますか？')) return;
+  const removePdf = async (documentId: string) => {
+    if (!window.confirm('このPDF資料を削除しますか？')) return;
     try {
       setIsUploadingPdf(true);
-      const response = await fetch(`/api/admin/products/${params.id}/pdf`, { method: 'DELETE' });
+      const response = await fetch(
+        `/api/admin/products/${params.id}/pdf?documentId=${encodeURIComponent(documentId)}`,
+        { method: 'DELETE' }
+      );
       if (!response.ok) throw new Error('Failed to remove PDF');
-      setValues((current) => ({ ...current, pdfUrl: '' }));
+      setPdfDocuments((current) => current.filter((document) => document.id !== documentId));
       toast.success('PDFを削除しました');
     } catch {
       toast.error('PDFを削除できませんでした');
@@ -258,11 +287,25 @@ export default function AdminProductEditPage({ params }: { params: { id: string 
       <SectionCard>
         <ProductForm values={values} onChange={updateField} />
         <div className="mt-6 space-y-3 rounded-lg border p-4">
-          <p className="font-medium">商品資料（PDF）</p>
-          <p className="text-sm text-muted-foreground">患者さんの商品詳細画面から閲覧できる資料です。最大10MB。</p>
+          <p className="font-medium">商品資料（PDF・複数登録対応）</p>
+          <p className="text-sm text-muted-foreground">
+            PDFを1件ずつ追加できます。1ファイルあたり最大10MB。
+          </p>
+          {pdfError && <p className="text-sm text-destructive">{pdfError}</p>}
+          <div className="space-y-1">
+            <label htmlFor="pdfTitle" className="text-sm">資料名（任意）</label>
+            <input
+              id="pdfTitle"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+              placeholder="例：商品カタログ、使用方法"
+              value={pdfTitle}
+              maxLength={100}
+              onChange={(event) => setPdfTitle(event.target.value)}
+            />
+          </div>
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-4 py-2 text-sm hover:bg-muted">
             <Upload className="h-4 w-4" />
-            {isUploadingPdf ? '処理中...' : values.pdfUrl ? 'PDFを差し替える' : 'PDFをアップロード'}
+            {isUploadingPdf ? '処理中...' : 'PDFを追加'}
             <input
               type="file"
               accept="application/pdf,.pdf"
@@ -275,14 +318,33 @@ export default function AdminProductEditPage({ params }: { params: { id: string 
               }}
             />
           </label>
-          {values.pdfUrl && (
-            <div className="flex flex-wrap items-center gap-3">
-              <a href={values.pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-primary underline">
-                <FileText className="h-4 w-4" /> 登録済みPDFを見る
-              </a>
-              <Button variant="outline" size="sm" disabled={isUploadingPdf} onClick={removePdf}>PDFを削除</Button>
-            </div>
-          )}
+          <div className="space-y-2">
+            <p className="text-sm font-medium">登録済み資料（{pdfDocuments.length}件）</p>
+            {pdfDocuments.length === 0 && (
+              <p className="text-sm text-muted-foreground">PDFはまだ登録されていません。</p>
+            )}
+            {pdfDocuments.map((document) => (
+              <div key={document.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3">
+                <a
+                  href={document.pdf_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-w-0 items-center gap-2 text-sm text-primary underline"
+                >
+                  <FileText className="h-4 w-4 shrink-0" />
+                  <span className="break-all">{document.title}</span>
+                </a>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isUploadingPdf || isSaving || isDeleting}
+                  onClick={() => void removePdf(document.id)}
+                >
+                  削除
+                </Button>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="mt-6 flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
