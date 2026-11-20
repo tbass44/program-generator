@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
+import PageTitle from '@/components/PageTitle';
 
 /**
  * Google Font設定。
@@ -9,7 +10,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'program-generator',
+  title: '改善プログラム｜カイロシガ整体院',
   description: '整体院向け患者管理・改善プログラム管理アプリ',
   openGraph: {
     images: [
@@ -45,7 +46,7 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="ja">
-        <body className={inter.className}>{children}</body>
+        <body className={inter.className}><PageTitle />{children}</body>
       </html>
     </ClerkProvider>
   );
