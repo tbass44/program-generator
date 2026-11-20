@@ -44,7 +44,7 @@ function ownedStoragePath(url: string | null, id: string) {
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   try {
     const access = await requireAdmin();
-    if (!('db' in access) || !access.db)
+    if ('error' in access)
       return NextResponse.json({ error: access.error }, { status: access.status });
     const id = params.id;
     if (!isUuid(id)) return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
@@ -93,7 +93,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
   try {
     const access = await requireAdmin();
-    if (!('db' in access) || !access.db)
+    if ('error' in access)
       return NextResponse.json({ error: access.error }, { status: access.status });
     const id = params.id;
     if (!isUuid(id)) return NextResponse.json({ error: 'Invalid product ID' }, { status: 400 });
