@@ -72,6 +72,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const admin = await authorize(params.id);
     if (!admin.ok) return admin.response;
     const body = (await request.json()) as LinkBody;
+    if (body.confirmed === false && typeof body.laravelUserId === 'string' && numericId.test(body.laravelUserId)) {
+      const preview = await lookupLaravel(body.laravelUserId);
+      if (!preview) return NextResponse.json({ error: 'Laravel patient not found' }, { status: 404 });
+      return NextResponse.json({ preview }, { headers: { 'Cache-Control': 'no-store' } });
+    }
     if (typeof body.laravelUserId !== 'string' || !numericId.test(body.laravelUserId)
       || typeof body.expectedName !== 'string' || !body.expectedName.trim()
       || body.confirmed !== true) {
