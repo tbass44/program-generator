@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHeader, SectionCard, EmptyState } from '@/components/admin';
+import { LaravelPatientLink } from '@/components/admin/laravel-patient-link';
 
 type AdminPatientDetail = {
   id: string;
@@ -708,6 +709,10 @@ export default function AdminPatientDetailPage() {
           </div>
         }
       />
+
+      <div className="mb-6">
+        <LaravelPatientLink patientId={patient.id} patientName={patient.name} patientKana={patient.kana} patientPhone={patient.phone} />
+      </div>
 
       {errorMessage && (
         <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive whitespace-pre-wrap">
