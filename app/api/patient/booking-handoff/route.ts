@@ -66,11 +66,21 @@ export async function POST(request: Request) {
     const result = (await response.json()) as { entry_url?: string; expires_in_seconds?: number };
     if (!result.entry_url) throw new Error('Missing handoff URL');
     const target = new URL(result.entry_url);
-    if (target.origin !== laravelUrl.origin || !target.pathname.startsWith('/mycare/reserve/entry/')) {
+    // Only a one-time 256-bit ticket issued for the configured Laravel origin
+    // may be handed to the browser. No query, fragment, or alternate path.
+    if (
+      target.origin !== laravelUrl.origin ||
+      !/^\\/mycare\\/reserve\\/entry\\/[a-f0-9]{64}$/.test(target.pathname) ||
+      target.search !== '' ||
+      target.hash !== '' ||
+      target.username !== '' ||
+      target.password !== '' ||
+      result.expires_in_seconds !== 300
+    ) {
       throw new Error('Invalid handoff URL');
     }
-    return NextResponse.json({ entryUrl: target.toString(), expiresInSeconds: result.expires_in_seconds ?? 300 }, {
-      headers: { 'Cache-Control': 'no-store' },
+    return NextResponse.json({ entryUrl: target.toString(), expiresInSeconds: 300 }, {
+      headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' },
     });
   } catch {
     return NextResponse.json({ error: 'Reservation handoff unavailable' }, { status: 503 });
