@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     // may be handed to the browser. No query, fragment, or alternate path.
     if (
       target.origin !== laravelUrl.origin ||
-      !/^\\/mycare\\/reserve\\/entry\\/[a-f0-9]{64}$/.test(target.pathname) ||
+      !/^\/mycare\/reserve\/entry\/[a-f0-9]{64}$/.test(target.pathname) ||
       target.search !== '' ||
       target.hash !== '' ||
       target.username !== '' ||
