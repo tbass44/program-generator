@@ -1,0 +1,23 @@
+name: MyCare reservation handoff typecheck
+on:
+  push:
+    branches:
+      - feature/mycare-reservation-handoff
+    paths:
+      - 'app/api/patient/booking-handoff/route.ts'
+      - '.github/workflows/mycare-booking-handoff.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
