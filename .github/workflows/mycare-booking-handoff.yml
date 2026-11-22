@@ -5,6 +5,7 @@ on:
       - feature/mycare-reservation-handoff
     paths:
       - 'app/api/patient/booking-handoff/route.ts'
+      - 'app/(patient)/dashboard/page.tsx'
       - '.github/workflows/mycare-booking-handoff.yml'
   workflow_dispatch:
 permissions:
