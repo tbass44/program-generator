@@ -273,6 +273,8 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [bookingBusy, setBookingBusy] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
 
   const supportRecommendations = useMemo(
     () => recommendations.filter((recommendation) => !rentalStatuses.includes(recommendation.status)),
@@ -368,6 +370,39 @@ export default function DashboardPage() {
     fetchPatientDashboard();
   }, []);
 
+  const startBooking = async () => {
+    if (bookingBusy || !patient) return;
+    setBookingBusy(true);
+    setBookingError(null);
+    try {
+      if (!liff.isLoggedIn()) {
+        redirectToLineEntry();
+        return;
+      }
+      const idToken = liff.getIDToken();
+      if (!idToken) {
+        retryLineLogin();
+        return;
+      }
+      const response = await fetch('/api/patient/booking-handoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+        cache: 'no-store',
+      });
+      const body = (await response.json()) as { entryUrl?: string; error?: string };
+      if (!response.ok || !body.entryUrl) {
+        setBookingError('予約画面を開けませんでした。時間をおいて再度お試しください。');
+        return;
+      }
+      window.location.assign(body.entryUrl);
+    } catch {
+      setBookingError('予約画面との接続に失敗しました。もう一度お試しください。');
+    } finally {
+      setBookingBusy(false);
+    }
+  };
+
   const canShowDashboard = Boolean(patient);
 
   return (
@@ -389,6 +424,17 @@ export default function DashboardPage() {
 
       {canShowDashboard && (
         <>
+          <section className="mb-6 rounded-lg border border-teal-200 bg-white p-4">
+            <h2 className="font-semibold text-gray-900">次回のご予約</h2>
+            <p className="mt-1 text-sm text-gray-600">ご希望の日時を選んで、次回の施術をご予約いただけます。</p>
+            <button
+              type="button"
+              disabled={bookingBusy}
+              onClick={startBooking}
+              className="mt-3 w-full rounded-md bg-teal-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+            >{bookingBusy ? '予約画面に接続しています…' : '再予約する'}</button>
+            {bookingError && <p role="alert" className="mt-2 text-sm text-red-600">{bookingError}</p>}
+          </section>
           <section className="mb-6">
             <SectionHeader
               title="現在のプラン"
