@@ -133,13 +133,21 @@ function attachRecommendationDetails(
   });
 }
 
+// Patient responses and failure states must never be cached by browsers or proxies.
+function patientJson(body: unknown, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set('Cache-Control', 'private, no-store');
+  headers.set('Referrer-Policy', 'no-referrer');
+  return NextResponse.json(body, { ...init, headers });
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as PatientDashboardRequestBody;
     const idToken = body.idToken;
 
     if (!idToken || typeof idToken !== 'string') {
-      return NextResponse.json(
+      return patientJson(
         { error: 'idToken is required' },
         { status: 400 }
       );
@@ -167,7 +175,7 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (patientError) {
-      return NextResponse.json(
+      return patientJson(
         {
           error: 'Failed to fetch patient',
         },
@@ -176,7 +184,7 @@ export async function POST(request: Request) {
     }
 
     if (!patient) {
-      return NextResponse.json(
+      return patientJson(
         {
           error: 'Patient not linked',
         },
@@ -258,7 +266,7 @@ export async function POST(request: Request) {
       ]);
 
     if (programResult.error) {
-      return NextResponse.json(
+      return patientJson(
         {
           error: 'Failed to fetch current program',
         },
@@ -267,7 +275,7 @@ export async function POST(request: Request) {
     }
 
     if (planResult.error) {
-      return NextResponse.json(
+      return patientJson(
         {
           error: 'Failed to fetch current plan',
         },
@@ -276,7 +284,7 @@ export async function POST(request: Request) {
     }
 
     if (recommendationsResult.error) {
-      return NextResponse.json(
+      return patientJson(
         {
           error: 'Failed to fetch product recommendations',
         },
@@ -285,7 +293,7 @@ export async function POST(request: Request) {
     }
 
     if (visitsResult.error) {
-      return NextResponse.json(
+      return patientJson(
         {
           error: 'Failed to fetch recent visits',
         },
@@ -308,7 +316,7 @@ export async function POST(request: Request) {
         .returns<ProductRow[]>();
 
       if (error) {
-        return NextResponse.json(
+        return patientJson(
           {
             error: 'Failed to fetch recommendation products',
           },
@@ -328,7 +336,7 @@ export async function POST(request: Request) {
         .returns<ProgramRow[]>();
 
       if (error) {
-        return NextResponse.json(
+        return patientJson(
           {
             error: 'Failed to fetch recommendation programs',
             detail: error.message,
@@ -414,7 +422,7 @@ export async function POST(request: Request) {
       console.error('MyCare next reservation lookup unavailable:', error instanceof Error ? error.message : 'unknown');
     }
 
-    return NextResponse.json({
+    return patientJson({
       reservationHistory,
       nextReservation,
       nextReservationStatus,
@@ -434,14 +442,14 @@ export async function POST(request: Request) {
     // Invalid or expired LINE tokens should trigger a login retry, without
     // exposing LINE/provider details or infrastructure errors to the browser.
     if (error instanceof Error && error.message.startsWith('Failed to verify LINE id token')) {
-      return NextResponse.json(
+      return patientJson(
         { error: 'LINE authentication expired' },
         { status: 401, headers: { 'Cache-Control': 'private, no-store' } }
       );
     }
     console.error('MyCare patient dashboard request failed');
 
-    return NextResponse.json(
+    return patientJson(
       {
         error: 'Unexpected server error',
       },
