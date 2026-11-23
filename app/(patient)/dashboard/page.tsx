@@ -89,9 +89,14 @@ function formatReservationDateTime(value: string): string {
   return `${match[1]}年${Number(match[2])}月${Number(match[3])}日 ${match[4]}:${match[5]}`;
 }
 
+type ReservationHistoryItem = NextReservation & {
+  canceled: boolean;
+};
+
 type DashboardResponse = {
   patient?: DashboardPatient;
   nextReservation?: NextReservation | null;
+  reservationHistory?: ReservationHistoryItem[];
   nextReservationStatus?: 'ok' | 'unavailable';
   currentProgram?: DashboardCurrentProgram | null;
   currentPlan?: DashboardCurrentPlan | null;
@@ -289,6 +294,7 @@ export default function DashboardPage() {
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [nextReservation, setNextReservation] = useState<NextReservation | null>(null);
+  const [reservationHistory, setReservationHistory] = useState<ReservationHistoryItem[]>([]);
   const [nextReservationStatus, setNextReservationStatus] = useState<'loading' | 'ok' | 'unavailable'>('loading');
   const [bookingBusy, setBookingBusy] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
@@ -359,6 +365,7 @@ export default function DashboardPage() {
 
         setPatient(data.patient);
         setNextReservation(data.nextReservation ?? null);
+        setReservationHistory(data.reservationHistory ?? []);
         setNextReservationStatus(data.nextReservationStatus === 'ok' ? 'ok' : 'unavailable');
         setCurrentPlan(data.currentPlan ?? null);
         setRecommendations(data.recommendations ?? []);
@@ -463,6 +470,31 @@ export default function DashboardPage() {
               className="mt-3 w-full rounded-md bg-teal-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
             >{bookingBusy ? '予約画面に接続しています…' : nextReservation ? '別の日程も予約する' : '次回の施術を予約する'}</button>
             {bookingError && <p role="alert" className="mt-2 text-sm text-red-600">{bookingError}</p>}
+          </section>
+          <section className="mb-6 rounded-lg border bg-white p-4">
+            <h2 className="font-semibold text-gray-900">MyCareからの予約履歴</h2>
+            {nextReservationStatus === 'unavailable' ? (
+              <p className="mt-2 text-sm text-amber-700">予約履歴を現在取得できません。</p>
+            ) : reservationHistory.length === 0 ? (
+              <p className="mt-2 text-sm text-gray-600">MyCareからの予約履歴はまだありません。</p>
+            ) : (
+              <ul className="mt-3 space-y-3">
+                {reservationHistory.map((booking, index) => (
+                  <li key={`${booking.start_at}-${index}`} className="border-t pt-3 first:border-t-0 first:pt-0">
+                    <p className="text-sm font-medium text-gray-900">
+                      {formatReservationDateTime(booking.start_at)}〜{booking.end_at.slice(11, 16)}
+                    </p>
+                    <p className="mt-1 text-sm text-gray-600">{booking.menu}</p>
+                    <p className={`mt-1 text-xs ${booking.canceled ? 'text-red-600' : 'text-teal-700'}`}>
+                      {booking.canceled ? 'キャンセル済み' : new Date(booking.end_at.replace(' ', 'T') + '+09:00').getTime() <= Date.now() ? '日時経過' : '予約済み'}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-3 text-xs text-gray-500">
+              直近10件のMyCare予約を表示しています。従来の予約システムから行った予約は含みません。
+            </p>
           </section>
           <section className="mb-6">
             <SectionHeader
