@@ -373,7 +373,47 @@ export async function POST(request: Request) {
     );
     const visitRows = visitsResult.data ?? [];
 
+    // Optional server-to-server lookup. Never claim “no reservation” if Laravel is unreachable.
+    let nextReservation: { menu: string; start_at: string; end_at: string } | null = null;
+    let nextReservationStatus: 'ok' | 'unavailable' = 'unavailable';
+    try {
+      const baseUrl = new URL(getRequiredEnv('MYCARE_LARAVEL_INTERNAL_BASE_URL'));
+      const secret = getRequiredEnv('MYCARE_BOOKING_HANDOFF_TOKEN');
+      if (baseUrl.protocol !== 'https:' || baseUrl.username || baseUrl.password ||
+          baseUrl.search || baseUrl.hash || secret.length < 32) {
+        throw new Error('Invalid Laravel configuration');
+      }
+      const url = new URL(
+        '/api/internal/mycare/patients/' + encodeURIComponent(patient.id) + '/next-reservation',
+        baseUrl.origin
+      );
+      const bookingResponse = await fetch(url, {
+        method: 'GET',
+        headers: { Authorization: 'Bearer ' + secret, Accept: 'application/json' },
+        cache: 'no-store',
+        redirect: 'error',
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!bookingResponse.ok) throw new Error('Laravel lookup failed');
+      const bookingData = (await bookingResponse.json()) as {
+        next_reservation?: { menu: string; start_at: string; end_at: string } | null;
+      };
+      const reservation = bookingData.next_reservation;
+      if (reservation !== null && reservation !== undefined &&
+          (typeof reservation.menu !== 'string' ||
+           typeof reservation.start_at !== 'string' ||
+           typeof reservation.end_at !== 'string')) {
+        throw new Error('Invalid booking response');
+      }
+      nextReservation = reservation ?? null;
+      nextReservationStatus = 'ok';
+    } catch (error) {
+      console.error('MyCare next reservation lookup unavailable:', error instanceof Error ? error.message : 'unknown');
+    }
+
     return NextResponse.json({
+      nextReservation,
+      nextReservationStatus,
       lineProfile,
       patient,
       currentProgram: programResult.data,
