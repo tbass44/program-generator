@@ -488,7 +488,7 @@ export default function DashboardPage() {
                       {formatReservationDateTime(booking.start_at)}〜{booking.end_at.slice(11, 16)}
                     </p>
                     <p className="mt-1 text-sm text-gray-600">{booking.menu}</p>
-                    <p className={`mt-1 text-xs ${booking.canceled ? 'text-red-600' : 'text-teal-700'}`}>
+                    <p className={`mt-1 text-xs ${booking.status === 'canceled' ? 'text-red-600' : booking.status === 'completed' ? 'text-gray-500' : 'text-teal-700'}`}>
                       {booking.status === 'canceled' ? 'キャンセル済み' : booking.status === 'completed' ? '日時経過' : '予約済み'}
                     </p>
                   </li>
@@ -507,7 +507,7 @@ export default function DashboardPage() {
               </div>
             )}
             <p className="mt-3 text-xs text-gray-500">
-              直近10件のMyCare予約を表示しています。従来の予約システムから行った予約は含みません。
+              MyCareからの直近最大10件を表示しています。従来の予約システムから行った予約は含みません。
             </p>
           </section>
           <section className="mb-6">
