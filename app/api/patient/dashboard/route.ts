@@ -170,10 +170,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: 'Failed to fetch patient',
-          detail: patientError.message,
-          debug: {
-            lineUserId: lineProfile.userId,
-          },
         },
         { status: 500 }
       );
@@ -183,11 +179,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: 'Patient not linked',
-          detail: 'このLINEアカウントに紐づく患者データがありません。',
-          lineProfile,
-          debug: {
-            lineUserId: lineProfile.userId,
-          },
         },
         { status: 404 }
       );
@@ -270,7 +261,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: 'Failed to fetch current program',
-          detail: programResult.error.message,
         },
         { status: 500 }
       );
@@ -280,7 +270,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: 'Failed to fetch current plan',
-          detail: planResult.error.message,
         },
         { status: 500 }
       );
@@ -290,7 +279,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: 'Failed to fetch product recommendations',
-          detail: recommendationsResult.error.message,
         },
         { status: 500 }
       );
@@ -300,12 +288,6 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: 'Failed to fetch recent visits',
-          detail: visitsResult.error.message,
-          debug: {
-            patientId: patient.id,
-            patientName: patient.name,
-            lineUserId: lineProfile.userId,
-          },
         },
         { status: 500 }
       );
@@ -329,7 +311,6 @@ export async function POST(request: Request) {
         return NextResponse.json(
           {
             error: 'Failed to fetch recommendation products',
-            detail: error.message,
           },
           { status: 500 }
         );
@@ -437,21 +418,12 @@ export async function POST(request: Request) {
       reservationHistory,
       nextReservation,
       nextReservationStatus,
-      lineProfile,
       patient,
       currentProgram: programResult.data,
       currentPlan: planResult.data,
       recommendations: productRecommendations.slice(0, 6),
       recentVisits: visitRows.slice(0, 3),
       rentals: rentals.slice(0, 5),
-      debug: {
-        patientId: patient.id,
-        patientName: patient.name,
-        lineUserId: lineProfile.userId,
-        recommendationsCount: productRecommendations.length,
-        visitsCount: visitRows.length,
-        rentalsCount: rentals.length,
-      },
     }, {
       headers: {
         'Cache-Control': 'private, no-store',
@@ -459,12 +431,11 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    console.error(error);
+    console.error('MyCare patient dashboard request failed');
 
     return NextResponse.json(
       {
         error: 'Unexpected server error',
-        detail: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );
