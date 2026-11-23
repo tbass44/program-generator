@@ -401,20 +401,27 @@ export async function POST(request: Request) {
         reservation_history?: Array<{ menu: string; start_at: string; end_at: string; canceled: boolean }>;
       };
       const reservation = bookingData.next_reservation;
-      if (reservation !== null && reservation !== undefined &&
-          (typeof reservation.menu !== 'string' ||
-           typeof reservation.start_at !== 'string' ||
-           typeof reservation.end_at !== 'string')) {
+      // A missing field must not silently become a confirmed "no reservations" state.
+      const validBooking = (item: unknown): item is {
+        menu: string; start_at: string; end_at: string;
+      } => {
+        if (typeof item !== 'object' || item === null) return false;
+        const booking = item as Record<string, unknown>;
+        const isClinicDateTime = (value: unknown): value is string =>
+          typeof value === 'string' &&
+          /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}$/.test(value);
+        return typeof booking.menu === 'string' &&
+          isClinicDateTime(booking.start_at) &&
+          isClinicDateTime(booking.end_at);
+      };
+      if (reservation === undefined ||
+          (reservation !== null && !validBooking(reservation))) {
         throw new Error('Invalid booking response');
       }
       if (!Array.isArray(bookingData.reservation_history) ||
           bookingData.reservation_history.length > 10 ||
           !bookingData.reservation_history.every((item) =>
-            item !== null &&
-            typeof item.menu === 'string' &&
-            typeof item.start_at === 'string' &&
-            typeof item.end_at === 'string' &&
-            typeof item.canceled === 'boolean')) {
+            validBooking(item) && typeof item.canceled === 'boolean')) {
         throw new Error('Invalid reservation history response');
       }
       nextReservation = reservation ?? null;
