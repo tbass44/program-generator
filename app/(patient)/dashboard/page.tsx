@@ -91,6 +91,7 @@ function formatReservationDateTime(value: string): string {
 
 type ReservationHistoryItem = NextReservation & {
   canceled: boolean;
+  status: 'canceled' | 'completed' | 'upcoming';
 };
 
 type DashboardResponse = {
@@ -486,7 +487,7 @@ export default function DashboardPage() {
                     </p>
                     <p className="mt-1 text-sm text-gray-600">{booking.menu}</p>
                     <p className={`mt-1 text-xs ${booking.canceled ? 'text-red-600' : 'text-teal-700'}`}>
-                      {booking.canceled ? 'キャンセル済み' : new Date(booking.end_at.replace(' ', 'T') + '+09:00').getTime() <= Date.now() ? '日時経過' : '予約済み'}
+                      {booking.status === 'canceled' ? 'キャンセル済み' : booking.status === 'completed' ? '日時経過' : '予約済み'}
                     </p>
                   </li>
                 ))}
