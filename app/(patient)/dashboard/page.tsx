@@ -76,8 +76,23 @@ type DashboardVisit = {
   updated_at: string | null;
 };
 
+type NextReservation = {
+  menu: string;
+  start_at: string;
+  end_at: string;
+};
+
+function formatReservationDateTime(value: string): string {
+  // Laravel stores local clinic time without an offset. Do not shift it to the browser's timezone.
+  const match = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(value);
+  if (!match) return value;
+  return `${match[1]}年${Number(match[2])}月${Number(match[3])}日 ${match[4]}:${match[5]}`;
+}
+
 type DashboardResponse = {
   patient?: DashboardPatient;
+  nextReservation?: NextReservation | null;
+  nextReservationStatus?: 'ok' | 'unavailable';
   currentProgram?: DashboardCurrentProgram | null;
   currentPlan?: DashboardCurrentPlan | null;
   recommendations?: DashboardRecommendation[];
@@ -273,6 +288,8 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [nextReservation, setNextReservation] = useState<NextReservation | null>(null);
+  const [nextReservationStatus, setNextReservationStatus] = useState<'loading' | 'ok' | 'unavailable'>('loading');
   const [bookingBusy, setBookingBusy] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
 
@@ -341,6 +358,8 @@ export default function DashboardPage() {
         }
 
         setPatient(data.patient);
+        setNextReservation(data.nextReservation ?? null);
+        setNextReservationStatus(data.nextReservationStatus === 'ok' ? 'ok' : 'unavailable');
         setCurrentPlan(data.currentPlan ?? null);
         setRecommendations(data.recommendations ?? []);
         setRecentVisits(data.recentVisits ?? []);
@@ -426,7 +445,17 @@ export default function DashboardPage() {
         <>
           <section className="mb-6 rounded-lg border border-teal-200 bg-white p-4">
             <h2 className="font-semibold text-gray-900">次回のご予約</h2>
-            <p className="mt-1 text-sm text-gray-600">ご希望の日時を選んで、次回の施術をご予約いただけます。</p>
+            {nextReservationStatus === 'unavailable' ? (
+              <p className="mt-2 text-sm text-amber-700">予約情報を現在取得できません。予約済みの場合は、確認後に表示されます。</p>
+            ) : nextReservation ? (
+              <div className="mt-2 text-sm text-gray-700">
+                <p className="font-semibold">{formatReservationDateTime(nextReservation.start_at)}〜{nextReservation.end_at.slice(11, 16)}</p>
+                <p className="mt-1">{nextReservation.menu}</p>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-gray-600">現在、MyCareからの次回予約はありません。</p>
+            )}
+            <p className="mt-2 text-sm text-gray-600">ご希望の日時を選んで、次回の施術をご予約いただけます。</p>
             <button
               type="button"
               disabled={bookingBusy}
