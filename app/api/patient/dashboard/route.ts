@@ -375,6 +375,7 @@ export async function POST(request: Request) {
 
     // Optional server-to-server lookup. Never claim “no reservation” if Laravel is unreachable.
     let nextReservation: { menu: string; start_at: string; end_at: string } | null = null;
+    let reservationHistory: Array<{ menu: string; start_at: string; end_at: string; canceled: boolean }> = [];
     let nextReservationStatus: 'ok' | 'unavailable' = 'unavailable';
     try {
       const baseUrl = new URL(getRequiredEnv('MYCARE_LARAVEL_INTERNAL_BASE_URL'));
@@ -397,6 +398,7 @@ export async function POST(request: Request) {
       if (!bookingResponse.ok) throw new Error('Laravel lookup failed');
       const bookingData = (await bookingResponse.json()) as {
         next_reservation?: { menu: string; start_at: string; end_at: string } | null;
+        reservation_history?: Array<{ menu: string; start_at: string; end_at: string; canceled: boolean }>;
       };
       const reservation = bookingData.next_reservation;
       if (reservation !== null && reservation !== undefined &&
@@ -405,13 +407,25 @@ export async function POST(request: Request) {
            typeof reservation.end_at !== 'string')) {
         throw new Error('Invalid booking response');
       }
+      if (!Array.isArray(bookingData.reservation_history) ||
+          bookingData.reservation_history.length > 10 ||
+          !bookingData.reservation_history.every((item) =>
+            item !== null &&
+            typeof item.menu === 'string' &&
+            typeof item.start_at === 'string' &&
+            typeof item.end_at === 'string' &&
+            typeof item.canceled === 'boolean')) {
+        throw new Error('Invalid reservation history response');
+      }
       nextReservation = reservation ?? null;
+      reservationHistory = bookingData.reservation_history;
       nextReservationStatus = 'ok';
     } catch (error) {
       console.error('MyCare next reservation lookup unavailable:', error instanceof Error ? error.message : 'unknown');
     }
 
     return NextResponse.json({
+      reservationHistory,
       nextReservation,
       nextReservationStatus,
       lineProfile,
