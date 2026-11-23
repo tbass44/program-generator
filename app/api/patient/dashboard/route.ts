@@ -431,6 +431,14 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    // Invalid or expired LINE tokens should trigger a login retry, without
+    // exposing LINE/provider details or infrastructure errors to the browser.
+    if (error instanceof Error && error.message.startsWith('Failed to verify LINE id token')) {
+      return NextResponse.json(
+        { error: 'LINE authentication expired' },
+        { status: 401, headers: { 'Cache-Control': 'private, no-store' } }
+      );
+    }
     console.error('MyCare patient dashboard request failed');
 
     return NextResponse.json(
