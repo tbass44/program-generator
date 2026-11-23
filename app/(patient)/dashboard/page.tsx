@@ -268,22 +268,6 @@ function shouldRetryLineLogin(message: string) {
 
 
 
-function formatDetail(detail: unknown) {
-  if (!detail) {
-    return '';
-  }
-
-  if (typeof detail === 'string') {
-    return detail;
-  }
-
-  try {
-    return JSON.stringify(detail);
-  } catch {
-    return String(detail);
-  }
-}
-
 export default function DashboardPage() {
   const [patient, setPatient] = useState<DashboardPatient | null>(null);
   const [currentProgram, setCurrentProgram] = useState<ProgramCardViewModel | null>(null);
@@ -350,10 +334,7 @@ export default function DashboardPage() {
         const data = (await response.json()) as DashboardResponse;
 
         if (!response.ok || !data.patient) {
-          console.error(data);
-          const detail = formatDetail(data.detail);
-
-          if (shouldRetryLineLogin(`${data.error ?? ''} ${detail}`)) {
+          if (shouldRetryLineLogin(data.error ?? '')) {
             retryLineLogin();
             return;
           }
@@ -362,7 +343,7 @@ export default function DashboardPage() {
           if (data.error === 'Patient not linked') {
             setErrorMessage('このLINEアカウントはまだ患者データと連携されていません。');
           } else {
-            setErrorMessage(`患者情報を取得できませんでした。${detail ? ` ${detail}` : ''}`);
+            setErrorMessage('患者情報を取得できませんでした。時間をおいて再度お試しください。');
           }
 
           return;
@@ -384,7 +365,6 @@ export default function DashboardPage() {
           setCurrentProgram(null);
         }
       } catch (error) {
-        console.error(error);
         const message = error instanceof Error ? error.message : String(error);
 
         if (shouldRetryLineLogin(message)) {
@@ -393,7 +373,7 @@ export default function DashboardPage() {
         }
 
         setNextReservationStatus('unavailable');
-        setErrorMessage(`患者情報の取得中にエラーが発生しました。${message ? ` ${message}` : ''}`);
+        setErrorMessage('患者情報の取得中にエラーが発生しました。時間をおいて再度お試しください。');
       } finally {
         setIsLoading(false);
       }
