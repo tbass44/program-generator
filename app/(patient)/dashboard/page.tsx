@@ -461,7 +461,7 @@ export default function DashboardPage() {
               disabled={bookingBusy}
               onClick={startBooking}
               className="mt-3 w-full rounded-md bg-teal-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
-            >{bookingBusy ? '予約画面に接続しています…' : '再予約する'}</button>
+            >{bookingBusy ? '予約画面に接続しています…' : nextReservation ? '別の日程も予約する' : '次回の施術を予約する'}</button>
             {bookingError && <p role="alert" className="mt-2 text-sm text-red-600">{bookingError}</p>}
           </section>
           <section className="mb-6">
