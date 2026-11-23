@@ -300,6 +300,7 @@ export default function DashboardPage() {
   const [nextReservationStatus, setNextReservationStatus] = useState<'loading' | 'ok' | 'unavailable'>('loading');
   const [bookingBusy, setBookingBusy] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [refreshCount, setRefreshCount] = useState(0);
 
   const supportRecommendations = useMemo(
     () => recommendations.filter((recommendation) => !rentalStatuses.includes(recommendation.status)),
@@ -396,6 +397,15 @@ export default function DashboardPage() {
     };
 
     fetchPatientDashboard();
+  }, [refreshCount]);
+
+  // Browsers may restore this page from the back-forward cache after Laravel booking.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setRefreshCount((count) => count + 1);
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
   }, []);
 
   const startBooking = async () => {
@@ -472,6 +482,14 @@ export default function DashboardPage() {
               className="mt-3 w-full rounded-md bg-teal-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
             >{bookingBusy ? '予約画面に接続しています…' : nextReservation ? '別の日程も予約する' : '次回の施術を予約する'}</button>
             {bookingError && <p role="alert" className="mt-2 text-sm text-red-600">{bookingError}</p>}
+            <button
+              type="button"
+              onClick={() => setRefreshCount((count) => count + 1)}
+              disabled={isLoading}
+              className="mt-3 w-full rounded-md border border-teal-200 py-2 text-sm font-medium text-teal-700 disabled:opacity-50"
+            >
+              {isLoading ? '予約情報を確認しています…' : '予約情報を更新する'}
+            </button>
           </section>
           <section className="mb-6 rounded-lg border bg-white p-4">
             <h2 className="font-semibold text-gray-900">MyCareからの予約履歴</h2>
