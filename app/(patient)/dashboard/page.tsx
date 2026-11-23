@@ -296,6 +296,7 @@ export default function DashboardPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [nextReservation, setNextReservation] = useState<NextReservation | null>(null);
   const [reservationHistory, setReservationHistory] = useState<ReservationHistoryItem[]>([]);
+  const [showAllReservationHistory, setShowAllReservationHistory] = useState(false);
   const [nextReservationStatus, setNextReservationStatus] = useState<'loading' | 'ok' | 'unavailable'>('loading');
   const [bookingBusy, setBookingBusy] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
@@ -479,8 +480,9 @@ export default function DashboardPage() {
             ) : reservationHistory.length === 0 ? (
               <p className="mt-2 text-sm text-gray-600">MyCareからの予約履歴はまだありません。</p>
             ) : (
-              <ul className="mt-3 space-y-3">
-                {reservationHistory.map((booking, index) => (
+              <div>
+                <ul className="mt-3 space-y-3">
+                {(showAllReservationHistory ? reservationHistory : reservationHistory.slice(0, 3)).map((booking, index) => (
                   <li key={`${booking.start_at}-${index}`} className="border-t pt-3 first:border-t-0 first:pt-0">
                     <p className="text-sm font-medium text-gray-900">
                       {formatReservationDateTime(booking.start_at)}〜{booking.end_at.slice(11, 16)}
@@ -491,7 +493,18 @@ export default function DashboardPage() {
                     </p>
                   </li>
                 ))}
-              </ul>
+                </ul>
+                {reservationHistory.length > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllReservationHistory((current) => !current)}
+                    aria-expanded={showAllReservationHistory}
+                    className="mt-3 w-full rounded-md border border-teal-200 py-2 text-sm font-medium text-teal-700"
+                  >
+                    {showAllReservationHistory ? '閉じる' : 'さらに履歴を見る'}
+                  </button>
+                )}
+              </div>
             )}
             <p className="mt-3 text-xs text-gray-500">
               直近10件のMyCare予約を表示しています。従来の予約システムから行った予約は含みません。
