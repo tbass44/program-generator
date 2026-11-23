@@ -312,6 +312,7 @@ export default function DashboardPage() {
       try {
         setIsLoading(true);
         setErrorMessage(null);
+        setNextReservationStatus('loading');
         setStatusMessage('LINE認証を確認しています...');
 
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
@@ -357,6 +358,7 @@ export default function DashboardPage() {
             return;
           }
 
+          setNextReservationStatus('unavailable');
           if (data.error === 'Patient not linked') {
             setErrorMessage('このLINEアカウントはまだ患者データと連携されていません。');
           } else {
@@ -390,6 +392,7 @@ export default function DashboardPage() {
           return;
         }
 
+        setNextReservationStatus('unavailable');
         setErrorMessage(`患者情報の取得中にエラーが発生しました。${message ? ` ${message}` : ''}`);
       } finally {
         setIsLoading(false);
@@ -464,7 +467,9 @@ export default function DashboardPage() {
         <>
           <section className="mb-6 rounded-lg border border-teal-200 bg-white p-4">
             <h2 className="font-semibold text-gray-900">次回のご予約</h2>
-            {nextReservationStatus === 'unavailable' ? (
+            {nextReservationStatus === 'loading' ? (
+              <p className="mt-2 text-sm text-gray-500">予約情報を確認しています…</p>
+            ) : nextReservationStatus === 'unavailable' ? (
               <p className="mt-2 text-sm text-amber-700">予約情報を現在取得できません。予約済みの場合は、確認後に表示されます。</p>
             ) : nextReservation ? (
               <div className="mt-2 text-sm text-gray-700">
@@ -493,7 +498,9 @@ export default function DashboardPage() {
           </section>
           <section className="mb-6 rounded-lg border bg-white p-4">
             <h2 className="font-semibold text-gray-900">MyCareからの予約履歴</h2>
-            {nextReservationStatus === 'unavailable' ? (
+            {nextReservationStatus === 'loading' ? (
+              <p className="mt-2 text-sm text-gray-500">予約履歴を確認しています…</p>
+            ) : nextReservationStatus === 'unavailable' ? (
               <p className="mt-2 text-sm text-amber-700">予約履歴を現在取得できません。</p>
             ) : reservationHistory.length === 0 ? (
               <p className="mt-2 text-sm text-gray-600">MyCareからの予約履歴はまだありません。</p>
