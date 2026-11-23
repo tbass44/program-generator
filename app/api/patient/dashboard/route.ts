@@ -443,6 +443,11 @@ export async function POST(request: Request) {
         visitsCount: visitRows.length,
         rentalsCount: rentals.length,
       },
+    }, {
+      headers: {
+        'Cache-Control': 'private, no-store',
+        'Referrer-Policy': 'no-referrer',
+      },
     });
   } catch (error) {
     console.error(error);
