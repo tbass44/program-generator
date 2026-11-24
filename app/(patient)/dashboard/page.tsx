@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import liff from '@line/liff';
 import { redirectToLineEntry, retryLineLogin } from '@/lib/patient-line-navigation';
@@ -285,6 +285,7 @@ export default function DashboardPage() {
   const [bookingBusy, setBookingBusy] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [refreshCount, setRefreshCount] = useState(0);
+  const lastAutomaticRefresh = useRef(0);
 
   const supportRecommendations = useMemo(
     () => recommendations.filter((recommendation) => !rentalStatuses.includes(recommendation.status)),
@@ -404,13 +405,34 @@ export default function DashboardPage() {
     };
   }, [refreshCount]);
 
-  // Browsers may restore this page from the back-forward cache after Laravel booking.
+  // A fresh navigation to /dashboard fetches on mount. Restored pages may
+  // remain mounted in LINE's in-app browser, so refresh when they become visible.
   useEffect(() => {
+    let wasHidden = document.visibilityState === 'hidden';
+    const refreshWhenRestored = () => {
+      // pageshow and visibilitychange can fire together; avoid duplicate requests.
+      const now = Date.now();
+      if (now - lastAutomaticRefresh.current < 1500) return;
+      lastAutomaticRefresh.current = now;
+      setRefreshCount((count) => count + 1);
+    };
     const onPageShow = (event: PageTransitionEvent) => {
-      if (event.persisted) setRefreshCount((count) => count + 1);
+      if (event.persisted) refreshWhenRestored();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        wasHidden = true;
+      } else if (wasHidden) {
+        wasHidden = false;
+        refreshWhenRestored();
+      }
     };
     window.addEventListener('pageshow', onPageShow);
-    return () => window.removeEventListener('pageshow', onPageShow);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pageshow', onPageShow);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
 
   const startBooking = async () => {
