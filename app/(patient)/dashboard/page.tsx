@@ -295,6 +295,18 @@ export default function DashboardPage() {
     const fetchPatientDashboard = async () => {
       try {
         setIsLoading(true);
+        // Clear the previous patient's details before re-checking LINE identity.
+        // Otherwise a failed refresh or account switch can leave stale data visible.
+        setPatient(null);
+        setCurrentProgram(null);
+        setCurrentPlan(null);
+        setRecommendations([]);
+        setRecentVisits([]);
+        setRentals([]);
+        setNextReservation(null);
+        setReservationHistory([]);
+        setShowAllReservationHistory(false);
+        setBookingError(null);
         setErrorMessage(null);
         setNextReservationStatus('loading');
         setStatusMessage('LINE認証を確認しています...');
