@@ -504,6 +504,7 @@ export default function DashboardPage() {
               <p className="mt-2 text-sm text-gray-600">現在、MyCareからの次回予約はありません。</p>
             )}
             <p className="mt-2 text-sm text-gray-600">ご希望の日時を選んで、次回の施術をご予約いただけます。</p>
+            <p className="mt-2 text-xs text-gray-600">予約日時の変更・キャンセルをご希望の場合は、LINEから当院へご連絡ください。</p>
             <button
               type="button"
               disabled={bookingBusy}
