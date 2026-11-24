@@ -8,6 +8,9 @@ on:
       - 'app/api/patient/dashboard/route.ts'
       - 'app/(patient)/dashboard/page.tsx'
       - '.github/workflows/mycare-booking-handoff.yml'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 permissions:
   contents: read
