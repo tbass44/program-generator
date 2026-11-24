@@ -292,6 +292,8 @@ export default function DashboardPage() {
   );
 
   useEffect(() => {
+    let active = true;
+    const abortController = new AbortController();
     const fetchPatientDashboard = async () => {
       try {
         setIsLoading(true);
@@ -319,6 +321,7 @@ export default function DashboardPage() {
         }
 
         await liff.init({ liffId });
+        if (!active) return;
 
         if (!liff.isLoggedIn()) {
           redirectToLineEntry();
@@ -341,9 +344,11 @@ export default function DashboardPage() {
           },
           body: JSON.stringify({ idToken }),
           cache: 'no-store',
+          signal: abortController.signal,
         });
 
         const data = (await response.json()) as DashboardResponse;
+        if (!active) return;
 
         if (!response.ok || !data.patient) {
           if (shouldRetryLineLogin(data.error ?? '')) {
@@ -377,6 +382,7 @@ export default function DashboardPage() {
           setCurrentProgram(null);
         }
       } catch (error) {
+        if (!active) return;
         const message = error instanceof Error ? error.message : String(error);
 
         if (shouldRetryLineLogin(message)) {
@@ -387,11 +393,15 @@ export default function DashboardPage() {
         setNextReservationStatus('unavailable');
         setErrorMessage('患者情報の取得中にエラーが発生しました。時間をおいて再度お試しください。');
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     };
 
     fetchPatientDashboard();
+    return () => {
+      active = false;
+      abortController.abort();
+    };
   }, [refreshCount]);
 
   // Browsers may restore this page from the back-forward cache after Laravel booking.
