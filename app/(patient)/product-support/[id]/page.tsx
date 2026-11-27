@@ -183,6 +183,8 @@ export default function ProductSupportDetailPage() {
   const [activePdfId, setActivePdfId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isRequestingPurchase, setIsRequestingPurchase] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -272,6 +274,45 @@ export default function ProductSupportDetailPage() {
     fetchDetail();
   }, [id]);
 
+  const handlePurchaseRequest = async () => {
+    if (!item || item.status !== 'recommended' || isRequestingPurchase) return;
+    if (!window.confirm('この商品の購入を希望しますか？\n※この操作で決済や購入確定は行われません。')) return;
+
+    try {
+      setIsRequestingPurchase(true);
+      setPurchaseError(null);
+      const idToken = liff.getIDToken();
+      if (!idToken) {
+        retryLineLogin();
+        return;
+      }
+      const response = await fetch(`/api/patient/product-support/${item.id}/purchase-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      const data = (await response.json()) as {
+        requested?: boolean;
+        item?: { status: string; updated_at: string };
+        error?: string;
+      };
+      if (!response.ok || !data.requested || !data.item) {
+        setPurchaseError('購入希望を送信できませんでした。時間をおいてもう一度お試しください。');
+        return;
+      }
+      setItem((previous) => previous ? {
+        ...previous,
+        status: data.item?.status ?? 'purchase_requested',
+        updated_at: data.item?.updated_at ?? previous.updated_at,
+      } : previous);
+    } catch (error) {
+      console.error(error);
+      setPurchaseError('通信エラーが発生しました。通信状態を確認して再度お試しください。');
+    } finally {
+      setIsRequestingPurchase(false);
+    }
+  };
+
   const product = item?.product ?? null;
   const category = product?.category ?? item?.category ?? null;
   const productName = product?.name ?? '商品名未設定';
@@ -343,6 +384,32 @@ export default function ProductSupportDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {item.status === 'recommended' && (
+            <Card>
+              <CardContent className="space-y-3 p-4">
+                <h3 className="font-semibold text-gray-900">商品の購入について</h3>
+                <p className="text-sm text-gray-600">
+                  購入をご希望の場合は、こちらからお知らせください。これは購入希望の連絡であり、
+                  決済や注文確定ではありません。商品の数量や受け渡しは当院から別途ご案内します。
+                </p>
+                <Button className="w-full" onClick={handlePurchaseRequest} disabled={isRequestingPurchase || !product}>
+                  {isRequestingPurchase ? '送信中...' : 'この商品の購入を希望する'}
+                </Button>
+                {purchaseError && <p role="alert" className="text-sm text-red-600">{purchaseError}</p>}
+              </CardContent>
+            </Card>
+          )}
+          {item.status === 'purchase_requested' && (
+            <Card className="border-teal-200 bg-teal-50">
+              <CardContent className="p-4">
+                <p className="font-semibold text-teal-800">購入希望を受け付けました</p>
+                <p className="mt-1 text-sm text-teal-800">
+                  これは注文確定ではありません。数量や受け渡しについては当院からのご案内をご確認ください。
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardContent className="p-4">
