@@ -48,6 +48,7 @@ type ProductSupportItem = {
   reason: string | null;
   usage_guidance: string | null;
   status: string;
+  purchase_request_reviewed_at: string | null;
   created_at: string;
   updated_at: string;
   product: ProductSupportProduct | null;
@@ -283,6 +284,14 @@ function ProductSupportCard({
         {item.status === 'purchase_requested' && (
           <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
             <p className="text-xs font-medium text-teal-700">購入希望を受付済み（決済・注文確定ではありません）</p>
+            {item.purchase_request_reviewed_at ? (
+              <p className="text-xs text-teal-800">
+                院で購入希望を確認しました（{formatDate(item.purchase_request_reviewed_at)}）。
+                注文や商品の確保が完了した意味ではありません。
+              </p>
+            ) : (
+              <p className="text-xs text-gray-600">現在、院での確認待ちです。</p>
+            )}
             <Button type="button" size="sm" variant="outline" className="w-full"
               disabled={isAnyPurchasePending}
               onClick={() => onCancelPurchaseRequest(item)}>
@@ -337,7 +346,7 @@ export default function ProductSupportPage() {
       }
 
       setItems((current) => current.map((entry) => entry.id === item.id
-        ? { ...entry, status: data.item!.status, updated_at: data.item!.updated_at }
+        ? { ...entry, status: data.item!.status, purchase_request_reviewed_at: null, updated_at: data.item!.updated_at }
         : entry));
     } catch (error) {
       console.error(error);
@@ -377,7 +386,7 @@ export default function ProductSupportPage() {
         return;
       }
       setItems((current) => current.map((entry) => entry.id === item.id
-        ? { ...entry, status: data.item!.status, updated_at: data.item!.updated_at }
+        ? { ...entry, status: data.item!.status, purchase_request_reviewed_at: null, updated_at: data.item!.updated_at }
         : entry));
     } catch (error) {
       console.error(error);
