@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { Users, FileText, CreditCard, ShoppingBag, RefreshCw, ChevronRight } from 'lucide-react';
+import { Users, FileText, CreditCard, ShoppingBag, RefreshCw, ChevronRight, Search, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/admin';
 
@@ -39,6 +39,8 @@ export default function AdminDashboardPage() {
   const [purchaseRequestsError, setPurchaseRequestsError] = useState<string | null>(null);
   const [reviewFilter, setReviewFilter] = useState<'pending' | 'reviewed'>('pending');
   const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
   const [pendingCount, setPendingCount] = useState(0);
   const [reviewedCount, setReviewedCount] = useState(0);
   const [filteredCount, setFilteredCount] = useState(0);
@@ -50,7 +52,7 @@ export default function AdminDashboardPage() {
     setLoadingPurchaseRequests(true);
     setPurchaseRequestsError(null);
     try {
-      const response = await fetch(`/api/admin/purchase-requests?review=${reviewFilter}&page=${page}`, {
+      const response = await fetch(`/api/admin/purchase-requests?review=${reviewFilter}&page=${page}&search=${encodeURIComponent(activeSearch)}`, {
         cache: 'no-store',
       });
       const data = (await response.json()) as PurchaseRequestsResponse;
@@ -69,13 +71,19 @@ export default function AdminDashboardPage() {
     } finally {
       setLoadingPurchaseRequests(false);
     }
-  }, [reviewFilter, page]);
+  }, [reviewFilter, page, activeSearch]);
 
   useEffect(() => {
     void loadPurchaseRequests();
   }, [loadPurchaseRequests]);
 
   const displayedRequests = purchaseRequests;
+  const applySearch = (term: string) => {
+    const normalized = term.trim();
+    setSearchInput(normalized);
+    setPage(1);
+    setActiveSearch(normalized);
+  };
   const changeReviewFilter = (filter: 'pending' | 'reviewed') => {
     if (filter === reviewFilter) return;
     setPage(1);
@@ -181,6 +189,33 @@ export default function AdminDashboardPage() {
             </button>
           </div>
 
+          <form className="mb-4 flex flex-wrap items-center gap-2"
+            onSubmit={(event) => { event.preventDefault(); applySearch(searchInput); }}>
+            <label htmlFor="purchase-request-search" className="sr-only">
+              患者名または商品名で購入希望を検索
+            </label>
+            <input id="purchase-request-search" type="search" maxLength={80}
+              value={searchInput} onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="患者名・商品名で検索"
+              className="min-w-0 flex-1 rounded-md border px-3 py-2 text-sm"
+            />
+            <button type="submit" disabled={loadingPurchaseRequests || reviewUpdatingId !== null}
+              className="inline-flex items-center gap-1 rounded-md bg-teal-700 px-3 py-2 text-sm text-white disabled:opacity-40">
+              <Search className="h-4 w-4" />検索
+            </button>
+            {activeSearch && (
+              <button type="button" onClick={() => applySearch('')}
+                disabled={loadingPurchaseRequests || reviewUpdatingId !== null}
+                className="inline-flex items-center gap-1 rounded-md border px-3 py-2 text-sm disabled:opacity-40">
+                <X className="h-4 w-4" />解除
+              </button>
+            )}
+          </form>
+          {activeSearch && !loadingPurchaseRequests && !purchaseRequestsError && (
+            <p className="mb-3 text-xs text-gray-600">
+              「{activeSearch}」の検索結果：合計{purchaseRequestCount}件（未確認{pendingCount}件・確認済み{reviewedCount}件）
+            </p>
+          )}
           {loadingPurchaseRequests && (
             <p className="text-sm text-gray-500">購入希望を確認しています...</p>
           )}
@@ -190,7 +225,9 @@ export default function AdminDashboardPage() {
           {!loadingPurchaseRequests && !purchaseRequestsError && (
             <>
               {purchaseRequestCount === 0 ? (
-                <p className="text-sm text-gray-500">現在、購入希望の商品はありません。</p>
+                <p className="text-sm text-gray-500">
+                  {activeSearch ? '該当する購入希望はありません。' : '現在、購入希望の商品はありません。'}
+                </p>
               ) : (
                 <>
                   <div className="mb-3 flex flex-wrap gap-2" aria-label="購入希望の確認状況">
