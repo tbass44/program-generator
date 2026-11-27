@@ -50,6 +50,7 @@ type RecommendationRow = {
   reason: string | null;
   usage_guidance: string | null;
   status: string;
+  purchase_request_reviewed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -171,6 +172,7 @@ export async function POST(
         reason,
         usage_guidance,
         status,
+        purchase_request_reviewed_at,
         created_at,
         updated_at
       `
