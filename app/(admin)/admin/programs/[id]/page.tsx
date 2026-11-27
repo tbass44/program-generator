@@ -61,6 +61,7 @@ type ProgramRecommendation = {
   productName: string;
   category: string;
   reason: string;
+  usageGuidance: string;
   status: RecommendationStatus;
   createdAt: string;
   updatedAt: string;
@@ -132,6 +133,10 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
   const [recommendations, setRecommendations] = useState<ProgramRecommendation[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('none');
   const [recommendationReason, setRecommendationReason] = useState('');
+  const [recommendationUsageGuidance, setRecommendationUsageGuidance] = useState('');
+  const [editingRecommendationId, setEditingRecommendationId] = useState<string | null>(null);
+  const [editingReason, setEditingReason] = useState('');
+  const [editingUsageGuidance, setEditingUsageGuidance] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(true);
   const [isSavingRecommendation, setIsSavingRecommendation] = useState(false);
@@ -265,6 +270,7 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
         body: JSON.stringify({
           productId: selectedProductId,
           reason: recommendationReason,
+          usageGuidance: recommendationUsageGuidance,
         }),
       });
 
@@ -280,6 +286,7 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
       setRecommendations((prev) => [data.recommendation!, ...prev]);
       setSelectedProductId('none');
       setRecommendationReason('');
+      setRecommendationUsageGuidance('');
       toast.success('商品提案を追加しました');
     } catch (error) {
       console.error(error);
@@ -335,6 +342,54 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
       console.error(error);
       setRecommendationErrorMessage('商品提案ステータスの更新中にエラーが発生しました。');
       toast.error('商品提案ステータスを更新できませんでした');
+    } finally {
+      setUpdatingRecommendationId(null);
+    }
+  };
+
+  const beginEditRecommendation = (recommendation: ProgramRecommendation) => {
+    setEditingRecommendationId(recommendation.id);
+    setEditingReason(recommendation.reason);
+    setEditingUsageGuidance(recommendation.usageGuidance || '');
+  };
+
+  const saveRecommendationText = async (recommendation: ProgramRecommendation) => {
+    try {
+      setUpdatingRecommendationId(recommendation.id);
+      setRecommendationErrorMessage(null);
+      const response = await fetch(
+        `/api/admin/programs/${params.id}/recommendations/${recommendation.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            reason: editingReason,
+            usageGuidance: editingUsageGuidance,
+          }),
+        }
+      );
+      const data = (await response.json()) as RecommendationMutationResponse;
+      if (!response.ok || !data.recommendation) {
+        setRecommendationErrorMessage(formatRecommendationApiError(response.status, data));
+        toast.error('商品提案の編集に失敗しました');
+        return;
+      }
+      setRecommendations((prev) => prev.map((item) =>
+        item.id === recommendation.id
+          ? {
+              ...item,
+              reason: data.recommendation?.reason ?? editingReason,
+              usageGuidance: data.recommendation?.usageGuidance ?? editingUsageGuidance,
+              updatedAt: data.recommendation?.updatedAt ?? item.updatedAt,
+            }
+          : item
+      ));
+      setEditingRecommendationId(null);
+      toast.success('商品提案を更新しました');
+    } catch (error) {
+      console.error(error);
+      setRecommendationErrorMessage('商品提案の編集中にエラーが発生しました。');
+      toast.error('商品提案の編集に失敗しました');
     } finally {
       setUpdatingRecommendationId(null);
     }
@@ -519,14 +574,28 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <p className="text-sm font-medium">提案理由</p>
-                <Textarea
-                  className="min-h-[110px]"
-                  value={recommendationReason}
-                  onChange={(event) => setRecommendationReason(event.target.value)}
-                  placeholder="この患者さんに提案する理由を入力します"
-                />
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">提案理由</p>
+                  <Textarea
+                    className="min-h-[110px]"
+                    value={recommendationReason}
+                    maxLength={3000}
+                    onChange={(event) => setRecommendationReason(event.target.value)}
+                    placeholder="この患者さんに提案する理由を入力します"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">数量・期間の目安（任意）</p>
+                  <input
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    value={recommendationUsageGuidance}
+                    maxLength={300}
+                    onChange={(event) => setRecommendationUsageGuidance(event.target.value)}
+                    placeholder="例：1か月に2個／3か月分（目安）"
+                  />
+                  <p className="text-xs text-muted-foreground">サプリ・スキンケアなどの消耗品向け。実際の必要量を確認して入力してください。</p>
+                </div>
               </div>
             </div>
 
@@ -558,15 +627,56 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
                       <p className="font-medium">{recommendation.productName}</p>
                       <Badge variant="secondary">{recommendation.category}</Badge>
                     </div>
-                    <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
-                      {recommendation.reason || '提案理由は未入力です。'}
-                    </p>
+                    {editingRecommendationId === recommendation.id ? (
+                      <div className="mt-3 space-y-3">
+                        <div>
+                          <p className="mb-1 text-sm font-medium">提案理由</p>
+                          <Textarea
+                            className="min-h-[100px]"
+                            value={editingReason}
+                            maxLength={3000}
+                            onChange={(event) => setEditingReason(event.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <p className="mb-1 text-sm font-medium">数量・期間の目安（任意）</p>
+                          <input
+                            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                            value={editingUsageGuidance}
+                            maxLength={300}
+                            onChange={(event) => setEditingUsageGuidance(event.target.value)}
+                            placeholder="例：1か月に2個／3か月分（目安）"
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => saveRecommendationText(recommendation)}
+                            disabled={updatingRecommendationId === recommendation.id}>
+                            {updatingRecommendationId === recommendation.id ? '保存中...' : '保存'}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setEditingRecommendationId(null)}
+                            disabled={updatingRecommendationId === recommendation.id}>キャンセル</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                          {recommendation.reason || '提案理由は未入力です。'}
+                        </p>
+                        {recommendation.usageGuidance && (
+                          <p className="mt-2 text-sm text-teal-700">数量・期間の目安：{recommendation.usageGuidance}</p>
+                        )}
+                      </>
+                    )}
                     <p className="mt-2 text-xs text-muted-foreground">
                       追加日: {new Date(recommendation.createdAt).toLocaleDateString('ja-JP')}
                     </p>
                   </div>
 
                   <div className="flex flex-col gap-2 md:w-[190px]">
+                    <Button variant="outline" size="sm" onClick={() => beginEditRecommendation(recommendation)}
+                      disabled={updatingRecommendationId === recommendation.id || editingRecommendationId !== null}>
+                      <Edit className="mr-2 h-4 w-4" />提案内容を編集
+                    </Button>
                     <div className="space-y-1">
                       <p className="text-xs text-muted-foreground">ステータス</p>
                       <Select
