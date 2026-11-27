@@ -27,6 +27,8 @@ type ProductSupportProduct = {
   price: number | null;
   inventory_count: number | null;
   product_url: string | null;
+  thumbnail_url: string | null;
+  thumbnail_pdf_url: string | null;
   status: string;
 };
 
@@ -57,6 +59,7 @@ type ProductSupportResponse = {
     name: string;
   };
   productSupport?: ProductSupportItem[];
+  categoryOrder?: CategoryKey[];
   debug?: {
     patientId?: string;
     patientName?: string;
@@ -69,6 +72,7 @@ type ProductSupportResponse = {
 };
 
 type CategoryKey = 'physical_sleep' | 'nutrition' | 'exercise' | 'skincare';
+const defaultCategoryOrder: CategoryKey[] = ['physical_sleep', 'exercise', 'nutrition', 'skincare'];
 
 const categoryMeta: Record<
   CategoryKey,
@@ -197,6 +201,8 @@ function ProductSupportCard({ item }: { item: ProductSupportItem }) {
   const category = item.product?.category ?? item.category;
   const meta = getCategoryMeta(category);
   const Icon = meta.icon;
+  const thumbImage = item.product?.thumbnail_url;
+  const pdfPreview = item.product?.thumbnail_pdf_url;
   const productName = item.product?.name ?? '商品名未設定';
   const reason = item.reason || item.product?.description || '提案理由は未登録です。';
 
@@ -205,8 +211,24 @@ function ProductSupportCard({ item }: { item: ProductSupportItem }) {
       <Card className="border-gray-200 hover:shadow-sm transition-shadow">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
-            <div className={`rounded-lg p-2 ${meta.iconWrapClassName}`}>
-              <Icon className={`h-4 w-4 ${meta.iconClassName}`} />
+            <div className="h-20 w-16 shrink-0 overflow-hidden rounded-md border bg-gray-50">
+              {thumbImage && /^https:\/\//i.test(thumbImage) ? (
+                <img src={thumbImage} alt={productName} loading="lazy"
+                  className="h-full w-full object-contain" />
+              ) : pdfPreview && /^https:\/\//i.test(pdfPreview) ? (
+                <iframe
+                  title={`${productName}の商品資料プレビュー`}
+                  src={`${pdfPreview}#page=1&toolbar=0&navpanes=0&view=Fit`}
+                  loading="lazy"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  className="pointer-events-none h-full w-full border-0"
+                />
+              ) : (
+                <div className={`flex h-full w-full items-center justify-center ${meta.iconWrapClassName}`}>
+                  <Icon className={`h-6 w-6 ${meta.iconClassName}`} />
+                </div>
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex items-start justify-between gap-3">
@@ -216,15 +238,9 @@ function ProductSupportCard({ item }: { item: ProductSupportItem }) {
                 </Badge>
               </div>
               <p className="font-medium text-gray-900">{productName}</p>
-              <p className="mt-1 text-xs text-gray-600">{reason}</p>
+              <p className="mt-1 line-clamp-2 text-xs text-gray-600">{reason}</p>
               {item.usage_guidance && (
                 <p className="mt-2 text-xs font-medium text-teal-700">数量・期間の目安：{item.usage_guidance}</p>
-              )}
-
-              {item.program?.summary && (
-                <p className="mt-2 rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-500">
-                  関連プログラム: {item.program.summary}
-                </p>
               )}
 
               <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
@@ -252,6 +268,7 @@ export default function ProductSupportPage() {
   const [activeTab, setActiveTab] = useState<Tab>('recommended');
   const [patientName, setPatientName] = useState<string | null>(null);
   const [items, setItems] = useState<ProductSupportItem[]>([]);
+  const [categoryOrder, setCategoryOrder] = useState<CategoryKey[]>(defaultCategoryOrder);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -276,6 +293,11 @@ export default function ProductSupportPage() {
 
     return items;
   }, [activeTab, items, purchaseRequestedItems, recommendedItems]);
+
+  const categorizedItems = useMemo(() => categoryOrder.map((category) => ({
+    category,
+    items: visibleItems.filter((item) => (item.product?.category ?? item.category) === category),
+  })).filter((section) => section.items.length > 0), [visibleItems, categoryOrder]);
 
   const tabs: { key: Tab; label: string; icon: typeof ShoppingBag; count: number }[] = [
     { key: 'recommended', label: '提案中', icon: Star, count: recommendedItems.length },
@@ -350,6 +372,7 @@ export default function ProductSupportPage() {
 
         setPatientName(data.patient?.name ?? data.debug?.patientName ?? null);
         setItems(data.productSupport ?? []);
+        if (data.categoryOrder && data.categoryOrder.length === 4) setCategoryOrder(data.categoryOrder);
         setStatusMessage('商品サポート情報を取得しました。');
       } catch (error) {
         console.error(error);
@@ -424,9 +447,22 @@ export default function ProductSupportPage() {
                   : 'すべての商品提案'
             }
           />
-          {visibleItems.map((item) => (
-            <ProductSupportCard key={item.id} item={item} />
-          ))}
+          {categorizedItems.map(({ category, items: categoryItems }) => {
+            const meta = categoryMeta[category];
+            const CategoryIcon = meta.icon;
+            return (
+              <section key={category} className="space-y-2" aria-label={meta.label}>
+                <div className="flex items-center gap-2 border-b pb-2 pt-3">
+                  <div className={`rounded-lg p-2 ${meta.iconWrapClassName}`}>
+                    <CategoryIcon className={`h-4 w-4 ${meta.iconClassName}`} />
+                  </div>
+                  <h2 className="font-semibold text-gray-900">{meta.label}</h2>
+                  <span className="ml-auto text-xs text-gray-500">{categoryItems.length}商品</span>
+                </div>
+                {categoryItems.map((item) => <ProductSupportCard key={item.id} item={item} />)}
+              </section>
+            );
+          })}
         </div>
       )}
     </div>
