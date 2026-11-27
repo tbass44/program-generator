@@ -36,6 +36,8 @@ type AdminProfile = {
  */
 type UpdateRecommendationBody = {
   status?: unknown;
+  reason?: unknown;
+  usageGuidance?: unknown;
 };
 
 /**
@@ -45,6 +47,8 @@ type RecommendationRow = {
   id: string;
   program_id: string | null;
   status: PatientProductStatusDb;
+  reason: string | null;
+  usage_guidance: string | null;
   updated_at: string;
 };
 
@@ -267,16 +271,30 @@ export async function PATCH(
     }
 
     const body = (await request.json()) as UpdateRecommendationBody;
-    const status = toDbStatus(body.status);
-
-    if (!status) {
-      return NextResponse.json(
-        {
-          error: 'Invalid recommendation status',
-          detail: 'status must be one of 提案中 / レンタル希望 / レンタル中 / レンタル終了 / 購入希望',
-        },
-        { status: 400 }
-      );
+    const updates: { status?: PatientProductStatusDb; reason?: string | null; usage_guidance?: string | null; updated_at: string } = {
+      updated_at: new Date().toISOString(),
+    };
+    if (body.status !== undefined) {
+      const status = toDbStatus(body.status);
+      if (!status) {
+        return NextResponse.json({ error: 'Invalid recommendation status' }, { status: 400 });
+      }
+      updates.status = status;
+    }
+    if (body.reason !== undefined) {
+      if (typeof body.reason !== 'string' || body.reason.length > 3000) {
+        return NextResponse.json({ error: 'Invalid recommendation reason' }, { status: 400 });
+      }
+      updates.reason = body.reason.trim() || null;
+    }
+    if (body.usageGuidance !== undefined) {
+      if (typeof body.usageGuidance !== 'string' || body.usageGuidance.length > 300) {
+        return NextResponse.json({ error: 'Invalid usage guidance' }, { status: 400 });
+      }
+      updates.usage_guidance = body.usageGuidance.trim() || null;
+    }
+    if (Object.keys(updates).length === 1) {
+      return NextResponse.json({ error: 'No update fields provided' }, { status: 400 });
     }
 
     const { program, programError } = await confirmProgram(adminResult.supabaseAdmin, programId);
@@ -323,13 +341,10 @@ export async function PATCH(
 
     const { data: updatedRecommendation, error: updateError } = await adminResult.supabaseAdmin
       .from('patient_product_recommendations')
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updates)
       .eq('id', recommendationId)
       .eq('program_id', programId)
-      .select('id, program_id, status, updated_at')
+      .select('id, program_id, status, reason, usage_guidance, updated_at')
       .single<RecommendationRow>();
 
     if (updateError) {
@@ -347,6 +362,8 @@ export async function PATCH(
         id: updatedRecommendation.id,
         programId: updatedRecommendation.program_id,
         status: toLabelStatus(updatedRecommendation.status),
+        reason: updatedRecommendation.reason ?? '',
+        usageGuidance: updatedRecommendation.usage_guidance ?? '',
         updatedAt: updatedRecommendation.updated_at,
       },
     });
