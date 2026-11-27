@@ -18,6 +18,7 @@ type Product = {
   price: number | null;
   product_url: string | null;
   pdf_url: string | null;
+  thumbnail_url: string | null;
 };
 
 type Program = {
@@ -305,6 +306,20 @@ export default function ProductSupportDetailPage() {
                   {getStatusLabel(item.status)}
                 </Badge>
               </div>
+
+              {product?.id && (
+                <div className="mb-4 flex justify-center rounded-lg border bg-white p-3">
+                  <img
+                    src={product.thumbnail_url && /^https:\/\//i.test(product.thumbnail_url)
+                      ? product.thumbnail_url
+                      : `/product-thumbnails/${product.id}.webp`}
+                    alt={productName}
+                    loading="lazy"
+                    className="max-h-56 w-auto max-w-full object-contain"
+                    onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                  />
+                </div>
+              )}
 
               <p className="text-sm text-gray-600">
                 {item.reason || product?.description || '提案理由は未登録です。'}
