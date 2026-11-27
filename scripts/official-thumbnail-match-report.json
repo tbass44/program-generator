@@ -22,8 +22,10 @@
   {
     "id": "27f00c85-acf0-4bbb-b324-872a89f08f8e",
     "name": "アガリクスピエダーデ ロイヤル（乾燥）｜160g",
-    "status": "unchanged",
-    "reason": "no_confident_match"
+    "status": "official_image",
+    "source_page": "https://www.nippon-chokuhan.jp/item_supplement/6533",
+    "source_image": "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/agaricus_kanso-01.jpg",
+    "confidence": "unit_variant"
   },
   {
     "id": "d3395d1d-ece7-4c5e-a0c4-0deed3136477",
@@ -120,8 +122,10 @@
   {
     "id": "aa44a473-978c-41f9-aa79-e7a1fb621e62",
     "name": "キャッツクロニン DX｜60カプセル",
-    "status": "unchanged",
-    "reason": "no_confident_match"
+    "status": "official_image",
+    "source_page": "https://www.nippon-chokuhan.jp/item_supplement/6512",
+    "source_image": "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/cats01-01.jpg",
+    "confidence": "unit_variant"
   },
   {
     "id": "023f5992-1cbf-4392-9697-06adea67cb9d",
@@ -208,8 +212,10 @@
   {
     "id": "57d482aa-2f76-4686-808e-04115026e10c",
     "name": "コンドロメート G｜270粒",
-    "status": "unchanged",
-    "reason": "no_confident_match"
+    "status": "official_image",
+    "source_page": "https://www.nippon-chokuhan.jp/item_supplement/6508",
+    "source_image": "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/mate1.jpg",
+    "confidence": "unit_variant"
   },
   {
     "id": "3fdb1911-0168-42e5-a34e-fabc5203140a",
@@ -220,8 +226,10 @@
   {
     "id": "8862c060-b90d-48b5-b345-67a49f046501",
     "name": "コンドロメート 顆粒｜30包",
-    "status": "unchanged",
-    "reason": "no_confident_match"
+    "status": "official_image",
+    "source_page": "https://www.nippon-chokuhan.jp/item_supplement/6504",
+    "source_image": "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/chondoro_karyu01-01.jpg",
+    "confidence": "unit_variant"
   },
   {
     "id": "3cb657ef-24ee-490c-acf0-34a095adc798",
@@ -474,8 +482,10 @@
   {
     "id": "baf44098-41ca-42dc-8252-3f9453bfb22b",
     "name": "ナノシェイプ Soy｜900g",
-    "status": "unchanged",
-    "reason": "no_confident_match"
+    "status": "official_image",
+    "source_page": "https://www.nippon-chokuhan.jp/item_supplement/8134",
+    "source_image": "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/nanoshape-soy.jpg",
+    "confidence": "unit_variant"
   },
   {
     "id": "08899b13-fcb2-40cc-89c8-c8aeab173f30",
@@ -770,8 +780,10 @@
   {
     "id": "82e74ae6-7b64-4b12-90cb-b176ceab641d",
     "name": "ピクノミン AG｜120粒",
-    "status": "unchanged",
-    "reason": "no_confident_match"
+    "status": "official_image",
+    "source_page": "https://www.nippon-chokuhan.jp/item_supplement/6545",
+    "source_image": "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/pycnominag.png",
+    "confidence": "unit_variant"
   },
   {
     "id": "4efe5c0c-5f3b-4b7d-9822-6591959c88a1",
@@ -844,8 +856,10 @@
   {
     "id": "b97f8c8d-b85d-46d3-9ed4-7bb27f1630bd",
     "name": "フィブリキュア｜120粒",
-    "status": "unchanged",
-    "reason": "no_confident_match"
+    "status": "official_image",
+    "source_page": "https://www.nippon-chokuhan.jp/item_supplement/6554",
+    "source_image": "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/fibricure1.jpg",
+    "confidence": "unit_variant"
   },
   {
     "id": "8d5524c8-4ef3-42b5-b1cc-d601011976ca",
@@ -1126,8 +1140,10 @@
   {
     "id": "fc55db1a-a17d-4d9a-842f-386030c09efc",
     "name": "美FURI TypeA 痩・骨・腸｜30包",
-    "status": "unchanged",
-    "reason": "no_confident_match"
+    "status": "official_image",
+    "source_page": "https://www.nippon-chokuhan.jp/item_supplement/11953",
+    "source_image": "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2025/07/b-furi1-1.jpg",
+    "confidence": "unit_variant"
   },
   {
     "id": "51b4dead-c49c-461f-a2a9-791d88c4dd19",
