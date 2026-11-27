@@ -9,9 +9,15 @@ interface ProgramCardProps {
   title: string;
   shortTerm: string;
   longTerm: string;
+  previewChars?: number;
 }
 
-export function ProgramCard({ id, title, shortTerm, longTerm }: ProgramCardProps) {
+function preview(text: string, limit?: number) {
+  if (!limit || text.length <= limit) return text;
+  return text.slice(0, limit).trimEnd() + '…';
+}
+
+export function ProgramCard({ id, title, shortTerm, longTerm, previewChars }: ProgramCardProps) {
   return (
     <Link href={`/programs/${id}`}>
       <Card className="hover:shadow-md transition-shadow cursor-pointer border-teal-200 bg-gradient-to-br from-teal-50 to-white">
@@ -26,7 +32,7 @@ export function ProgramCard({ id, title, shortTerm, longTerm }: ProgramCardProps
               <Clock className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
               <div>
                 <p className="text-xs text-gray-500">短期プログラム（3カ月）</p>
-                <p className="text-sm text-gray-700">{shortTerm}</p>
+                <p className="text-sm text-gray-700">{preview(shortTerm, previewChars)}</p>
               </div>
             </div>
 
@@ -34,10 +40,15 @@ export function ProgramCard({ id, title, shortTerm, longTerm }: ProgramCardProps
               <Calendar className="h-4 w-4 text-teal-600 mt-0.5 flex-shrink-0" />
               <div>
                 <p className="text-xs text-gray-500">長期プログラム</p>
-                <p className="text-sm text-gray-700">{longTerm}</p>
+                <p className="text-sm text-gray-700">{preview(longTerm, previewChars)}</p>
               </div>
             </div>
           </div>
+          {previewChars && (shortTerm.length > previewChars || longTerm.length > previewChars) && (
+            <p className="mt-4 text-right text-sm font-medium text-teal-700">
+              プログラムの全文を見る
+            </p>
+          )}
         </CardContent>
       </Card>
     </Link>
