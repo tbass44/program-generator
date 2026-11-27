@@ -202,7 +202,10 @@ function ProductSupportCard({ item }: { item: ProductSupportItem }) {
   const meta = getCategoryMeta(category);
   const Icon = meta.icon;
   const thumbImage = item.product?.thumbnail_url;
-  const pdfPreview = item.product?.thumbnail_pdf_url;
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageUrl = thumbImage && /^https:\/\//i.test(thumbImage)
+    ? thumbImage
+    : item.product?.id ? `/product-thumbnails/${item.product.id}.webp` : null;
   const productName = item.product?.name ?? '商品名未設定';
   const reason = item.reason || item.product?.description || '提案理由は未登録です。';
 
@@ -212,18 +215,10 @@ function ProductSupportCard({ item }: { item: ProductSupportItem }) {
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             <div className="h-20 w-16 shrink-0 overflow-hidden rounded-md border bg-gray-50">
-              {thumbImage && /^https:\/\//i.test(thumbImage) ? (
-                <img src={thumbImage} alt={productName} loading="lazy"
+              {imageUrl && !imageFailed ? (
+                <img src={imageUrl} alt={productName} loading="lazy"
+                  onError={() => setImageFailed(true)}
                   className="h-full w-full object-contain" />
-              ) : pdfPreview && /^https:\/\//i.test(pdfPreview) ? (
-                <iframe
-                  title={`${productName}の商品資料プレビュー`}
-                  src={`${pdfPreview}#page=1&toolbar=0&navpanes=0&view=Fit`}
-                  loading="lazy"
-                  tabIndex={-1}
-                  aria-hidden="true"
-                  className="pointer-events-none h-full w-full border-0"
-                />
               ) : (
                 <div className={`flex h-full w-full items-center justify-center ${meta.iconWrapClassName}`}>
                   <Icon className={`h-6 w-6 ${meta.iconClassName}`} />
