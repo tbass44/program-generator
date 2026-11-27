@@ -5,6 +5,7 @@ import Link from 'next/link';
 import liff from '@line/liff';
 import { redirectToLineEntry, retryLineLogin } from '@/lib/patient-line-navigation';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SectionHeader } from '@/components/patient';
 import {
@@ -197,7 +198,17 @@ function shouldRetryLineLogin(message: string) {
 
 
 
-function ProductSupportCard({ item }: { item: ProductSupportItem }) {
+function ProductSupportCard({
+  item,
+  onPurchaseRequest,
+  isRequestingPurchase,
+  purchaseError,
+}: {
+  item: ProductSupportItem;
+  onPurchaseRequest: (item: ProductSupportItem) => void;
+  isRequestingPurchase: boolean;
+  purchaseError: string | null;
+}) {
   const category = item.product?.category ?? item.category;
   const meta = getCategoryMeta(category);
   const Icon = meta.icon;
@@ -210,9 +221,9 @@ function ProductSupportCard({ item }: { item: ProductSupportItem }) {
   const reason = item.reason || item.product?.description || '提案理由は未登録です。';
 
   return (
-    <Link href={`/product-support/${item.id}`} className="block">
-      <Card className="border-gray-200 hover:shadow-sm transition-shadow">
-        <CardContent className="p-4">
+    <Card className="border-gray-200 hover:shadow-sm transition-shadow">
+      <CardContent className="p-4">
+        <Link href={`/product-support/${item.id}`} className="block">
           <div className="flex items-start gap-3">
             <div className="h-20 w-16 shrink-0 overflow-hidden rounded-md border bg-gray-50">
               {imageUrl && !imageFailed ? (
@@ -253,9 +264,25 @@ function ProductSupportCard({ item }: { item: ProductSupportItem }) {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
-    </Link>
+        </Link>
+        {item.status === 'recommended' && item.product && (
+          <div className="mt-3 border-t border-gray-100 pt-3">
+            <Button type="button" size="sm" className="w-full"
+              disabled={isRequestingPurchase}
+              onClick={() => onPurchaseRequest(item)}>
+              <ShoppingBag className="mr-2 h-4 w-4" />
+              {isRequestingPurchase ? '送信中...' : '購入を希望する'}
+            </Button>
+            {purchaseError && <p className="mt-2 text-xs text-red-600" role="alert">{purchaseError}</p>}
+          </div>
+        )}
+        {item.status === 'purchase_requested' && (
+          <p className="mt-3 border-t border-gray-100 pt-3 text-xs font-medium text-teal-700">
+            購入希望を受付済み（決済・注文確定ではありません）
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -267,6 +294,48 @@ export default function ProductSupportPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [requestingPurchaseId, setRequestingPurchaseId] = useState<string | null>(null);
+  const [purchaseError, setPurchaseError] = useState<{ id: string; message: string } | null>(null);
+
+  const handlePurchaseRequest = async (item: ProductSupportItem) => {
+    if (item.status !== 'recommended' || !item.product || requestingPurchaseId !== null) return;
+    if (!window.confirm('この商品の購入を希望しますか？\n※決済や注文確定は行われません。')) return;
+
+    try {
+      setRequestingPurchaseId(item.id);
+      setPurchaseError(null);
+      const idToken = liff.getIDToken();
+      if (!idToken) {
+        retryLineLogin();
+        return;
+      }
+
+      const response = await fetch(`/api/patient/product-support/${item.id}/purchase-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+        cache: 'no-store',
+      });
+      const data = (await response.json()) as {
+        requested?: boolean;
+        item?: { status: string; updated_at: string };
+        error?: string;
+      };
+      if (!response.ok || !data.requested || !data.item) {
+        setPurchaseError({ id: item.id, message: '購入希望を送信できませんでした。もう一度お試しください。' });
+        return;
+      }
+
+      setItems((current) => current.map((entry) => entry.id === item.id
+        ? { ...entry, status: data.item!.status, updated_at: data.item!.updated_at }
+        : entry));
+    } catch (error) {
+      console.error(error);
+      setPurchaseError({ id: item.id, message: '通信エラーが発生しました。再度お試しください。' });
+    } finally {
+      setRequestingPurchaseId(null);
+    }
+  };
 
   const recommendedItems = useMemo(
     () => items.filter((item) => item.status === 'recommended'),
@@ -454,7 +523,15 @@ export default function ProductSupportPage() {
                   <h2 className="font-semibold text-gray-900">{meta.label}</h2>
                   <span className="ml-auto text-xs text-gray-500">{categoryItems.length}商品</span>
                 </div>
-                {categoryItems.map((item) => <ProductSupportCard key={item.id} item={item} />)}
+                {categoryItems.map((item) => (
+                  <ProductSupportCard
+                    key={item.id}
+                    item={item}
+                    onPurchaseRequest={handlePurchaseRequest}
+                    isRequestingPurchase={requestingPurchaseId !== null}
+                    purchaseError={purchaseError?.id === item.id ? purchaseError.message : null}
+                  />
+                ))}
               </section>
             );
           })}
