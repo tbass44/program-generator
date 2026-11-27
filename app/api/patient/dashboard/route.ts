@@ -240,7 +240,6 @@ export async function POST(request: Request) {
             category,
             reason,
           usage_guidance,
-        usage_guidance,
             status,
             created_at,
             updated_at
