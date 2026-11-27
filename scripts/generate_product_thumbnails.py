@@ -11,6 +11,7 @@ import io
 import json
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import fitz
@@ -90,54 +91,57 @@ def write_image(image: Image.Image, path: Path):
             path.write_bytes(buf.getvalue())
             return
 
+def process_one(item: dict):
+    pid, name, url = item["id"], item["name"], item.get("pdf_url")
+    if not re.fullmatch(r"[0-9a-f-]{36}", pid):
+        raise ValueError("invalid product ID")
+    output = OUT / f"{pid}.webp"
+    if output.exists() and output.stat().st_size > 0:
+        return pid, "existing", None
+    image = None
+    error = None
+    if url:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        if parsed.scheme != "https" or parsed.hostname != EXPECTED_HOST or not parsed.path.startswith("/storage/v1/object/public/product-documents/"):
+            raise ValueError("unexpected PDF source URL")
+        try:
+            response = requests.get(url, timeout=(12, 45))
+            response.raise_for_status()
+            if not response.content.startswith(b"%PDF"):
+                raise ValueError("source is not a PDF")
+            image = from_pdf(response.content)
+        except Exception as exc:
+            error = str(exc)[:180]
+    if image is None:
+        image = fallback(name)
+    write_image(image, output)
+    return pid, ("missing" if not url else "failed" if error else "converted"), error
+
 def main():
     products = json.loads(MANIFEST.read_text(encoding="utf-8"))
     OUT.mkdir(parents=True, exist_ok=True)
-    session = requests.Session()
-    generated = 0
-    source_photos = 0
-    missing = []
-    failed = []
-    for number, item in enumerate(products, 1):
-        pid, name, url = item["id"], item["name"], item.get("pdf_url")
-        if not re.fullmatch(r"[0-9a-f-]{36}", pid):
-            raise ValueError("invalid product ID")
-        output = OUT / f"{pid}.webp"
-        if output.exists() and output.stat().st_size > 0:
-            generated += 1
-            continue
-        image = None
-        if url:
-            from urllib.parse import urlparse
-            parsed = urlparse(url)
-            if parsed.scheme != "https" or parsed.hostname != EXPECTED_HOST or not parsed.path.startswith("/storage/v1/object/public/product-documents/"):
-                raise ValueError("unexpected PDF source URL")
-            try:
-                response = session.get(url, timeout=(12, 45))
-                response.raise_for_status()
-                if not response.content.startswith(b"%PDF"):
-                    raise ValueError("source is not a PDF")
-                image = from_pdf(response.content)
-            except Exception as exc:
-                failed.append({"id": pid, "name": name, "error": str(exc)[:180]})
-        else:
-            missing.append(pid)
-        # Never fabricate product photography.
-        if image is None:
-            image = fallback(name)
-        write_image(image, output)
-        generated += 1
-        if number % 25 == 0:
-            print(f"Processed {number}/{len(products)}", flush=True)
-    summary = {"products": len(products), "webp_files": generated,
-               "missing_pdf": missing, "source_failures": failed}
+    missing, failed = [], []
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        futures = {pool.submit(process_one, item): item for item in products}
+        for completed, future in enumerate(as_completed(futures), 1):
+            item = futures[future]
+            pid, state, error = future.result()
+            if state == "missing":
+                missing.append(pid)
+            elif state == "failed":
+                failed.append({"id": pid, "name": item["name"], "error": error})
+            if completed % 25 == 0:
+                print(f"Processed {completed}/{len(products)}", flush=True)
+    all_webp = list(OUT.glob("*.webp"))
+    summary = {"products": len(products), "webp_files": len(all_webp),
+               "missing_pdf": sorted(missing), "source_failures": failed}
     (ROOT / "scripts" / "product-thumbnails-result.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
-    print(json.dumps({"products":len(products),"webp_files":generated,
+    print(json.dumps({"products":len(products),"webp_files":len(all_webp),
                       "missing_pdf_count":len(missing),"failed_downloads":len(failed)},
                      ensure_ascii=False),flush=True)
-    # If catalog sources fail, don't silently report complete.
     if failed:
         sys.exit(2)
 
