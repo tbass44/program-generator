@@ -201,12 +201,14 @@ function shouldRetryLineLogin(message: string) {
 function ProductSupportCard({
   item,
   onPurchaseRequest,
+  onCancelPurchaseRequest,
   isRequestingPurchase,
   isAnyPurchasePending,
   purchaseError,
 }: {
   item: ProductSupportItem;
   onPurchaseRequest: (item: ProductSupportItem) => void;
+  onCancelPurchaseRequest: (item: ProductSupportItem) => void;
   isRequestingPurchase: boolean;
   isAnyPurchasePending: boolean;
   purchaseError: string | null;
@@ -279,9 +281,15 @@ function ProductSupportCard({
           </div>
         )}
         {item.status === 'purchase_requested' && (
-          <p className="mt-3 border-t border-gray-100 pt-3 text-xs font-medium text-teal-700">
-            購入希望を受付済み（決済・注文確定ではありません）
-          </p>
+          <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+            <p className="text-xs font-medium text-teal-700">購入希望を受付済み（決済・注文確定ではありません）</p>
+            <Button type="button" size="sm" variant="outline" className="w-full"
+              disabled={isAnyPurchasePending}
+              onClick={() => onCancelPurchaseRequest(item)}>
+              {isRequestingPurchase ? '取り消し中...' : '購入希望を取り消す'}
+            </Button>
+            {purchaseError && <p className="text-xs text-red-600" role="alert">{purchaseError}</p>}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -328,6 +336,46 @@ export default function ProductSupportPage() {
         return;
       }
 
+      setItems((current) => current.map((entry) => entry.id === item.id
+        ? { ...entry, status: data.item!.status, updated_at: data.item!.updated_at }
+        : entry));
+    } catch (error) {
+      console.error(error);
+      setPurchaseError({ id: item.id, message: '通信エラーが発生しました。再度お試しください。' });
+    } finally {
+      setRequestingPurchaseId(null);
+    }
+  };
+
+  const handleCancelPurchaseRequest = async (item: ProductSupportItem) => {
+    if (item.status !== 'purchase_requested' || requestingPurchaseId !== null) return;
+    if (!window.confirm('この商品の購入希望を取り消しますか？')) return;
+
+    try {
+      setRequestingPurchaseId(item.id);
+      setPurchaseError(null);
+      const idToken = liff.getIDToken();
+      if (!idToken) {
+        retryLineLogin();
+        return;
+      }
+      const response = await fetch(`/api/patient/product-support/${item.id}/purchase-request/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+        cache: 'no-store',
+      });
+      const data = (await response.json()) as {
+        cancelled?: boolean;
+        item?: { status: string; updated_at: string };
+        error?: string;
+      };
+      if (!response.ok || !data.cancelled || !data.item) {
+        setPurchaseError({ id: item.id, message: response.status === 409
+          ? '現在の状態では取り消せません。院へお問い合わせください。'
+          : '購入希望を取り消せませんでした。もう一度お試しください。' });
+        return;
+      }
       setItems((current) => current.map((entry) => entry.id === item.id
         ? { ...entry, status: data.item!.status, updated_at: data.item!.updated_at }
         : entry));
@@ -530,6 +578,7 @@ export default function ProductSupportPage() {
                     key={item.id}
                     item={item}
                     onPurchaseRequest={handlePurchaseRequest}
+                    onCancelPurchaseRequest={handleCancelPurchaseRequest}
                     isRequestingPurchase={requestingPurchaseId === item.id}
                     isAnyPurchasePending={requestingPurchaseId !== null}
                     purchaseError={purchaseError?.id === item.id ? purchaseError.message : null}
