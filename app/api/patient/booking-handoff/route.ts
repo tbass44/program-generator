@@ -57,6 +57,8 @@ export async function POST(request: Request) {
         name: patient.name,
         kana: patient.kana,
         phone: patient.phone,
+        // LINE subject is verified above and bound to this Supabase patient.
+        line_user_id: identity.sub,
       }),
       cache: 'no-store',
       redirect: 'error',
