@@ -16,8 +16,10 @@
   {
     "id": "f2f56155-bd4f-4448-a787-cce4c02a9226",
     "name": "UVサンガード",
-    "status": "unchanged",
-    "reason": "no_confident_match"
+    "status": "official_image",
+    "source_page": "https://www.nippon-chokuhan.jp/item_kurei/6756",
+    "source_image": "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/05/uvsunguard_spf34.jpg",
+    "confidence": "official_english_suffix"
   },
   {
     "id": "27f00c85-acf0-4bbb-b324-872a89f08f8e",
@@ -794,8 +796,10 @@
   {
     "id": "9d1428c9-4ceb-4bee-9ef3-33ec8fa26b26",
     "name": "ビタミニン｜210粒",
-    "status": "unchanged",
-    "reason": "no_confident_match"
+    "status": "official_image",
+    "source_page": "https://www.nippon-chokuhan.jp/item_supplement/13075",
+    "source_image": "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2025/12/7.jpg",
+    "confidence": "unit_variant"
   },
   {
     "id": "5386522d-c558-4ea6-86f8-5d9448361cc9",
@@ -884,8 +888,10 @@
   {
     "id": "21402c8a-44bd-4c5e-aaa4-5fb70335c374",
     "name": "プラドゥーブル",
-    "status": "unchanged",
-    "reason": "no_confident_match"
+    "status": "official_image",
+    "source_page": "https://www.nippon-chokuhan.jp/item_kurei/7557",
+    "source_image": "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/05/pladouble.png",
+    "confidence": "official_english_suffix"
   },
   {
     "id": "c6eefaf0-3d94-4c2a-82cf-e418fe691442",
@@ -1034,8 +1040,10 @@
   {
     "id": "33476f7e-6382-4f32-a256-6558a30dd097",
     "name": "マッスルメート｜210粒",
-    "status": "unchanged",
-    "reason": "no_confident_match"
+    "status": "official_image",
+    "source_page": "https://www.nippon-chokuhan.jp/item_supplement/7800",
+    "source_image": "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/musclemate.png",
+    "confidence": "unit_variant"
   },
   {
     "id": "a2ca0ad9-c41d-4fc4-9ea0-d9b67c3482a0",
@@ -1110,8 +1118,10 @@
   {
     "id": "92bc453f-1c96-4542-adb7-8ad42533a3dd",
     "name": "ラクテアニン｜120粒",
-    "status": "unchanged",
-    "reason": "no_confident_match"
+    "status": "official_image",
+    "source_page": "https://www.nippon-chokuhan.jp/item_supplement/7802",
+    "source_image": "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2018/04/lactheanine_bottle_s-1.jpg",
+    "confidence": "unit_variant"
   },
   {
     "id": "3754d681-736e-4618-af09-949389c692d6",
