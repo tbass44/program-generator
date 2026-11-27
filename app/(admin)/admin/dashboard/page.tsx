@@ -23,6 +23,11 @@ type PurchaseRequest = {
 
 type PurchaseRequestsResponse = {
   total?: number;
+  pendingCount?: number;
+  reviewedCount?: number;
+  filteredCount?: number;
+  page?: number;
+  pageSize?: number;
   requests?: PurchaseRequest[];
   error?: string;
 };
@@ -33,6 +38,11 @@ export default function AdminDashboardPage() {
   const [loadingPurchaseRequests, setLoadingPurchaseRequests] = useState(true);
   const [purchaseRequestsError, setPurchaseRequestsError] = useState<string | null>(null);
   const [reviewFilter, setReviewFilter] = useState<'pending' | 'reviewed'>('pending');
+  const [page, setPage] = useState(1);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [reviewedCount, setReviewedCount] = useState(0);
+  const [filteredCount, setFilteredCount] = useState(0);
+  const pageSize = 20;
   const [reviewUpdatingId, setReviewUpdatingId] = useState<string | null>(null);
   const [reviewUpdateError, setReviewUpdateError] = useState<string | null>(null);
 
@@ -40,7 +50,9 @@ export default function AdminDashboardPage() {
     setLoadingPurchaseRequests(true);
     setPurchaseRequestsError(null);
     try {
-      const response = await fetch('/api/admin/purchase-requests', { cache: 'no-store' });
+      const response = await fetch(`/api/admin/purchase-requests?review=${reviewFilter}&page=${page}`, {
+        cache: 'no-store',
+      });
       const data = (await response.json()) as PurchaseRequestsResponse;
       if (!response.ok || !data.requests) {
         setPurchaseRequestsError('購入希望の商品を取得できませんでした。');
@@ -48,21 +60,27 @@ export default function AdminDashboardPage() {
       }
       setPurchaseRequests(data.requests);
       setPurchaseRequestCount(data.total ?? data.requests.length);
+      setPendingCount(data.pendingCount ?? 0);
+      setReviewedCount(data.reviewedCount ?? 0);
+      setFilteredCount(data.filteredCount ?? data.requests.length);
     } catch (error) {
       console.error(error);
       setPurchaseRequestsError('購入希望の取得中に通信エラーが発生しました。');
     } finally {
       setLoadingPurchaseRequests(false);
     }
-  }, []);
+  }, [reviewFilter, page]);
 
   useEffect(() => {
     void loadPurchaseRequests();
   }, [loadPurchaseRequests]);
 
-  const pendingRequests = purchaseRequests.filter((item) => !item.reviewedAt);
-  const reviewedRequests = purchaseRequests.filter((item) => Boolean(item.reviewedAt));
-  const displayedRequests = reviewFilter === 'pending' ? pendingRequests : reviewedRequests;
+  const displayedRequests = purchaseRequests;
+  const changeReviewFilter = (filter: 'pending' | 'reviewed') => {
+    if (filter === reviewFilter) return;
+    setPage(1);
+    setReviewFilter(filter);
+  };
 
   const updatePurchaseReview = async (id: string, reviewed: boolean) => {
     if (reviewUpdatingId !== null) return;
@@ -80,9 +98,10 @@ export default function AdminDashboardPage() {
         await loadPurchaseRequests();
         return;
       }
-      setPurchaseRequests((current) => current.map((item) => item.id === id
-        ? { ...item, reviewedAt: data.reviewedAt ?? null }
-        : item));
+      // The updated row belongs to the opposite tab, and may affect page bounds.
+      // Always refresh exact counts and the current page from the server.
+      if (page !== 1) setPage(1);
+      else await loadPurchaseRequests();
     } catch (error) {
       console.error(error);
       setReviewUpdateError('通信エラーのため変更できませんでした。');
@@ -175,22 +194,26 @@ export default function AdminDashboardPage() {
               ) : (
                 <>
                   <div className="mb-3 flex flex-wrap gap-2" aria-label="購入希望の確認状況">
-                    <button type="button" onClick={() => setReviewFilter('pending')}
+                    <button type="button" onClick={() => changeReviewFilter('pending')}
                       className={`rounded-md px-3 py-2 text-sm ${reviewFilter === 'pending'
                         ? 'bg-teal-700 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                      未確認（{pendingRequests.length}）
+                      未確認（{pendingCount}）
                     </button>
-                    <button type="button" onClick={() => setReviewFilter('reviewed')}
+                    <button type="button" onClick={() => changeReviewFilter('reviewed')}
                       className={`rounded-md px-3 py-2 text-sm ${reviewFilter === 'reviewed'
                         ? 'bg-teal-700 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                      確認済み（{reviewedRequests.length}）
+                      確認済み（{reviewedCount}）
                     </button>
                   </div>
                   {reviewUpdateError && (
                     <p role="alert" className="mb-3 text-sm text-red-600">{reviewUpdateError}</p>
                   )}
                   {displayedRequests.length === 0 ? (
-                    <p className="text-sm text-gray-500">この分類の購入希望はありません。</p>
+                    <p className="text-sm text-gray-500">
+                      {filteredCount > 0
+                        ? 'このページには表示できる購入希望がありません。前のページへ戻ってください。'
+                        : 'この分類の購入希望はありません。'}
+                    </p>
                   ) : (
                     <div className="divide-y">
                       {displayedRequests.map((request) => (
@@ -226,10 +249,28 @@ export default function AdminDashboardPage() {
               )}
             </>
           )}
-          {!loadingPurchaseRequests && !purchaseRequestsError && purchaseRequestCount > purchaseRequests.length && (
-            <p className="mt-2 text-xs text-gray-500">
-              最新{purchaseRequests.length}件を表示しています。
-            </p>
+          {!loadingPurchaseRequests && !purchaseRequestsError && filteredCount > 0 && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+              <p className="text-xs text-gray-500">
+                {filteredCount}件中 {Math.min((page - 1) * pageSize + 1, filteredCount)}〜
+                {Math.min(page * pageSize, filteredCount)}件目
+              </p>
+              <div className="flex items-center gap-2">
+                <button type="button" disabled={page <= 1 || loadingPurchaseRequests}
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  className="rounded-md border px-3 py-2 text-sm disabled:opacity-40">
+                  前へ
+                </button>
+                <span className="text-xs text-gray-600">
+                  {page} / {Math.max(1, Math.ceil(filteredCount / pageSize))}ページ
+                </span>
+                <button type="button" disabled={page * pageSize >= filteredCount || loadingPurchaseRequests}
+                  onClick={() => setPage((current) => current + 1)}
+                  className="rounded-md border px-3 py-2 text-sm disabled:opacity-40">
+                  次へ
+                </button>
+              </div>
+            </div>
           )}
           <p className="mt-4 text-xs text-gray-500">
             確認済みは院側が内容を見た記録です。決済・注文確定・在庫変更とは異なります。
