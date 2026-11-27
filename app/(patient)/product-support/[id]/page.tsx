@@ -313,6 +313,48 @@ export default function ProductSupportDetailPage() {
     }
   };
 
+  const handleCancelPurchaseRequest = async () => {
+    if (!item || item.status !== 'purchase_requested' || isRequestingPurchase) return;
+    if (!window.confirm('この商品の購入希望を取り消しますか？')) return;
+
+    try {
+      setIsRequestingPurchase(true);
+      setPurchaseError(null);
+      const idToken = liff.getIDToken();
+      if (!idToken) {
+        retryLineLogin();
+        return;
+      }
+      const response = await fetch(`/api/patient/product-support/${item.id}/purchase-request/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+        cache: 'no-store',
+      });
+      const data = (await response.json()) as {
+        cancelled?: boolean;
+        item?: { status: string; updated_at: string };
+        error?: string;
+      };
+      if (!response.ok || !data.cancelled || !data.item) {
+        setPurchaseError(response.status === 409
+          ? '現在の状態では取り消せません。院へお問い合わせください。'
+          : '購入希望を取り消せませんでした。もう一度お試しください。');
+        return;
+      }
+      setItem((previous) => previous ? {
+        ...previous,
+        status: data.item?.status ?? 'recommended',
+        updated_at: data.item?.updated_at ?? previous.updated_at,
+      } : previous);
+    } catch (error) {
+      console.error(error);
+      setPurchaseError('通信エラーが発生しました。通信状態を確認して再度お試しください。');
+    } finally {
+      setIsRequestingPurchase(false);
+    }
+  };
+
   const product = item?.product ?? null;
   const category = product?.category ?? item?.category ?? null;
   const productName = product?.name ?? '商品名未設定';
@@ -407,6 +449,11 @@ export default function ProductSupportDetailPage() {
                 <p className="mt-1 text-sm text-teal-800">
                   これは注文確定ではありません。数量や受け渡しについては当院からのご案内をご確認ください。
                 </p>
+                <Button type="button" variant="outline" className="mt-3 w-full"
+                  disabled={isRequestingPurchase} onClick={handleCancelPurchaseRequest}>
+                  {isRequestingPurchase ? '取り消し中...' : '購入希望を取り消す'}
+                </Button>
+                {purchaseError && <p role="alert" className="mt-2 text-sm text-red-600">{purchaseError}</p>}
               </CardContent>
             </Card>
           )}
