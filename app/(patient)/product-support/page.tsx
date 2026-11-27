@@ -202,11 +202,13 @@ function ProductSupportCard({
   item,
   onPurchaseRequest,
   isRequestingPurchase,
+  isAnyPurchasePending,
   purchaseError,
 }: {
   item: ProductSupportItem;
   onPurchaseRequest: (item: ProductSupportItem) => void;
   isRequestingPurchase: boolean;
+  isAnyPurchasePending: boolean;
   purchaseError: string | null;
 }) {
   const category = item.product?.category ?? item.category;
@@ -268,7 +270,7 @@ function ProductSupportCard({
         {item.status === 'recommended' && item.product && (
           <div className="mt-3 border-t border-gray-100 pt-3">
             <Button type="button" size="sm" className="w-full"
-              disabled={isRequestingPurchase}
+              disabled={isAnyPurchasePending}
               onClick={() => onPurchaseRequest(item)}>
               <ShoppingBag className="mr-2 h-4 w-4" />
               {isRequestingPurchase ? '送信中...' : '購入を希望する'}
@@ -528,7 +530,8 @@ export default function ProductSupportPage() {
                     key={item.id}
                     item={item}
                     onPurchaseRequest={handlePurchaseRequest}
-                    isRequestingPurchase={requestingPurchaseId !== null}
+                    isRequestingPurchase={requestingPurchaseId === item.id}
+                    isAnyPurchasePending={requestingPurchaseId !== null}
                     purchaseError={purchaseError?.id === item.id ? purchaseError.message : null}
                   />
                 ))}
