@@ -37,12 +37,14 @@ type ProductRow = {
   price: number | null;
   inventory_count: number | null;
   product_url: string | null;
+  thumbnail_url: string | null;
   status: string;
 };
 
 type ProgramRow = {
   id: string;
   summary: string | null;
+  product_category_order: string[];
   created_at: string;
 };
 
@@ -205,14 +207,14 @@ export async function POST(request: Request) {
       productIds.length > 0
         ? supabaseAdmin
             .from('products')
-            .select('id, name, category, description, price, inventory_count, product_url, status')
+            .select('id, name, category, description, price, inventory_count, product_url, thumbnail_url, status')
             .in('id', productIds)
             .returns<ProductRow[]>()
         : Promise.resolve({ data: [] as ProductRow[], error: null }),
       programIds.length > 0
         ? supabaseAdmin
             .from('programs')
-            .select('id, summary, created_at')
+            .select('id, summary, product_category_order, created_at')
             .in('id', programIds)
             .eq('patient_id', patient.id)
             .returns<ProgramRow[]>()
@@ -258,6 +260,9 @@ export async function POST(request: Request) {
     return NextResponse.json({
       patient,
       productSupport,
+      categoryOrder: [...(programsResult.data ?? [])]
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]?.product_category_order
+        ?? ['physical_sleep', 'exercise', 'nutrition', 'skincare'],
       debug: {
         patientId: patient.id,
         patientName: patient.name,
