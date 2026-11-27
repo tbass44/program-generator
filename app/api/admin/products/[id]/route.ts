@@ -48,6 +48,7 @@ type ProductRow = {
   inventory_count: number;
   product_url: string | null;
   pdf_url: string | null;
+  thumbnail_url: string | null;
   status: ProductStatusDb;
   created_at: string;
   updated_at: string;
@@ -66,6 +67,7 @@ type UpdateProductBody = {
   price?: unknown;
   inventoryCount?: unknown;
   url?: unknown;
+  thumbnailUrl?: unknown;
   status?: unknown;
 };
 
@@ -256,6 +258,7 @@ function formatProduct(row: ProductRow) {
     inventoryCount: row.inventory_count,
     url: row.product_url ?? '',
     pdfUrl: row.pdf_url ?? '',
+    thumbnailUrl: row.thumbnail_url ?? '',
     status: toLabelStatus(row.status),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -276,6 +279,7 @@ const productSelect = `
   inventory_count,
   product_url,
   pdf_url,
+  thumbnail_url,
   status,
   created_at,
   updated_at
@@ -394,6 +398,10 @@ export async function PATCH(
     const name = normalizeRequiredText(body.name);
     const category = toDbCategory(body.category);
     const status = toDbStatus(body.status);
+    const thumbnailUrl = typeof body.thumbnailUrl === 'string' ? body.thumbnailUrl.trim() : '';
+    if (thumbnailUrl && (!/^https:\/\/[^\s]+$/i.test(thumbnailUrl) || thumbnailUrl.length > 2048)) {
+      return NextResponse.json({ error: 'Thumbnail must be an HTTPS image URL' }, { status: 400 });
+    }
 
     if (!name) {
       return NextResponse.json(
@@ -453,6 +461,7 @@ export async function PATCH(
       price: normalizeNonNegativeInteger(body.price),
       inventory_count: normalizeNonNegativeInteger(body.inventoryCount),
       product_url: normalizeOptionalText(body.url),
+      thumbnail_url: thumbnailUrl || null,
       status,
       updated_at: new Date().toISOString(),
     };
