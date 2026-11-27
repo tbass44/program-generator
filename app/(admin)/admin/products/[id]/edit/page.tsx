@@ -116,6 +116,7 @@ export default function AdminProductEditPage({ params }: { params: { id: string 
           inventoryCount: String(data.product.inventoryCount),
           url: data.product.url,
           pdfUrl: data.product.pdfUrl ?? '',
+          thumbnailUrl: data.product.thumbnailUrl ?? '',
           status: data.product.status,
         });
       } catch (error) {
