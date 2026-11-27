@@ -402,31 +402,6 @@ export default function ProductSupportDetailPage() {
             </CardContent>
           </Card>
 
-          {item.program && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="mb-3 flex items-center gap-2">
-                  <ScrollText className="h-4 w-4 text-gray-600" />
-                  <h3 className="font-semibold text-gray-900">関連プログラム</h3>
-                </div>
-                <p className="text-sm font-medium text-gray-900">
-                  {item.program.summary || '改善プログラム'}
-                </p>
-                {item.program.short_term_program && (
-                  <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-gray-600">
-                    {item.program.short_term_program}
-                  </p>
-                )}
-                <Link
-                  href={`/programs/${item.program.id}`}
-                  className="mt-4 inline-flex items-center text-sm text-teal-600"
-                >
-                  関連プログラムを見る
-                </Link>
-              </CardContent>
-            </Card>
-          )}
-
           <Card>
             <CardContent className="p-4 text-sm text-gray-600">
               <div className="flex items-center gap-2 text-gray-700">
