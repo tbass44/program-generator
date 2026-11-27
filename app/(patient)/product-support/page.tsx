@@ -43,6 +43,7 @@ type ProductSupportItem = {
   product_id: string | null;
   category: string | null;
   reason: string | null;
+  usage_guidance: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -216,6 +217,9 @@ function ProductSupportCard({ item }: { item: ProductSupportItem }) {
               </div>
               <p className="font-medium text-gray-900">{productName}</p>
               <p className="mt-1 text-xs text-gray-600">{reason}</p>
+              {item.usage_guidance && (
+                <p className="mt-2 text-xs font-medium text-teal-700">数量・期間の目安：{item.usage_guidance}</p>
+              )}
 
               {item.program?.summary && (
                 <p className="mt-2 rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-500">
