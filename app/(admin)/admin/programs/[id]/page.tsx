@@ -29,6 +29,7 @@ type ProgramDetail = {
   program_text: string | null;
   created_at: string;
   updated_at: string;
+  product_category_order: string[];
 };
 
 type ProgramPatient = {
@@ -131,6 +132,7 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
   const [patient, setPatient] = useState<ProgramPatient | null>(null);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [recommendations, setRecommendations] = useState<ProgramRecommendation[]>([]);
+  const [savingCategoryOrder, setSavingCategoryOrder] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState('none');
   const [recommendationReason, setRecommendationReason] = useState('');
   const [recommendationUsageGuidance, setRecommendationUsageGuidance] = useState('');
@@ -206,6 +208,38 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
 
     fetchPageData();
   }, [params.id]);
+
+  const categoryLabels: Record<string, string> = {
+    physical_sleep: '睡眠',
+    exercise: '運動',
+    nutrition: '栄養',
+    skincare: 'スキンケア',
+  };
+
+  const moveProductCategory = async (index: number, step: number) => {
+    if (!program || savingCategoryOrder) return;
+    const current = program.product_category_order || ['physical_sleep', 'exercise', 'nutrition', 'skincare'];
+    const nextIndex = index + step;
+    if (nextIndex < 0 || nextIndex >= current.length) return;
+    const order = [...current];
+    [order[index], order[nextIndex]] = [order[nextIndex], order[index]];
+    try {
+      setSavingCategoryOrder(true);
+      const response = await fetch(`/api/admin/programs/${params.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoryOrder: order }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      setProgram((prev) => prev ? { ...prev, product_category_order: order } : prev);
+      toast.success('カテゴリの表示順を保存しました');
+    } catch (error) {
+      console.error(error);
+      toast.error('カテゴリ順の保存に失敗しました');
+    } finally {
+      setSavingCategoryOrder(false);
+    }
+  };
 
   const handleProductChange = (productId: string) => {
     setSelectedProductId(productId);
@@ -549,6 +583,21 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
 
       <SectionCard title="商品提案" className="mb-6">
         <div className="space-y-4">
+          <div className="rounded-lg border bg-muted/20 p-4">
+            <p className="mb-2 text-sm font-semibold">患者画面のジャンル表示順</p>
+            <p className="mb-3 text-xs text-muted-foreground">この改善プログラムの商品提案に適用されます。上下ボタンで入れ替えられます。</p>
+            <div className="flex flex-wrap gap-2">
+              {(program.product_category_order || ['physical_sleep','exercise','nutrition','skincare']).map((category, index, order) => (
+                <div key={category} className="flex items-center gap-1 rounded-md border bg-white p-1">
+                  <span className="px-2 text-sm">{index + 1}. {categoryLabels[category] || category}</span>
+                  <Button variant="outline" size="sm" aria-label={`${categoryLabels[category]}を上へ`}
+                    disabled={savingCategoryOrder || index === 0} onClick={() => moveProductCategory(index, -1)}>↑</Button>
+                  <Button variant="outline" size="sm" aria-label={`${categoryLabels[category]}を下へ`}
+                    disabled={savingCategoryOrder || index === order.length - 1} onClick={() => moveProductCategory(index, 1)}>↓</Button>
+                </div>
+              ))}
+            </div>
+          </div>
           {recommendationErrorMessage && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
               {recommendationErrorMessage}
