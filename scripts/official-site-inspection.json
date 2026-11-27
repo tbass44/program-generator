@@ -636,6 +636,87 @@
         "images": [
           "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2024/09/nanocal_lemon.jpg"
         ]
+      },
+      {
+        "label": "メディカルセラムシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2024/09/coracutis_202308.jpg"
+        ]
+      },
+      {
+        "label": "クレイビューティシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_kurei/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item8_2020.png"
+        ]
+      },
+      {
+        "label": "まもリスク",
+        "href": "https://www.nippon-chokuhan.jp/mamorisk/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/mamorisk_bn.png"
+        ]
+      },
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news/",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company/",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/reason",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit/",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "zenkenkai",
+        "href": "https://www.nippon-chokuhan.jp/zenkenkai",
+        "images": []
+      },
+      {
+        "label": "アクセス",
+        "href": "https://www.nippon-chokuhan.jp/access/",
+        "images": []
+      },
+      {
+        "label": "お問合せ",
+        "href": "https://www.nippon-chokuhan.jp/contact/",
+        "images": []
+      },
+      {
+        "label": "プライバシーポリシー",
+        "href": "https://www.nippon-chokuhan.jp/privacy/",
+        "images": []
+      },
+      {
+        "label": "特定商取引法に基づく表記",
+        "href": "https://www.nippon-chokuhan.jp/sctl/",
+        "images": []
       }
     ],
     "og_image": null
@@ -1719,6 +1800,1687 @@
         "images": [
           "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2025/07/clacera-milk.jpg"
         ]
+      },
+      {
+        "label": "CLACERA・ボディミスト",
+        "href": "https://www.nippon-chokuhan.jp/item_kurei/11992",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2025/07/clacera-mist.jpg"
+        ]
+      },
+      {
+        "label": "敏感肌でもご使用いただける、クレイ×セラミド配合のボディミスト。",
+        "href": "https://www.nippon-chokuhan.jp/item_kurei/11992",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2025/07/clacera-mist.jpg"
+        ]
+      },
+      {
+        "label": "CLACERA・スカルプ シルキーバブル",
+        "href": "https://www.nippon-chokuhan.jp/item_kurei/13054",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2025/12/4.jpg"
+        ]
+      },
+      {
+        "label": "爽快感とうるおいを両立した新感覚スカルプケアです",
+        "href": "https://www.nippon-chokuhan.jp/item_kurei/13054",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2025/12/4.jpg"
+        ]
+      },
+      {
+        "label": "ミネラルクレイ ボディクリーム Mineral Clay Body Cream",
+        "href": "https://www.nippon-chokuhan.jp/item_kurei/6835",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/clay-body-cream.png"
+        ]
+      },
+      {
+        "label": "クレイの皮膜作用は保湿成分をしっかり持続し、ユーカリエキスの抗炎症作用や、ヒアルロン酸、シアバター、甘草エキス配合で高い保湿作用・消炎作用でしっとりお肌を整えます。",
+        "href": "https://www.nippon-chokuhan.jp/item_kurei/6835",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/clay-body-cream.png"
+        ]
+      },
+      {
+        "label": "デンタルクレイ Dental Clay",
+        "href": "https://www.nippon-chokuhan.jp/item_kurei/6839",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/dental_1.jpg"
+        ]
+      },
+      {
+        "label": "モンモリロナイトでたんぱく質、有機物等を吸着し、ティートリー（オーストラリア原産低木樹）のオイルで殺菌・脱臭効果。甘草エキスで抗炎症作用、エリスリトールで歯垢形成を抑える効果も。スペアミント油で消炎抗菌作用も期待。",
+        "href": "https://www.nippon-chokuhan.jp/item_kurei/6839",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/dental_1.jpg"
+        ]
+      },
+      {
+        "label": "商品一覧へ ＞",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "エブリシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_every/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/e_mineral_2023-2.jpg"
+        ]
+      },
+      {
+        "label": "健康寝具",
+        "href": "https://www.nippon-chokuhan.jp/item_bedding/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item2.png"
+        ]
+      },
+      {
+        "label": "パワーガードシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_power/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item4.png"
+        ]
+      },
+      {
+        "label": "エクササイズシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_exercise/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item5_1.png"
+        ]
+      },
+      {
+        "label": "ヘルシーサプリメント",
+        "href": "https://www.nippon-chokuhan.jp/item_supplement/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2024/09/nanocal_lemon.jpg"
+        ]
+      },
+      {
+        "label": "メディカルセラムシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2024/09/coracutis_202308.jpg"
+        ]
+      },
+      {
+        "label": "クレイビューティシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_kurei/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item8_2020.png"
+        ]
+      },
+      {
+        "label": "まもリスク",
+        "href": "https://www.nippon-chokuhan.jp/mamorisk/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/mamorisk_bn.png"
+        ]
+      },
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news/",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company/",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/reason",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit/",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "zenkenkai",
+        "href": "https://www.nippon-chokuhan.jp/zenkenkai",
+        "images": []
+      },
+      {
+        "label": "アクセス",
+        "href": "https://www.nippon-chokuhan.jp/access/",
+        "images": []
+      },
+      {
+        "label": "お問合せ",
+        "href": "https://www.nippon-chokuhan.jp/contact/",
+        "images": []
+      },
+      {
+        "label": "プライバシーポリシー",
+        "href": "https://www.nippon-chokuhan.jp/privacy/",
+        "images": []
+      },
+      {
+        "label": "特定商取引法に基づく表記",
+        "href": "https://www.nippon-chokuhan.jp/sctl/",
+        "images": []
+      }
+    ],
+    "og_image": null
+  },
+  {
+    "url": "https://www.nippon-chokuhan.jp/item_bedding",
+    "resolved": "https://www.nippon-chokuhan.jp/item_bedding",
+    "status": 200,
+    "title": "健康寝具 - カイロプラクティックのリーディングカンパニー｜日本直販総本社",
+    "links": [
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/other_cat/6799",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "日本直販総本社",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2026/08/logo.png"
+        ]
+      },
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news/",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company/",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/reason",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit/",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "zenkenkai",
+        "href": "https://www.nippon-chokuhan.jp/zenkenkai",
+        "images": []
+      },
+      {
+        "label": "トップ",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2026/08/logo.png",
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item_ichiran2.png",
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2025/07/unnamed.jpg"
+        ]
+      },
+      {
+        "label": "ヘルスウェーブシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_bedding/item_healthseries",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item_ichiran2.png"
+        ]
+      },
+      {
+        "label": "Ze+N",
+        "href": "https://www.nippon-chokuhan.jp/item_bedding/item_zen/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2025/07/unnamed.jpg"
+        ]
+      },
+      {
+        "label": "まくら／その他寝具",
+        "href": "https://www.nippon-chokuhan.jp/item_bedding/item_night/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/suyayaka_dc1-01.jpg"
+        ]
+      },
+      {
+        "label": "商品一覧へ ＞",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "エブリシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_every/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/e_mineral_2023-2.jpg"
+        ]
+      },
+      {
+        "label": "健康寝具",
+        "href": "https://www.nippon-chokuhan.jp/item_bedding/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item2.png"
+        ]
+      },
+      {
+        "label": "パワーガードシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_power/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item4.png"
+        ]
+      },
+      {
+        "label": "エクササイズシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_exercise/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item5_1.png"
+        ]
+      },
+      {
+        "label": "ヘルシーサプリメント",
+        "href": "https://www.nippon-chokuhan.jp/item_supplement/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2024/09/nanocal_lemon.jpg"
+        ]
+      },
+      {
+        "label": "メディカルセラムシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2024/09/coracutis_202308.jpg"
+        ]
+      },
+      {
+        "label": "クレイビューティシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_kurei/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item8_2020.png"
+        ]
+      },
+      {
+        "label": "まもリスク",
+        "href": "https://www.nippon-chokuhan.jp/mamorisk/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/mamorisk_bn.png"
+        ]
+      },
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news/",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company/",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/reason",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit/",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "zenkenkai",
+        "href": "https://www.nippon-chokuhan.jp/zenkenkai",
+        "images": []
+      },
+      {
+        "label": "アクセス",
+        "href": "https://www.nippon-chokuhan.jp/access/",
+        "images": []
+      },
+      {
+        "label": "お問合せ",
+        "href": "https://www.nippon-chokuhan.jp/contact/",
+        "images": []
+      },
+      {
+        "label": "プライバシーポリシー",
+        "href": "https://www.nippon-chokuhan.jp/privacy/",
+        "images": []
+      },
+      {
+        "label": "特定商取引法に基づく表記",
+        "href": "https://www.nippon-chokuhan.jp/sctl/",
+        "images": []
+      }
+    ],
+    "og_image": null
+  },
+  {
+    "url": "https://www.nippon-chokuhan.jp/item_every",
+    "resolved": "https://www.nippon-chokuhan.jp/item_every",
+    "status": 200,
+    "title": "エブリシリーズ - カイロプラクティックのリーディングカンパニー｜日本直販総本社",
+    "links": [
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/other_cat/6799",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "日本直販総本社",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2026/08/logo.png"
+        ]
+      },
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news/",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company/",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/reason",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit/",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "zenkenkai",
+        "href": "https://www.nippon-chokuhan.jp/zenkenkai",
+        "images": []
+      },
+      {
+        "label": "トップ",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2026/08/logo.png",
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/cat_photo1.png",
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2018/04/e_vitamin_2023.jpg"
+        ]
+      },
+      {
+        "label": "エブリ ビタミン",
+        "href": "https://www.nippon-chokuhan.jp/item_every/7798",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2018/04/e_vitamin_2023.jpg"
+        ]
+      },
+      {
+        "label": "エブリビタミンは人が生きる上で必須の栄養素であるビタミンを手軽に摂取いただける栄養機能食品です。",
+        "href": "https://www.nippon-chokuhan.jp/item_every/7798",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2018/04/e_vitamin_2023.jpg"
+        ]
+      },
+      {
+        "label": "エブリ ミネラル",
+        "href": "https://www.nippon-chokuhan.jp/item_every/6446",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/e_mineral_2023.jpg"
+        ]
+      },
+      {
+        "label": "ミネラルは体の調整役、構成材料や代謝に関わる酵素の構成成分として欠かせません。微量ですが必須ミネラルの、亜鉛、マンガン、銅、セレン、クロム、マグネシウム、カリウム、鉄などをバランスよく含んでいます。",
+        "href": "https://www.nippon-chokuhan.jp/item_every/6446",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/e_mineral_2023.jpg"
+        ]
+      },
+      {
+        "label": "エブリ コラーゲン ＆アミノ",
+        "href": "https://www.nippon-chokuhan.jp/item_every/6442",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/e_amino_2023.jpg"
+        ]
+      },
+      {
+        "label": "エブリ・コラーゲン＆アミノは、コラーゲンとアミノ酸を摂取していただくための栄養補助食品です。",
+        "href": "https://www.nippon-chokuhan.jp/item_every/6442",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/e_amino_2023.jpg"
+        ]
+      },
+      {
+        "label": "エブリ亜鉛",
+        "href": "https://www.nippon-chokuhan.jp/item_every/8831",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2023/10/e_zn_2023-1.jpg"
+        ]
+      },
+      {
+        "label": "亜鉛は、微量ミネラルですが、味覚を保ったり、皮膚や粘膜の健康や、様々な酵素を作るのに欠かせない栄養素です。",
+        "href": "https://www.nippon-chokuhan.jp/item_every/8831",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2023/10/e_zn_2023-1.jpg"
+        ]
+      },
+      {
+        "label": "エブリ鉄",
+        "href": "https://www.nippon-chokuhan.jp/item_every/8828",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2023/10/e_Fe_2023-1.jpg"
+        ]
+      },
+      {
+        "label": "ヘモグロビンが少ないと、酸素の運搬や、有害な二酸化炭素の回収に影響し、疲れやだるさの原因になります。 1日に約12mgの摂取が必要ですが、全世代で不足し、特に若年女性の不足が顕著です。",
+        "href": "https://www.nippon-chokuhan.jp/item_every/8828",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2023/10/e_Fe_2023-1.jpg"
+        ]
+      },
+      {
+        "label": "エブリ オメガ3 DHA&EPA",
+        "href": "https://www.nippon-chokuhan.jp/item_every/8821",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2023/10/e_DHA-EPA_2023-1.jpg"
+        ]
+      },
+      {
+        "label": "魚を食べる機会が減り、若年層でDHA、EPAの摂取が大幅に不足しています。",
+        "href": "https://www.nippon-chokuhan.jp/item_every/8821",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2023/10/e_DHA-EPA_2023-1.jpg"
+        ]
+      },
+      {
+        "label": "エブリ植物酵素",
+        "href": "https://www.nippon-chokuhan.jp/item_every/8825",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2023/10/e_enzyme_2023-1.jpg"
+        ]
+      },
+      {
+        "label": "プレバイオティクスとして善玉菌を活性化し、腸内環境を整えます。野菜、果物、穀物、野草など82種もの材料を丹念に発酵熟成させて完成させます。",
+        "href": "https://www.nippon-chokuhan.jp/item_every/8825",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2023/10/e_enzyme_2023-1.jpg"
+        ]
+      },
+      {
+        "label": "エブリ シートマスク",
+        "href": "https://www.nippon-chokuhan.jp/item_every/6327",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/e_sheet-mask_2023.jpg"
+        ]
+      },
+      {
+        "label": "お肌のすみずみまでケアできるモンモリロナイト配合のシートマスクです。乾燥してこわばりがちな角層をやわらげ、次に使うアイテムのなじみをサポートします。",
+        "href": "https://www.nippon-chokuhan.jp/item_every/6327",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/e_sheet-mask_2023.jpg"
+        ]
+      },
+      {
+        "label": "エブリ・クレイ",
+        "href": "https://www.nippon-chokuhan.jp/item_every/6414",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/every_clay1.jpg"
+        ]
+      },
+      {
+        "label": "肌にはやさしく、汚れには強力な吸着力をもつ天然粘土「モンモリロナイト」で総合スキンケア。男女、年齢、シーズンを問わず、すべてのタイプのお肌にお使いいただけます",
+        "href": "https://www.nippon-chokuhan.jp/item_every/6414",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/every_clay1.jpg"
+        ]
+      },
+      {
+        "label": "商品一覧へ ＞",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "エブリシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_every/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/e_mineral_2023-2.jpg"
+        ]
+      },
+      {
+        "label": "健康寝具",
+        "href": "https://www.nippon-chokuhan.jp/item_bedding/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item2.png"
+        ]
+      },
+      {
+        "label": "パワーガードシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_power/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item4.png"
+        ]
+      },
+      {
+        "label": "エクササイズシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_exercise/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item5_1.png"
+        ]
+      },
+      {
+        "label": "ヘルシーサプリメント",
+        "href": "https://www.nippon-chokuhan.jp/item_supplement/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2024/09/nanocal_lemon.jpg"
+        ]
+      },
+      {
+        "label": "メディカルセラムシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2024/09/coracutis_202308.jpg"
+        ]
+      },
+      {
+        "label": "クレイビューティシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_kurei/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item8_2020.png"
+        ]
+      },
+      {
+        "label": "まもリスク",
+        "href": "https://www.nippon-chokuhan.jp/mamorisk/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/mamorisk_bn.png"
+        ]
+      },
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news/",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company/",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/reason",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit/",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "zenkenkai",
+        "href": "https://www.nippon-chokuhan.jp/zenkenkai",
+        "images": []
+      },
+      {
+        "label": "アクセス",
+        "href": "https://www.nippon-chokuhan.jp/access/",
+        "images": []
+      },
+      {
+        "label": "お問合せ",
+        "href": "https://www.nippon-chokuhan.jp/contact/",
+        "images": []
+      },
+      {
+        "label": "プライバシーポリシー",
+        "href": "https://www.nippon-chokuhan.jp/privacy/",
+        "images": []
+      },
+      {
+        "label": "特定商取引法に基づく表記",
+        "href": "https://www.nippon-chokuhan.jp/sctl/",
+        "images": []
+      }
+    ],
+    "og_image": null
+  },
+  {
+    "url": "https://www.nippon-chokuhan.jp/item_power",
+    "resolved": "https://www.nippon-chokuhan.jp/item_power",
+    "status": 200,
+    "title": "パワーガードシリーズ＆サポーター - カイロプラクティックのリーディングカンパニー｜日本直販総本社",
+    "links": [
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/other_cat/6799",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "日本直販総本社",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2026/08/logo.png"
+        ]
+      },
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news/",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company/",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/reason",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit/",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "zenkenkai",
+        "href": "https://www.nippon-chokuhan.jp/zenkenkai",
+        "images": []
+      },
+      {
+        "label": "トップ",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2026/08/logo.png",
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/cat_photo4.png",
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/pg_hipup_bejyu-01.jpg"
+        ]
+      },
+      {
+        "label": "ヒップアップ パワーガード（Ladies）",
+        "href": "https://www.nippon-chokuhan.jp/item_power/6718",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/pg_hipup_bejyu-01.jpg"
+        ]
+      },
+      {
+        "label": "ヒップアップ効果も得られる骨盤安定ショーツです。",
+        "href": "https://www.nippon-chokuhan.jp/item_power/6718",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/pg_hipup_bejyu-01.jpg"
+        ]
+      },
+      {
+        "label": "パワーガード ボクサータイプ（Ladies）",
+        "href": "https://www.nippon-chokuhan.jp/item_power/6711",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/pg_women_boxer_black_mae-01.jpg"
+        ]
+      },
+      {
+        "label": "活動的な女性に支持される、レディースボクサータイプショーツです。",
+        "href": "https://www.nippon-chokuhan.jp/item_power/6711",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/pg_women_boxer_black_mae-01.jpg"
+        ]
+      },
+      {
+        "label": "パワーガード ショーツタイプ（Ladies)",
+        "href": "https://www.nippon-chokuhan.jp/item_power/6703",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/MG_0321_re.jpg"
+        ]
+      },
+      {
+        "label": "綿100％のからだに優しいスタンダードタイプです。",
+        "href": "https://www.nippon-chokuhan.jp/item_power/6703",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/MG_0321_re.jpg"
+        ]
+      },
+      {
+        "label": "パワーガード ロングタイプ（Ladies）",
+        "href": "https://www.nippon-chokuhan.jp/item_power/6697",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/pg_women_long_b-01-3.jpg"
+        ]
+      },
+      {
+        "label": "綿100％のからだに優しいスタンダードタイプです。",
+        "href": "https://www.nippon-chokuhan.jp/item_power/6697",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/pg_women_long_b-01-3.jpg"
+        ]
+      },
+      {
+        "label": "パワーガード ボクサータイプ（Men’s）",
+        "href": "https://www.nippon-chokuhan.jp/item_power/6674",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/p40_mens_boxer_grey.jpg"
+        ]
+      },
+      {
+        "label": "パワーガードにボクサータイプが登場しました。 ファッショナブルでスポーティーな安定感が特徴です。",
+        "href": "https://www.nippon-chokuhan.jp/item_power/6674",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/p40_mens_boxer_grey.jpg"
+        ]
+      },
+      {
+        "label": "パワーガード ブリーフタイプ（Men’s）",
+        "href": "https://www.nippon-chokuhan.jp/item_power/6689",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/pg_mens_b.png"
+        ]
+      },
+      {
+        "label": "永年の研究から生まれた骨盤安定パンツです。",
+        "href": "https://www.nippon-chokuhan.jp/item_power/6689",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/pg_mens_b.png"
+        ]
+      },
+      {
+        "label": "パワーガード ロングタイプ（Men’s）",
+        "href": "https://www.nippon-chokuhan.jp/item_power/6681",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/MG_1135.jpg"
+        ]
+      },
+      {
+        "label": "永年の研究から生まれた骨盤安定パンツです。",
+        "href": "https://www.nippon-chokuhan.jp/item_power/6681",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/MG_1135.jpg"
+        ]
+      },
+      {
+        "label": "ダンスト",
+        "href": "https://www.nippon-chokuhan.jp/item_power/8686",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2022/03/danst_1.jpg"
+        ]
+      },
+      {
+        "label": "下肢静脈瘤・むくみ・疲れを和らげ脚を軽やかにサポート",
+        "href": "https://www.nippon-chokuhan.jp/item_power/8686",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2022/03/danst_1.jpg"
+        ]
+      },
+      {
+        "label": "シルフィットサポーター　（ひじ用）",
+        "href": "https://www.nippon-chokuhan.jp/item_power/8124",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2019/10/hiji2.jpg"
+        ]
+      },
+      {
+        "label": "着圧の強弱でしっかりと固定し、スムーズな動きを実現",
+        "href": "https://www.nippon-chokuhan.jp/item_power/8124",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2019/10/hiji2.jpg"
+        ]
+      },
+      {
+        "label": "シルフィットサポーター（ひざ用）",
+        "href": "https://www.nippon-chokuhan.jp/item_power/8127",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2019/10/jca1.jpg"
+        ]
+      },
+      {
+        "label": "着圧の強弱でしっかりと固定し、スムーズな動きを実現",
+        "href": "https://www.nippon-chokuhan.jp/item_power/8127",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2019/10/jca1.jpg"
+        ]
+      },
+      {
+        "label": "シルフィットサポーター（手首用）",
+        "href": "https://www.nippon-chokuhan.jp/item_power/8118",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2019/10/tekubi2.jpg"
+        ]
+      },
+      {
+        "label": "関節運動を妨げない、ソフトでフィット感のある編み設計",
+        "href": "https://www.nippon-chokuhan.jp/item_power/8118",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2019/10/tekubi2.jpg"
+        ]
+      },
+      {
+        "label": "シルフィットサポーター（足首用）",
+        "href": "https://www.nippon-chokuhan.jp/item_power/8121",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2019/10/jca2.jpg"
+        ]
+      },
+      {
+        "label": "関節運動を妨げない、ソフトでフィット感のある編み設計",
+        "href": "https://www.nippon-chokuhan.jp/item_power/8121",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2019/10/jca2.jpg"
+        ]
+      },
+      {
+        "label": "商品一覧へ ＞",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "エブリシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_every/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/e_mineral_2023-2.jpg"
+        ]
+      },
+      {
+        "label": "健康寝具",
+        "href": "https://www.nippon-chokuhan.jp/item_bedding/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item2.png"
+        ]
+      },
+      {
+        "label": "パワーガードシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_power/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item4.png"
+        ]
+      },
+      {
+        "label": "エクササイズシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_exercise/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item5_1.png"
+        ]
+      },
+      {
+        "label": "ヘルシーサプリメント",
+        "href": "https://www.nippon-chokuhan.jp/item_supplement/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2024/09/nanocal_lemon.jpg"
+        ]
+      },
+      {
+        "label": "メディカルセラムシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2024/09/coracutis_202308.jpg"
+        ]
+      },
+      {
+        "label": "クレイビューティシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_kurei/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item8_2020.png"
+        ]
+      },
+      {
+        "label": "まもリスク",
+        "href": "https://www.nippon-chokuhan.jp/mamorisk/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/mamorisk_bn.png"
+        ]
+      },
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news/",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company/",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/reason",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit/",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "zenkenkai",
+        "href": "https://www.nippon-chokuhan.jp/zenkenkai",
+        "images": []
+      },
+      {
+        "label": "アクセス",
+        "href": "https://www.nippon-chokuhan.jp/access/",
+        "images": []
+      },
+      {
+        "label": "お問合せ",
+        "href": "https://www.nippon-chokuhan.jp/contact/",
+        "images": []
+      },
+      {
+        "label": "プライバシーポリシー",
+        "href": "https://www.nippon-chokuhan.jp/privacy/",
+        "images": []
+      },
+      {
+        "label": "特定商取引法に基づく表記",
+        "href": "https://www.nippon-chokuhan.jp/sctl/",
+        "images": []
+      }
+    ],
+    "og_image": null
+  },
+  {
+    "url": "https://www.nippon-chokuhan.jp/item_seram",
+    "resolved": "https://www.nippon-chokuhan.jp/item_seram",
+    "status": 200,
+    "title": "メディカルセラムシリーズ - カイロプラクティックのリーディングカンパニー｜日本直販総本社",
+    "links": [
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/other_cat/6799",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "日本直販総本社",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2026/08/logo.png"
+        ]
+      },
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news/",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company/",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/reason",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit/",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "zenkenkai",
+        "href": "https://www.nippon-chokuhan.jp/zenkenkai",
+        "images": []
+      },
+      {
+        "label": "トップ",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2026/08/logo.png",
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/cat_photo7_2020.png",
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/05/special-care-set_202308.jpg"
+        ]
+      },
+      {
+        "label": "スペシャルケアセット Special care Set",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/6816",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/05/special-care-set_202308.jpg"
+        ]
+      },
+      {
+        "label": "リポソーム化の新テクノロジーにより、質の高い有効成分を壊すことなく包み込み、必要なところにピュアなかたちで届けます。ぜひ毎日のスキンケアで実感してください。",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/6816",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/05/special-care-set_202308.jpg"
+        ]
+      },
+      {
+        "label": "バーニングセル Burning Cell",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/6461",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/05/burningcell_202308.jpg"
+        ]
+      },
+      {
+        "label": "複数種の成分を配合し多方面からのアプローチに成功しました。リポソーム技術によるナノカプセルで確実に届けます。",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/6461",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/05/burningcell_202308.jpg"
+        ]
+      },
+      {
+        "label": "コラキューティス Coracutis",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/6811",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/05/coracutis_202308.jpg"
+        ]
+      },
+      {
+        "label": "コラーゲンとエラスチンを配合。ハリ・弾力のあるみずみずしい健康的なお肌を保ちます。",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/6811",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/05/coracutis_202308.jpg"
+        ]
+      },
+      {
+        "label": "エクセレンスC ExcellenceC",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/6804",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/05/excellencec_202308.jpg"
+        ]
+      },
+      {
+        "label": "水溶性ビタミンCを贅沢に25％高配合した美容液です。リポソーム技術により、ナノカプセルにたっぷりと封じ込めました。",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/6804",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/05/excellencec_202308.jpg"
+        ]
+      },
+      {
+        "label": "ホワイティスピュア Whitiss Pure",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/6797",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/05/whitisspure_202308.jpg"
+        ]
+      },
+      {
+        "label": "美白成分アルブチンをリポソーム化し、気になる部分にアプローチ。朝・晩ご使用可能で、お肌のシミやボディの色素沈着を和らげます。",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/6797",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/05/whitisspure_202308.jpg"
+        ]
+      },
+      {
+        "label": "リンクルフラフィ Wrinkle Fluffy",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/6792",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/05/wrinklefluffy_202308.jpg"
+        ]
+      },
+      {
+        "label": "リポソーム化の新テクノロジーにアルジルリンを含む３つのペプチドを配合した美容液です。口元や目元など気になる部分に。",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/6792",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/05/wrinklefluffy_202308.jpg"
+        ]
+      },
+      {
+        "label": "商品一覧へ ＞",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "エブリシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_every/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/e_mineral_2023-2.jpg"
+        ]
+      },
+      {
+        "label": "健康寝具",
+        "href": "https://www.nippon-chokuhan.jp/item_bedding/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item2.png"
+        ]
+      },
+      {
+        "label": "パワーガードシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_power/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item4.png"
+        ]
+      },
+      {
+        "label": "エクササイズシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_exercise/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item5_1.png"
+        ]
+      },
+      {
+        "label": "ヘルシーサプリメント",
+        "href": "https://www.nippon-chokuhan.jp/item_supplement/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2024/09/nanocal_lemon.jpg"
+        ]
+      },
+      {
+        "label": "メディカルセラムシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2024/09/coracutis_202308.jpg"
+        ]
+      },
+      {
+        "label": "クレイビューティシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_kurei/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item8_2020.png"
+        ]
+      },
+      {
+        "label": "まもリスク",
+        "href": "https://www.nippon-chokuhan.jp/mamorisk/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/mamorisk_bn.png"
+        ]
+      },
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news/",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company/",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/reason",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit/",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "zenkenkai",
+        "href": "https://www.nippon-chokuhan.jp/zenkenkai",
+        "images": []
+      },
+      {
+        "label": "アクセス",
+        "href": "https://www.nippon-chokuhan.jp/access/",
+        "images": []
+      },
+      {
+        "label": "お問合せ",
+        "href": "https://www.nippon-chokuhan.jp/contact/",
+        "images": []
+      },
+      {
+        "label": "プライバシーポリシー",
+        "href": "https://www.nippon-chokuhan.jp/privacy/",
+        "images": []
+      },
+      {
+        "label": "特定商取引法に基づく表記",
+        "href": "https://www.nippon-chokuhan.jp/sctl/",
+        "images": []
+      }
+    ],
+    "og_image": null
+  },
+  {
+    "url": "https://www.nippon-chokuhan.jp/item_mamorisk",
+    "resolved": "https://www.nippon-chokuhan.jp/item_mamorisk",
+    "status": 200,
+    "title": "まもリスク - カイロプラクティックのリーディングカンパニー｜日本直販総本社",
+    "links": [
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/other_cat/6799",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "日本直販総本社",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2026/08/logo.png"
+        ]
+      },
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news/",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company/",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/reason",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit/",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "zenkenkai",
+        "href": "https://www.nippon-chokuhan.jp/zenkenkai",
+        "images": []
+      },
+      {
+        "label": "トップ",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2026/08/logo.png",
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/e_mineral_2023-2.jpg",
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item2.png"
+        ]
+      },
+      {
+        "label": "商品一覧へ ＞",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "エブリシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_every/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2016/04/e_mineral_2023-2.jpg"
+        ]
+      },
+      {
+        "label": "健康寝具",
+        "href": "https://www.nippon-chokuhan.jp/item_bedding/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item2.png"
+        ]
+      },
+      {
+        "label": "パワーガードシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_power/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item4.png"
+        ]
+      },
+      {
+        "label": "エクササイズシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_exercise/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item5_1.png"
+        ]
+      },
+      {
+        "label": "ヘルシーサプリメント",
+        "href": "https://www.nippon-chokuhan.jp/item_supplement/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2024/09/nanocal_lemon.jpg"
+        ]
+      },
+      {
+        "label": "メディカルセラムシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_seram/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/uploads/2024/09/coracutis_202308.jpg"
+        ]
+      },
+      {
+        "label": "クレイビューティシリーズ",
+        "href": "https://www.nippon-chokuhan.jp/item_kurei/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/item8_2020.png"
+        ]
+      },
+      {
+        "label": "まもリスク",
+        "href": "https://www.nippon-chokuhan.jp/mamorisk/",
+        "images": [
+          "https://www.nippon-chokuhan.jp/wordpress/wp-content/themes/nippon-chokuhan/img/mamorisk_bn.png"
+        ]
+      },
+      {
+        "label": "ホーム",
+        "href": "https://www.nippon-chokuhan.jp/",
+        "images": []
+      },
+      {
+        "label": "ニュースリリース",
+        "href": "https://www.nippon-chokuhan.jp/news/",
+        "images": []
+      },
+      {
+        "label": "企業情報",
+        "href": "https://www.nippon-chokuhan.jp/company/",
+        "images": []
+      },
+      {
+        "label": "商品のご紹介",
+        "href": "https://www.nippon-chokuhan.jp/item_ichiran/",
+        "images": []
+      },
+      {
+        "label": "販売店検索",
+        "href": "https://www.nippon-chokuhan.jp/reason",
+        "images": []
+      },
+      {
+        "label": "採用情報",
+        "href": "https://www.nippon-chokuhan.jp/recruit/",
+        "images": []
+      },
+      {
+        "label": "私たちがめざすもの",
+        "href": "https://www.nippon-chokuhan.jp/aim",
+        "images": []
+      },
+      {
+        "label": "zenkenkai",
+        "href": "https://www.nippon-chokuhan.jp/zenkenkai",
+        "images": []
+      },
+      {
+        "label": "アクセス",
+        "href": "https://www.nippon-chokuhan.jp/access/",
+        "images": []
+      },
+      {
+        "label": "お問合せ",
+        "href": "https://www.nippon-chokuhan.jp/contact/",
+        "images": []
+      },
+      {
+        "label": "プライバシーポリシー",
+        "href": "https://www.nippon-chokuhan.jp/privacy/",
+        "images": []
+      },
+      {
+        "label": "特定商取引法に基づく表記",
+        "href": "https://www.nippon-chokuhan.jp/sctl/",
+        "images": []
       }
     ],
     "og_image": null
