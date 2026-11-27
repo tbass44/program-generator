@@ -8,7 +8,7 @@ import { redirectToLineEntry, retryLineLogin } from '@/lib/patient-line-navigati
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, ChevronLeft, ExternalLink, Package, ScrollText } from 'lucide-react';
+import { Calendar, ChevronLeft, ExternalLink, Package, RefreshCw, ScrollText } from 'lucide-react';
 
 type Product = {
   id: string;
@@ -186,6 +186,7 @@ export default function ProductSupportDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isRequestingPurchase, setIsRequestingPurchase] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -255,7 +256,11 @@ export default function ProductSupportDetailPage() {
 
         setPatientName(data.patient?.name ?? data.debug?.patientName ?? null);
         setItem(data.item);
-        setActivePdfId(data.item.pdfDocuments?.[0]?.id ?? null);
+        setActivePdfId((previous) =>
+          data.item?.pdfDocuments?.some((document) => document.id === previous)
+            ? previous
+            : data.item?.pdfDocuments?.[0]?.id ?? null
+        );
         setStatusMessage('商品詳細を取得しました。');
       } catch (error) {
         console.error(error);
@@ -273,7 +278,7 @@ export default function ProductSupportDetailPage() {
     };
 
     fetchDetail();
-  }, [id]);
+  }, [id, refreshVersion]);
 
   const handlePurchaseRequest = async () => {
     if (!item || item.status !== 'recommended' || isRequestingPurchase) return;
@@ -375,6 +380,12 @@ export default function ProductSupportDetailPage() {
         <p className="text-sm text-gray-500">
           {patientName ? `${patientName}さんへの提案内容` : '提案商品の詳細'}
         </p>
+        <Button type="button" size="sm" variant="outline" className="mt-3"
+          disabled={isLoading || isRequestingPurchase}
+          onClick={() => { setPurchaseError(null); setRefreshVersion((current) => current + 1); }}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          {isLoading ? '確認中...' : '最新の状況を確認'}
+        </Button>
         {isLoading && <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>}
         {errorMessage && <p className="mt-2 text-xs text-red-500">{errorMessage}</p>}
       </header>
