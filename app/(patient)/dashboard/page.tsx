@@ -57,6 +57,7 @@ type DashboardRecommendation = {
   product_id: string | null;
   category: string | null;
   reason: string | null;
+  usage_guidance: string | null;
   status: string;
   created_at: string;
   updated_at: string;
