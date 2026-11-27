@@ -75,7 +75,7 @@ export async function POST(
     // a recommendation that belongs to the verified LINE-linked patient.
     const { data: updated, error: updateError } = await supabase
       .from('patient_product_recommendations')
-      .update({ status: 'purchase_requested', updated_at: new Date().toISOString() })
+      .update({ status: 'purchase_requested', purchase_request_reviewed_at: null, updated_at: new Date().toISOString() })
       .eq('id', params.id)
       .eq('patient_id', patient.id)
       .eq('status', 'recommended')
