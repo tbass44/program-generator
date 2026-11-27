@@ -194,7 +194,7 @@ export default function AdminDashboardPage() {
                     <div className="divide-y">
                       {displayedRequests.map((request) => (
                         <div key={request.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                          <Link href={`/admin/patients/${request.patientId}`}
+                          <Link href={`/admin/patients/${request.patientId}#purchase-request-${request.id}`}
                             className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md text-sm hover:bg-gray-50">
                             <div className="min-w-0">
                               <p className="font-medium text-gray-900">{request.patientName}</p>
