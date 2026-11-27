@@ -34,6 +34,7 @@ type AdminProgramDetail = {
   program_text: string | null;
   created_at: string;
   updated_at: string;
+  product_category_order: string[];
 };
 
 type AdminProgramPatient = {
@@ -48,6 +49,7 @@ type UpdateProgramBody = {
   summary?: unknown;
   shortTermProgram?: unknown;
   longTermProgram?: unknown;
+  categoryOrder?: unknown;
 };
 
 function createSupabaseAdminClient() {
@@ -142,6 +144,7 @@ const programSelect = `
   long_term_program,
   today_task,
   program_text,
+  product_category_order,
   created_at,
   updated_at
 `;
@@ -278,6 +281,25 @@ export async function PATCH(
     }
 
     const body = (await request.json()) as UpdateProgramBody;
+
+    if (body.categoryOrder !== undefined) {
+      const validCategories = ['physical_sleep', 'exercise', 'nutrition', 'skincare'];
+      const order = body.categoryOrder;
+      if (!Array.isArray(order) || order.length !== 4
+        || order.some((v) => typeof v !== 'string' || !validCategories.includes(v))
+        || new Set(order).size !== 4) {
+        return NextResponse.json({ error: 'Invalid category order' }, { status: 400 });
+      }
+      const { data: program, error } = await adminResult.supabaseAdmin
+        .from('programs')
+        .update({ product_category_order: order, updated_at: new Date().toISOString() })
+        .eq('id', parsedProgramId.programId)
+        .select('id, product_category_order')
+        .maybeSingle();
+      if (error) return NextResponse.json({ error: 'Failed to update category order' }, { status: 500 });
+      if (!program) return NextResponse.json({ error: 'Program not found' }, { status: 404 });
+      return NextResponse.json({ program });
+    }
 
     const memo = normalizeOptionalText(body.memo);
     const summary = normalizeRequiredText(body.summary);
