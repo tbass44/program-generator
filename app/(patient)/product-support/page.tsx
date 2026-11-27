@@ -535,7 +535,7 @@ export default function ProductSupportPage() {
           <RefreshCw className="mr-2 h-4 w-4" />
           {isLoading ? '確認中...' : '最新の状況を確認'}
         </Button>
-        {isLoading && <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>
+        {isLoading && <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>}
         {errorMessage && <p className="mt-2 text-xs text-red-500">{errorMessage}</p>}
       </header>
 
