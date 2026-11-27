@@ -51,6 +51,10 @@ export async function GET(request: Request) {
     }
     const page = Number(pageText);
     const pageSize = 20;
+    const sort = url.searchParams.get('sort') ?? 'oldest';
+    if (sort !== 'oldest' && sort !== 'newest') {
+      return NextResponse.json({ error: 'Invalid sort order' }, { status: 400 });
+    }
     const search = (url.searchParams.get('search') ?? '').trim();
     if (search.length > 80) {
       return NextResponse.json({ error: 'Search term too long' }, { status: 400 });
@@ -81,7 +85,7 @@ export async function GET(request: Request) {
       if (!searchFilter) {
         return NextResponse.json({
           page, pageSize, total: 0, pendingCount: 0, reviewedCount: 0,
-          filteredCount: 0, requests: [], search,
+          filteredCount: 0, requests: [], search, sort,
         });
       }
     }
@@ -109,7 +113,7 @@ export async function GET(request: Request) {
     if ((page - 1) * pageSize >= filteredCount && filteredCount > 0) {
       return NextResponse.json({
         page, pageSize, total: pendingCount + reviewedCount,
-        pendingCount, reviewedCount, filteredCount, requests: [], search,
+        pendingCount, reviewedCount, filteredCount, requests: [], search, sort,
       });
     }
 
@@ -121,9 +125,10 @@ export async function GET(request: Request) {
     listQuery = reviewFilter === 'pending'
       ? listQuery.is('purchase_request_reviewed_at', null)
       : listQuery.not('purchase_request_reviewed_at', 'is', null);
+    const ascending = sort === 'oldest';
     const { data: requests, error: requestsError } = await listQuery
-      .order('updated_at', { ascending: false })
-      .order('id', { ascending: false })
+      .order('updated_at', { ascending })
+      .order('id', { ascending })
       .range((page - 1) * pageSize, page * pageSize - 1);
     if (requestsError) {
       return NextResponse.json({ error: 'Failed to fetch purchase requests' }, { status: 500 });
@@ -155,6 +160,7 @@ export async function GET(request: Request) {
       page,
       pageSize,
       search,
+      sort,
       requests: rows.map((row) => ({
         id: row.id,
         patientId: row.patient_id,
