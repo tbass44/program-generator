@@ -45,6 +45,7 @@ type ProductSupportDetailItem = {
   reason: string | null;
   usage_guidance: string | null;
   status: string;
+  purchase_request_reviewed_at: string | null;
   created_at: string;
   updated_at: string;
   product: Product | null;
@@ -303,6 +304,7 @@ export default function ProductSupportDetailPage() {
       setItem((previous) => previous ? {
         ...previous,
         status: data.item?.status ?? 'purchase_requested',
+        purchase_request_reviewed_at: null,
         updated_at: data.item?.updated_at ?? previous.updated_at,
       } : previous);
     } catch (error) {
@@ -345,6 +347,7 @@ export default function ProductSupportDetailPage() {
       setItem((previous) => previous ? {
         ...previous,
         status: data.item?.status ?? 'recommended',
+        purchase_request_reviewed_at: null,
         updated_at: data.item?.updated_at ?? previous.updated_at,
       } : previous);
     } catch (error) {
@@ -449,6 +452,14 @@ export default function ProductSupportDetailPage() {
                 <p className="mt-1 text-sm text-teal-800">
                   これは注文確定ではありません。数量や受け渡しについては当院からのご案内をご確認ください。
                 </p>
+                {item.purchase_request_reviewed_at ? (
+                  <p className="mt-2 text-sm font-medium text-teal-800">
+                    院で購入希望を確認しました（{formatDate(item.purchase_request_reviewed_at)}）。
+                    注文確定や商品の確保を意味するものではありません。
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm text-teal-800">現在、院での確認待ちです。</p>
+                )}
                 <Button type="button" variant="outline" className="mt-3 w-full"
                   disabled={isRequestingPurchase} onClick={handleCancelPurchaseRequest}>
                   {isRequestingPurchase ? '取り消し中...' : '購入希望を取り消す'}
