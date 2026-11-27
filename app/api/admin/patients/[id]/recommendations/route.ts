@@ -49,6 +49,7 @@ type RecommendationRow = {
   rental_started_at: string | null;
   rental_due_at: string | null;
   rental_returned_at: string | null;
+  purchase_request_reviewed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -191,6 +192,7 @@ function formatRecommendation(
     rentalStartedAt: row.rental_started_at,
     rentalDueAt: row.rental_due_at,
     rentalReturnedAt: row.rental_returned_at,
+    purchaseRequestReviewedAt: row.purchase_request_reviewed_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -261,13 +263,13 @@ export async function GET(
       .returns<RecommendationRow[]>();
 
     let { data: recommendations, error: recommendationsError } = await fetchRecommendations(
-      'id, patient_id, program_id, product_id, category, reason, status, rental_started_at, rental_due_at, rental_returned_at, created_at, updated_at'
+      'id, patient_id, program_id, product_id, category, reason, status, rental_started_at, rental_due_at, rental_returned_at, purchase_request_reviewed_at, created_at, updated_at'
     );
 
     if (isMissingRentalDueColumn(recommendationsError)) {
       // DB移行前は参照だけ従来形式で継続する。
       const legacy = await fetchRecommendations(
-        'id, patient_id, program_id, product_id, category, reason, status, rental_started_at, rental_returned_at, created_at, updated_at'
+        'id, patient_id, program_id, product_id, category, reason, status, rental_started_at, rental_returned_at, purchase_request_reviewed_at, created_at, updated_at'
       );
       recommendations = (legacy.data ?? []).map((row) => ({
         ...row,
