@@ -30,6 +30,7 @@ type ProductRow = {
   price: number | null;
   product_url: string | null;
   pdf_url: string | null;
+  thumbnail_url: string | null;
 };
 
 type ProgramRow = {
@@ -212,7 +213,7 @@ export async function POST(
       recommendation.product_id
         ? supabaseAdmin
             .from('products')
-            .select('id, name, category, description, price, product_url, pdf_url')
+            .select('id, name, category, description, price, product_url, pdf_url, thumbnail_url')
             .eq('id', recommendation.product_id)
             .maybeSingle<ProductRow>()
         : Promise.resolve({ data: null, error: null }),
