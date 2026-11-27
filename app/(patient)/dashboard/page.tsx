@@ -604,7 +604,7 @@ export default function DashboardPage() {
               }
             />
             {currentProgram ? (
-              <ProgramCard {...currentProgram} />
+              <ProgramCard {...currentProgram} previewChars={140} />
             ) : (
               <div className="rounded-lg border bg-white p-4 text-sm text-gray-500">
                 まだ改善プログラムは登録されていません。
