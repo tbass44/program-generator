@@ -42,6 +42,7 @@ type ProductSupportDetailItem = {
   product_id: string | null;
   category: string | null;
   reason: string | null;
+  usage_guidance: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -308,6 +309,12 @@ export default function ProductSupportDetailPage() {
               <p className="text-sm text-gray-600">
                 {item.reason || product?.description || '提案理由は未登録です。'}
               </p>
+
+              {item.usage_guidance && (
+                <p className="mt-3 rounded-md border border-teal-200 bg-white p-3 text-sm text-teal-800">
+                  数量・期間の目安：{item.usage_guidance}
+                </p>
+              )}
 
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-lg bg-white p-3">
