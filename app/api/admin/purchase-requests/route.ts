@@ -22,7 +22,7 @@ function env(name: string): string {
 }
 
 /** List active purchase requests visible only to verified MyCare administrators. */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const { userId } = auth();
     if (!userId) {
@@ -42,13 +42,50 @@ export async function GET() {
       return NextResponse.json({ error: 'Admin role required' }, { status: 403 });
     }
 
-    // Fetch count separately so the screen never implies the first 30 are all requests.
-    const { data: requests, error: requestsError, count } = await supabase
+    const url = new URL(request.url);
+    const reviewFilter = url.searchParams.get('review') ?? 'pending';
+    const pageText = url.searchParams.get('page') ?? '1';
+    if ((reviewFilter !== 'pending' && reviewFilter !== 'reviewed') ||
+        !/^[1-9][0-9]*$/.test(pageText) || Number(pageText) > 100000) {
+      return NextResponse.json({ error: 'Invalid review filter or page number' }, { status: 400 });
+    }
+    const page = Number(pageText);
+    const pageSize = 20;
+
+    const makeBaseQuery = () => supabase
       .from('patient_product_recommendations')
-      .select('id, patient_id, product_id, program_id, updated_at, purchase_request_reviewed_at, purchase_request_admin_note', { count: 'exact' })
-      .eq('status', 'purchase_requested')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'purchase_requested');
+
+    const [pendingCountResult, reviewedCountResult] = await Promise.all([
+      makeBaseQuery().is('purchase_request_reviewed_at', null),
+      makeBaseQuery().not('purchase_request_reviewed_at', 'is', null),
+    ]);
+    if (pendingCountResult.error || reviewedCountResult.error) {
+      return NextResponse.json({ error: 'Failed to count purchase requests' }, { status: 500 });
+    }
+    const pendingCount = pendingCountResult.count ?? 0;
+    const reviewedCount = reviewedCountResult.count ?? 0;
+    const filteredCount = reviewFilter === 'pending' ? pendingCount : reviewedCount;
+    // Avoid asking PostgREST for ranges beyond the collection.
+    if ((page - 1) * pageSize >= filteredCount && filteredCount > 0) {
+      return NextResponse.json({
+        page, pageSize, total: pendingCount + reviewedCount,
+        pendingCount, reviewedCount, filteredCount, requests: [],
+      });
+    }
+
+    let listQuery = supabase
+      .from('patient_product_recommendations')
+      .select('id, patient_id, product_id, program_id, updated_at, purchase_request_reviewed_at, purchase_request_admin_note')
+      .eq('status', 'purchase_requested');
+    listQuery = reviewFilter === 'pending'
+      ? listQuery.is('purchase_request_reviewed_at', null)
+      : listQuery.not('purchase_request_reviewed_at', 'is', null);
+    const { data: requests, error: requestsError } = await listQuery
       .order('updated_at', { ascending: false })
-      .limit(30);
+      .order('id', { ascending: false })
+      .range((page - 1) * pageSize, page * pageSize - 1);
     if (requestsError) {
       return NextResponse.json({ error: 'Failed to fetch purchase requests' }, { status: 500 });
     }
@@ -72,7 +109,12 @@ export async function GET() {
     const patients = new Map((patientsResult.data ?? []).map((row) => [row.id, row.name]));
     const products = new Map((productsResult.data ?? []).map((row) => [row.id, row.name]));
     return NextResponse.json({
-      total: count ?? rows.length,
+      total: pendingCount + reviewedCount,
+      pendingCount,
+      reviewedCount,
+      filteredCount,
+      page,
+      pageSize,
       requests: rows.map((row) => ({
         id: row.id,
         patientId: row.patient_id,
