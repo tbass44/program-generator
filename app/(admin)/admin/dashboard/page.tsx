@@ -17,6 +17,7 @@ type PurchaseRequest = {
   patientName: string;
   productName: string;
   updatedAt: string;
+  reviewedAt: string | null;
 };
 
 type PurchaseRequestsResponse = {
@@ -30,6 +31,9 @@ export default function AdminDashboardPage() {
   const [purchaseRequestCount, setPurchaseRequestCount] = useState(0);
   const [loadingPurchaseRequests, setLoadingPurchaseRequests] = useState(true);
   const [purchaseRequestsError, setPurchaseRequestsError] = useState<string | null>(null);
+  const [reviewFilter, setReviewFilter] = useState<'pending' | 'reviewed'>('pending');
+  const [reviewUpdatingId, setReviewUpdatingId] = useState<string | null>(null);
+  const [reviewUpdateError, setReviewUpdateError] = useState<string | null>(null);
 
   const loadPurchaseRequests = useCallback(async () => {
     setLoadingPurchaseRequests(true);
@@ -54,6 +58,37 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     void loadPurchaseRequests();
   }, [loadPurchaseRequests]);
+
+  const pendingRequests = purchaseRequests.filter((item) => !item.reviewedAt);
+  const reviewedRequests = purchaseRequests.filter((item) => Boolean(item.reviewedAt));
+  const displayedRequests = reviewFilter === 'pending' ? pendingRequests : reviewedRequests;
+
+  const updatePurchaseReview = async (id: string, reviewed: boolean) => {
+    if (reviewUpdatingId !== null) return;
+    setReviewUpdatingId(id);
+    setReviewUpdateError(null);
+    try {
+      const response = await fetch(`/api/admin/purchase-requests/${id}/review`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewed }),
+      });
+      const data = (await response.json()) as { reviewedAt?: string | null };
+      if (!response.ok) {
+        setReviewUpdateError('変更できませんでした。最新の状況を再読み込みして確認してください。');
+        await loadPurchaseRequests();
+        return;
+      }
+      setPurchaseRequests((current) => current.map((item) => item.id === id
+        ? { ...item, reviewedAt: data.reviewedAt ?? null }
+        : item));
+    } catch (error) {
+      console.error(error);
+      setReviewUpdateError('通信エラーのため変更できませんでした。');
+    } finally {
+      setReviewUpdatingId(null);
+    }
+  };
 
   return (
     <div>
@@ -132,28 +167,58 @@ export default function AdminDashboardPage() {
           {purchaseRequestsError && (
             <p role="alert" className="text-sm text-red-600">{purchaseRequestsError}</p>
           )}
-          {!loadingPurchaseRequests && !purchaseRequestsError && purchaseRequestCount === 0 && (
-            <p className="text-sm text-gray-500">現在、購入希望の商品はありません。</p>
-          )}
-          {!loadingPurchaseRequests && !purchaseRequestsError && purchaseRequests.length > 0 && (
-            <div className="divide-y">
-              {purchaseRequests.map((request) => (
-                <Link
-                  key={request.id}
-                  href={`/admin/patients/${request.patientId}`}
-                  className="flex items-center justify-between gap-3 py-3 text-sm hover:bg-gray-50"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-gray-900">{request.patientName}</p>
-                    <p className="mt-0.5 truncate text-gray-600">{request.productName}</p>
-                    <p className="mt-0.5 text-xs text-gray-400">
-                      {new Date(request.updatedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
-                    </p>
+          {!loadingPurchaseRequests && !purchaseRequestsError && (
+            <>
+              {purchaseRequestCount === 0 ? (
+                <p className="text-sm text-gray-500">現在、購入希望の商品はありません。</p>
+              ) : (
+                <>
+                  <div className="mb-3 flex flex-wrap gap-2" aria-label="購入希望の確認状況">
+                    <button type="button" onClick={() => setReviewFilter('pending')}
+                      className={`rounded-md px-3 py-2 text-sm ${reviewFilter === 'pending'
+                        ? 'bg-teal-700 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                      未確認（{pendingRequests.length}）
+                    </button>
+                    <button type="button" onClick={() => setReviewFilter('reviewed')}
+                      className={`rounded-md px-3 py-2 text-sm ${reviewFilter === 'reviewed'
+                        ? 'bg-teal-700 text-white' : 'bg-gray-100 text-gray-700'}`}>
+                      確認済み（{reviewedRequests.length}）
+                    </button>
                   </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-gray-500" />
-                </Link>
-              ))}
-            </div>
+                  {reviewUpdateError && (
+                    <p role="alert" className="mb-3 text-sm text-red-600">{reviewUpdateError}</p>
+                  )}
+                  {displayedRequests.length === 0 ? (
+                    <p className="text-sm text-gray-500">この分類の購入希望はありません。</p>
+                  ) : (
+                    <div className="divide-y">
+                      {displayedRequests.map((request) => (
+                        <div key={request.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                          <Link href={`/admin/patients/${request.patientId}`}
+                            className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md text-sm hover:bg-gray-50">
+                            <div className="min-w-0">
+                              <p className="font-medium text-gray-900">{request.patientName}</p>
+                              <p className="mt-0.5 truncate text-gray-600">{request.productName}</p>
+                              <p className="mt-0.5 text-xs text-gray-400">
+                                {new Date(request.updatedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+                              </p>
+                            </div>
+                            <ChevronRight className="h-4 w-4 shrink-0 text-gray-500" />
+                          </Link>
+                          <button type="button"
+                            disabled={reviewUpdatingId !== null}
+                            onClick={() => void updatePurchaseReview(request.id, !request.reviewedAt)}
+                            className="shrink-0 rounded-md border border-teal-600 px-3 py-2 text-xs font-medium text-teal-700 hover:bg-teal-50 disabled:opacity-50">
+                            {reviewUpdatingId === request.id ? '更新中...' :
+                              request.reviewedAt ? '未確認に戻す' : '確認済みにする'}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
           )}
           {!loadingPurchaseRequests && !purchaseRequestsError && purchaseRequestCount > purchaseRequests.length && (
             <p className="mt-2 text-xs text-gray-500">
@@ -161,7 +226,7 @@ export default function AdminDashboardPage() {
             </p>
           )}
           <p className="mt-4 text-xs text-gray-500">
-            購入希望の確認用一覧です。決済や注文確定、在庫変更は行いません。
+            確認済みは院側が内容を見た記録です。決済・注文確定・在庫変更とは異なります。
           </p>
         </CardContent>
       </Card>
