@@ -14,6 +14,7 @@ import {
   Dumbbell,
   Moon,
   ShoppingBag,
+  RefreshCw,
   Sparkles,
   Star,
 } from 'lucide-react';
@@ -315,6 +316,7 @@ export default function ProductSupportPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [requestingPurchaseId, setRequestingPurchaseId] = useState<string | null>(null);
   const [purchaseError, setPurchaseError] = useState<{ id: string; message: string } | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
 
   const handlePurchaseRequest = async (item: ProductSupportItem) => {
     if (item.status !== 'recommended' || !item.product || requestingPurchaseId !== null) return;
@@ -515,7 +517,7 @@ export default function ProductSupportPage() {
     };
 
     fetchProductSupport();
-  }, []);
+  }, [refreshVersion]);
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
@@ -527,7 +529,13 @@ export default function ProductSupportPage() {
         <p className="text-sm text-gray-500">
           {patientName ? `${patientName}さんへの商品提案` : 'あなたに合った商品とサポート'}
         </p>
-        {isLoading && <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>}
+        <Button type="button" size="sm" variant="outline" className="mt-3"
+          disabled={isLoading || requestingPurchaseId !== null}
+          onClick={() => { setPurchaseError(null); setRefreshVersion((current) => current + 1); }}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          {isLoading ? '確認中...' : '最新の状況を確認'}
+        </Button>
+        {isLoading && <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>
         {errorMessage && <p className="mt-2 text-xs text-red-500">{errorMessage}</p>}
       </header>
 
