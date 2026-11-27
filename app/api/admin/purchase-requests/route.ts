@@ -51,11 +51,49 @@ export async function GET(request: Request) {
     }
     const page = Number(pageText);
     const pageSize = 20;
+    const search = (url.searchParams.get('search') ?? '').trim();
+    if (search.length > 80) {
+      return NextResponse.json({ error: 'Search term too long' }, { status: 400 });
+    }
 
-    const makeBaseQuery = () => supabase
-      .from('patient_product_recommendations')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'purchase_requested');
+    // Resolve matching IDs before filtering recommendations. Searching only a single
+    // page would hide matching requests on older pages.
+    let searchFilter: string | null = null;
+    if (search) {
+      const escapedSearch = search.replace(/[\\%_]/g, (value) => `\\${value}`);
+      const searchPattern = `%${escapedSearch}%`;
+      const [matchingPatients, matchingProducts] = await Promise.all([
+        supabase.from('patients').select('id').ilike('name', searchPattern).limit(1001),
+        supabase.from('products').select('id').ilike('name', searchPattern).limit(1001),
+      ]);
+      if (matchingPatients.error || matchingProducts.error) {
+        return NextResponse.json({ error: 'Failed to search patients or products' }, { status: 500 });
+      }
+      if ((matchingPatients.data ?? []).length > 1000 || (matchingProducts.data ?? []).length > 1000) {
+        return NextResponse.json({ error: 'Too many search matches; use a more specific term' }, { status: 422 });
+      }
+      const patientIds = (matchingPatients.data ?? []).map((item) => item.id);
+      const productIds = (matchingProducts.data ?? []).map((item) => item.id);
+      const parts: string[] = [];
+      if (patientIds.length) parts.push(`patient_id.in.(${patientIds.join(',')})`);
+      if (productIds.length) parts.push(`product_id.in.(${productIds.join(',')})`);
+      searchFilter = parts.join(',');
+      if (!searchFilter) {
+        return NextResponse.json({
+          page, pageSize, total: 0, pendingCount: 0, reviewedCount: 0,
+          filteredCount: 0, requests: [], search,
+        });
+      }
+    }
+
+    const makeBaseQuery = () => {
+      let query = supabase
+        .from('patient_product_recommendations')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'purchase_requested');
+      if (searchFilter) query = query.or(searchFilter);
+      return query;
+    };
 
     const [pendingCountResult, reviewedCountResult] = await Promise.all([
       makeBaseQuery().is('purchase_request_reviewed_at', null),
@@ -71,7 +109,7 @@ export async function GET(request: Request) {
     if ((page - 1) * pageSize >= filteredCount && filteredCount > 0) {
       return NextResponse.json({
         page, pageSize, total: pendingCount + reviewedCount,
-        pendingCount, reviewedCount, filteredCount, requests: [],
+        pendingCount, reviewedCount, filteredCount, requests: [], search,
       });
     }
 
@@ -79,6 +117,7 @@ export async function GET(request: Request) {
       .from('patient_product_recommendations')
       .select('id, patient_id, product_id, program_id, updated_at, purchase_request_reviewed_at, purchase_request_admin_note')
       .eq('status', 'purchase_requested');
+    if (searchFilter) listQuery = listQuery.or(searchFilter);
     listQuery = reviewFilter === 'pending'
       ? listQuery.is('purchase_request_reviewed_at', null)
       : listQuery.not('purchase_request_reviewed_at', 'is', null);
@@ -115,6 +154,7 @@ export async function GET(request: Request) {
       filteredCount,
       page,
       pageSize,
+      search,
       requests: rows.map((row) => ({
         id: row.id,
         patientId: row.patient_id,
