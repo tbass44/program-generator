@@ -25,7 +25,7 @@ REPORT = ROOT / "scripts/official-thumbnail-match-report.json"
 
 def normalize(text):
     text = unicodedata.normalize("NFKC", text).casefold()
-    text = re.sub(r"[\s\(\)（）・,，、。／/【】\[\]「」『』®™ー\-]", "", text)
+    text = re.sub(r"[\s\(\)（）・,，、。／/|｜【】\[\]「」『』®™ー\-]", "", text)
     return text
 
 def candidates():
