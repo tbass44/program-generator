@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
@@ -65,6 +65,7 @@ type PatientProductRecommendation = {
   rentalStartedAt: string | null;
   rentalDueAt: string | null;
   rentalReturnedAt: string | null;
+  purchaseRequestReviewedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -241,6 +242,9 @@ export default function AdminPatientDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [reviewUpdatingId, setReviewUpdatingId] = useState<string | null>(null);
+  const [reviewUpdateError, setReviewUpdateError] = useState<string | null>(null);
+  const scrolledToPurchaseRef = useRef<string | null>(null);
 
   const syncFormDataFromPatient = (nextPatient: AdminPatientDetail) => {
     setFormData({
@@ -362,6 +366,48 @@ export default function AdminPatientDetailPage() {
 
     fetchPatientDetail();
   }, [patientId]);
+
+  // Navigate to the specific item only after the patient recommendations have loaded.
+  useEffect(() => {
+    if (isLoading || !patientId || typeof window === 'undefined') return;
+    const hash = decodeURIComponent(window.location.hash.slice(1));
+    if (!/^purchase-request-[0-9a-f-]{36}$/i.test(hash)) return;
+    if (scrolledToPurchaseRef.current === hash) return;
+    if (!productRecommendations.some((item) => `purchase-request-${item.id}` === hash && item.status === '購入希望')) return;
+    const target = document.getElementById(hash);
+    if (target) {
+      scrolledToPurchaseRef.current = hash;
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isLoading, patientId, productRecommendations]);
+
+  const handlePurchaseReview = async (recommendation: PatientProductRecommendation) => {
+    if (reviewUpdatingId !== null || recommendation.status !== '購入希望') return;
+    setReviewUpdatingId(recommendation.id);
+    setReviewUpdateError(null);
+    try {
+      const reviewed = !recommendation.purchaseRequestReviewedAt;
+      const response = await fetch(`/api/admin/purchase-requests/${recommendation.id}/review`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewed }),
+        cache: 'no-store',
+      });
+      const data = (await response.json()) as { reviewedAt?: string | null; error?: string };
+      if (!response.ok) {
+        setReviewUpdateError('確認状況の変更に失敗しました。購入希望が取り消されていないか確認してください。');
+        return;
+      }
+      setProductRecommendations((current) => current.map((item) => item.id === recommendation.id
+        ? { ...item, purchaseRequestReviewedAt: data.reviewedAt ?? null }
+        : item));
+    } catch (error) {
+      console.error(error);
+      setReviewUpdateError('通信エラーで確認状況を変更できませんでした。');
+    } finally {
+      setReviewUpdatingId(null);
+    }
+  };
 
   const handleSavePatient = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -911,24 +957,45 @@ export default function AdminPatientDetailPage() {
       <SectionCard title="購入希望・購入関連の商品" className="mb-6">
         {purchaseRecommendations.length > 0 ? (
           <div className="space-y-3">
+            {reviewUpdateError && (
+              <p role="alert" className="text-sm text-red-600">{reviewUpdateError}</p>
+            )}
             {purchaseRecommendations.map((item) => (
-              <div key={item.id} className="rounded-lg border p-4">
+              <div
+                key={item.id}
+                id={`purchase-request-${item.id}`}
+                className="scroll-mt-20 rounded-lg border p-4 target:border-teal-500 target:bg-teal-50"
+              >
                 <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium">{item.productName}</p>
                       <Badge variant="secondary">{item.category}</Badge>
                       <Badge variant={statusBadgeVariant(item.status)}>{item.status}</Badge>
+                      <Badge variant={item.purchaseRequestReviewedAt ? 'secondary' : 'outline'}>
+                        {item.purchaseRequestReviewedAt ? '確認済み' : '未確認'}
+                      </Badge>
                     </div>
                     <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
                       {item.reason || '提案理由は未入力です。'}
                     </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      受付日時: {new Date(item.updatedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+                    </p>
                   </div>
-                  {item.programId && (
+                  <div className="flex flex-wrap items-start gap-2">
+                    <Button type="button" size="sm" variant="outline"
+                      disabled={reviewUpdatingId !== null}
+                      onClick={() => void handlePurchaseReview(item)}>
+                      {reviewUpdatingId === item.id ? '更新中...' :
+                        item.purchaseRequestReviewedAt ? '未確認に戻す' : '確認済みにする'}
+                    </Button>
+                    {item.programId && (
                     <Link href={`/admin/programs/${item.programId}`}>
                       <Button size="sm" variant="outline">プログラム詳細</Button>
                     </Link>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
