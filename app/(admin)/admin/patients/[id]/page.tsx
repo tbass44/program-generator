@@ -66,6 +66,7 @@ type PatientProductRecommendation = {
   rentalDueAt: string | null;
   rentalReturnedAt: string | null;
   purchaseRequestReviewedAt: string | null;
+  purchaseRequestAdminNote: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -244,6 +245,10 @@ export default function AdminPatientDetailPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [reviewUpdatingId, setReviewUpdatingId] = useState<string | null>(null);
   const [reviewUpdateError, setReviewUpdateError] = useState<string | null>(null);
+  const [editingPurchaseNoteId, setEditingPurchaseNoteId] = useState<string | null>(null);
+  const [purchaseNoteDraft, setPurchaseNoteDraft] = useState('');
+  const [savingPurchaseNoteId, setSavingPurchaseNoteId] = useState<string | null>(null);
+  const [purchaseNoteError, setPurchaseNoteError] = useState<string | null>(null);
   const scrolledToPurchaseRef = useRef<string | null>(null);
 
   const syncFormDataFromPatient = (nextPatient: AdminPatientDetail) => {
@@ -406,6 +411,41 @@ export default function AdminPatientDetailPage() {
       setReviewUpdateError('通信エラーで確認状況を変更できませんでした。');
     } finally {
       setReviewUpdatingId(null);
+    }
+  };
+
+  const handleSavePurchaseNote = async (recommendation: PatientProductRecommendation) => {
+    if (savingPurchaseNoteId !== null || recommendation.status !== '購入希望') return;
+    if (purchaseNoteDraft.length > 2000) {
+      setPurchaseNoteError('対応メモは2000文字以内にしてください。');
+      return;
+    }
+    setSavingPurchaseNoteId(recommendation.id);
+    setPurchaseNoteError(null);
+    try {
+      const response = await fetch(`/api/admin/purchase-requests/${recommendation.id}/note`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: purchaseNoteDraft }),
+        cache: 'no-store',
+      });
+      const data = (await response.json()) as { note?: string; error?: string };
+      if (!response.ok || typeof data.note !== 'string') {
+        setPurchaseNoteError(response.status === 409
+          ? '購入希望がすでに取り消された可能性があります。再読み込みしてください。'
+          : '対応メモを保存できませんでした。もう一度お試しください。');
+        return;
+      }
+      setProductRecommendations((current) => current.map((item) => item.id === recommendation.id
+        ? { ...item, purchaseRequestAdminNote: data.note ?? '' }
+        : item));
+      setEditingPurchaseNoteId(null);
+      setPurchaseNoteDraft('');
+    } catch (error) {
+      console.error(error);
+      setPurchaseNoteError('通信エラーのためメモを保存できませんでした。');
+    } finally {
+      setSavingPurchaseNoteId(null);
     }
   };
 
@@ -991,11 +1031,58 @@ export default function AdminPatientDetailPage() {
                         item.purchaseRequestReviewedAt ? '未確認に戻す' : '確認済みにする'}
                     </Button>
                     {item.programId && (
-                    <Link href={`/admin/programs/${item.programId}`}>
-                      <Button size="sm" variant="outline">プログラム詳細</Button>
-                    </Link>
+                      <Link href={`/admin/programs/${item.programId}`}>
+                        <Button size="sm" variant="outline">プログラム詳細</Button>
+                      </Link>
                     )}
                   </div>
+                </div>
+                <div className="mt-3 border-t pt-3">
+                  {editingPurchaseNoteId === item.id ? (
+                    <div className="space-y-2">
+                      <label htmlFor={`purchase-note-${item.id}`} className="text-sm font-medium">
+                        対応メモ（管理者専用）
+                      </label>
+                      <textarea
+                        id={`purchase-note-${item.id}`}
+                        rows={3}
+                        maxLength={2000}
+                        value={purchaseNoteDraft}
+                        onChange={(event) => setPurchaseNoteDraft(event.target.value)}
+                        placeholder="例：在庫を確認中。次回来院時にお渡し予定。"
+                        className="w-full rounded-md border bg-white p-2 text-sm"
+                        disabled={savingPurchaseNoteId !== null}
+                      />
+                      <p className="text-xs text-muted-foreground">{purchaseNoteDraft.length}/2000文字（患者画面には表示しません）</p>
+                      {purchaseNoteError && <p role="alert" className="text-sm text-red-600">{purchaseNoteError}</p>}
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="button" size="sm"
+                          disabled={savingPurchaseNoteId !== null}
+                          onClick={() => void handleSavePurchaseNote(item)}>
+                          {savingPurchaseNoteId === item.id ? '保存中...' : 'メモを保存'}
+                        </Button>
+                        <Button type="button" size="sm" variant="outline"
+                          disabled={savingPurchaseNoteId !== null}
+                          onClick={() => { setEditingPurchaseNoteId(null); setPurchaseNoteError(null); }}>
+                          キャンセル
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="whitespace-pre-wrap text-sm text-gray-700">
+                        {item.purchaseRequestAdminNote || '対応メモは未登録です。'}
+                      </p>
+                      <Button type="button" size="sm" variant="outline"
+                        onClick={() => {
+                          setEditingPurchaseNoteId(item.id);
+                          setPurchaseNoteDraft(item.purchaseRequestAdminNote ?? '');
+                          setPurchaseNoteError(null);
+                        }}>
+                        {item.purchaseRequestAdminNote ? '対応メモを編集' : '対応メモを入力'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
