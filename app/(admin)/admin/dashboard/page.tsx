@@ -18,6 +18,7 @@ type PurchaseRequest = {
   productName: string;
   updatedAt: string;
   reviewedAt: string | null;
+  adminNote: string;
 };
 
 type PurchaseRequestsResponse = {
@@ -202,6 +203,11 @@ export default function AdminDashboardPage() {
                               <p className="mt-0.5 text-xs text-gray-400">
                                 {new Date(request.updatedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
                               </p>
+                              {request.adminNote && (
+                                <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-xs text-teal-800">
+                                  対応メモ：{request.adminNote}
+                                </p>
+                              )}
                             </div>
                             <ChevronRight className="h-4 w-4 shrink-0 text-gray-500" />
                           </Link>
