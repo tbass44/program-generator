@@ -38,6 +38,7 @@ export default function AdminDashboardPage() {
   const [loadingPurchaseRequests, setLoadingPurchaseRequests] = useState(true);
   const [purchaseRequestsError, setPurchaseRequestsError] = useState<string | null>(null);
   const [reviewFilter, setReviewFilter] = useState<'pending' | 'reviewed'>('pending');
+  const [sortOrder, setSortOrder] = useState<'oldest' | 'newest'>('oldest');
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
@@ -47,12 +48,13 @@ export default function AdminDashboardPage() {
   const pageSize = 20;
   const [reviewUpdatingId, setReviewUpdatingId] = useState<string | null>(null);
   const [reviewUpdateError, setReviewUpdateError] = useState<string | null>(null);
+  const [loadedAt, setLoadedAt] = useState<number>(Date.now());
 
   const loadPurchaseRequests = useCallback(async () => {
     setLoadingPurchaseRequests(true);
     setPurchaseRequestsError(null);
     try {
-      const response = await fetch(`/api/admin/purchase-requests?review=${reviewFilter}&page=${page}&search=${encodeURIComponent(activeSearch)}`, {
+      const response = await fetch(`/api/admin/purchase-requests?review=${reviewFilter}&page=${page}&sort=${sortOrder}&search=${encodeURIComponent(activeSearch)}`, {
         cache: 'no-store',
       });
       const data = (await response.json()) as PurchaseRequestsResponse;
@@ -65,13 +67,14 @@ export default function AdminDashboardPage() {
       setPendingCount(data.pendingCount ?? 0);
       setReviewedCount(data.reviewedCount ?? 0);
       setFilteredCount(data.filteredCount ?? data.requests.length);
+      setLoadedAt(Date.now());
     } catch (error) {
       console.error(error);
       setPurchaseRequestsError('購入希望の取得中に通信エラーが発生しました。');
     } finally {
       setLoadingPurchaseRequests(false);
     }
-  }, [reviewFilter, page, activeSearch]);
+  }, [reviewFilter, page, activeSearch, sortOrder]);
 
   useEffect(() => {
     void loadPurchaseRequests();
@@ -83,6 +86,10 @@ export default function AdminDashboardPage() {
     setSearchInput(normalized);
     setPage(1);
     setActiveSearch(normalized);
+  };
+  const elapsedDays = (value: string) => {
+    const timestamp = new Date(value).getTime();
+    return Number.isFinite(timestamp) ? Math.max(0, Math.floor((loadedAt - timestamp) / 86400000)) : null;
   };
   const changeReviewFilter = (filter: 'pending' | 'reviewed') => {
     if (filter === reviewFilter) return;
@@ -242,6 +249,21 @@ export default function AdminDashboardPage() {
                       確認済み（{reviewedCount}）
                     </button>
                   </div>
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <label htmlFor="purchase-request-sort" className="text-sm text-gray-600">
+                      受付順
+                    </label>
+                    <select id="purchase-request-sort" value={sortOrder}
+                      onChange={(event) => {
+                        setPage(1);
+                        setSortOrder(event.target.value as 'oldest' | 'newest');
+                      }}
+                      disabled={loadingPurchaseRequests || reviewUpdatingId !== null}
+                      className="rounded-md border bg-white px-3 py-2 text-sm disabled:opacity-40">
+                      <option value="oldest">古い順（対応漏れ防止）</option>
+                      <option value="newest">新しい順</option>
+                    </select>
+                  </div>
                   {reviewUpdateError && (
                     <p role="alert" className="mb-3 text-sm text-red-600">{reviewUpdateError}</p>
                   )}
@@ -260,9 +282,17 @@ export default function AdminDashboardPage() {
                             <div className="min-w-0">
                               <p className="font-medium text-gray-900">{request.patientName}</p>
                               <p className="mt-0.5 truncate text-gray-600">{request.productName}</p>
-                              <p className="mt-0.5 text-xs text-gray-400">
-                                {new Date(request.updatedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+                              <p className="mt-0.5 text-xs text-gray-500">
+                                受付: {new Date(request.updatedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
                               </p>
+                              {!request.reviewedAt && elapsedDays(request.updatedAt) !== null && (
+                                <p className={`mt-1 text-xs font-medium ${elapsedDays(request.updatedAt)! >= 2
+                                  ? 'text-amber-700' : 'text-gray-500'}`}>
+                                  {elapsedDays(request.updatedAt) === 0
+                                    ? '受付から24時間未満'
+                                    : `受付から${elapsedDays(request.updatedAt)}日以上経過`}
+                                </p>
+                              )}
                               {request.adminNote && (
                                 <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-xs text-teal-800">
                                   対応メモ：{request.adminNote}
