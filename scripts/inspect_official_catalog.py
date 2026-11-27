@@ -10,6 +10,11 @@ URLS = [
     "https://www.nippon-chokuhan.jp/item_exercise",
     "https://www.nippon-chokuhan.jp/item_night",
     "https://www.nippon-chokuhan.jp/item_kurei",
+    "https://www.nippon-chokuhan.jp/item_bedding",
+    "https://www.nippon-chokuhan.jp/item_every",
+    "https://www.nippon-chokuhan.jp/item_power",
+    "https://www.nippon-chokuhan.jp/item_seram",
+    "https://www.nippon-chokuhan.jp/item_mamorisk",
 ]
 out = []
 for url in URLS:
@@ -36,7 +41,7 @@ for url in URLS:
                     src=i.get("data-src") or i.get("src") or ""
                     if src and src not in imgs:imgs.append(src)
             a_list.append({"label":name[:120],"href":href,"images":imgs[:3]})
-        out.append({"url":url,"resolved":r.url,"status":r.status_code,"title":soup.title.get_text(" ",strip=True) if soup.title else "","links":a_list[:65],"og_image":(soup.find("meta",property="og:image") or {}).get("content")})
+        out.append({"url":url,"resolved":r.url,"status":r.status_code,"title":soup.title.get_text(" ",strip=True) if soup.title else "","links":a_list[:500],"og_image":(soup.find("meta",property="og:image") or {}).get("content")})
     except Exception as e:
         out.append({"url":url,"error":str(e)[:300]})
 from pathlib import Path
