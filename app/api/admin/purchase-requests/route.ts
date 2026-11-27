@@ -11,6 +11,7 @@ type RecommendationRow = {
   product_id: string | null;
   program_id: string | null;
   updated_at: string;
+  purchase_request_reviewed_at: string | null;
 };
 
 function env(name: string): string {
@@ -43,7 +44,7 @@ export async function GET() {
     // Fetch count separately so the screen never implies the first 30 are all requests.
     const { data: requests, error: requestsError, count } = await supabase
       .from('patient_product_recommendations')
-      .select('id, patient_id, product_id, program_id, updated_at', { count: 'exact' })
+      .select('id, patient_id, product_id, program_id, updated_at, purchase_request_reviewed_at', { count: 'exact' })
       .eq('status', 'purchase_requested')
       .order('updated_at', { ascending: false })
       .limit(30);
@@ -77,6 +78,7 @@ export async function GET() {
         patientName: patients.get(row.patient_id) ?? '患者情報なし',
         productName: row.product_id ? products.get(row.product_id) ?? '商品情報なし' : '商品情報なし',
         updatedAt: row.updated_at,
+        reviewedAt: row.purchase_request_reviewed_at,
       })),
     });
   } catch (error) {
