@@ -57,12 +57,12 @@ def safe_match(product, links):
         label = normalize(link["label"])
         if label == normalized:
             found.append((link, "exact"))
-        elif normalized.startswith(label) and len(label) >= 7:
+        elif normalized.startswith(label) and len(label) >= 5:
             extra = normalized[len(label):]
             # Suffixes should be only simple counted units, not new models.
             if re.fullmatch(r"(?:\d{1,4}(?:粒|包|錠|g|ml|カプセル))?", extra):
                 found.append((link, "unit_variant"))
-        elif label.startswith(normalized) and len(normalized) >= 7:
+        elif label.startswith(normalized) and len(normalized) >= 5:
             suffix = label[len(normalized):]
             # Official label may add an English transliteration, but not another
             # Japanese product variant such as a larger package.
