@@ -52,8 +52,8 @@ export async function GET() {
     }
 
     const rows = (requests ?? []) as RecommendationRow[];
-    const patientIds = [...new Set(rows.map((row) => row.patient_id))];
-    const productIds = [...new Set(rows.map((row) => row.product_id).filter((id): id is string => Boolean(id)))];
+    const patientIds = Array.from(new Set(rows.map((row) => row.patient_id)));
+    const productIds = Array.from(new Set(rows.map((row) => row.product_id).filter((id): id is string => Boolean(id))));
 
     const [patientsResult, productsResult] = await Promise.all([
       patientIds.length
