@@ -39,6 +39,7 @@ type RecommendationRow = {
   product_id: string | null;
   category: string | null;
   reason: string | null;
+  usage_guidance: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -238,6 +239,8 @@ export async function POST(request: Request) {
             product_id,
             category,
             reason,
+          usage_guidance,
+        usage_guidance,
             status,
             created_at,
             updated_at
