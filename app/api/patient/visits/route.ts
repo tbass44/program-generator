@@ -21,6 +21,7 @@ type PatientVisit = {
   patient_id: string;
   visit_date: string;
   note: string | null;
+  posture_analysis_url: string | null;
   created_at: string;
   updated_at: string | null;
 };
@@ -124,6 +125,7 @@ export async function POST(request: Request) {
         patient_id,
         visit_date,
         note,
+        posture_analysis_url,
         created_at,
         updated_at
       `
