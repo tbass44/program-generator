@@ -175,6 +175,7 @@ export async function POST(request: Request, { params }: RouteContext) {
           `
           id,
           reason,
+          usage_guidance,
           status,
           created_at,
           products (
@@ -211,6 +212,7 @@ export async function POST(request: Request, { params }: RouteContext) {
         return {
           id: recommendation.id,
           reason: recommendation.reason,
+          usageGuidance: recommendation.usage_guidance ?? '',
           status: recommendation.status,
           statusLabel: mapRecommendationStatus(recommendation.status),
           created_at: recommendation.created_at,
