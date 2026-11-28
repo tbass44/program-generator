@@ -90,6 +90,7 @@ type PatientVisit = {
   patientId: string;
   visitDate: string;
   note: string;
+  postureAnalysisUrl: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -153,6 +154,7 @@ type PatientEditFormData = {
 type VisitFormData = {
   visitDate: string;
   note: string;
+  postureAnalysisUrl: string;
 };
 
 function buildApiErrorMessage(prefix: string, status: number, data: { error?: string; detail?: unknown }) {
@@ -226,10 +228,12 @@ export default function AdminPatientDetailPage() {
   const [visitFormData, setVisitFormData] = useState<VisitFormData>({
     visitDate: getTodayDateString(),
     note: '',
+    postureAnalysisUrl: '',
   });
   const [visitEditFormData, setVisitEditFormData] = useState<VisitFormData>({
     visitDate: '',
     note: '',
+    postureAnalysisUrl: '',
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -526,6 +530,7 @@ export default function AdminPatientDetailPage() {
         body: JSON.stringify({
           visitDate: visitFormData.visitDate,
           note: visitFormData.note,
+          postureAnalysisUrl: visitFormData.postureAnalysisUrl,
         }),
       });
 
@@ -538,7 +543,7 @@ export default function AdminPatientDetailPage() {
       }
 
       setVisits((current) => [data.visit as PatientVisit, ...current]);
-      setVisitFormData({ visitDate: getTodayDateString(), note: '' });
+      setVisitFormData({ visitDate: getTodayDateString(), note: '', postureAnalysisUrl: '' });
       setSuccessMessage('通院履歴を追加しました。');
     } catch (error) {
       console.error(error);
@@ -553,6 +558,7 @@ export default function AdminPatientDetailPage() {
     setVisitEditFormData({
       visitDate: visit.visitDate,
       note: visit.note,
+      postureAnalysisUrl: visit.postureAnalysisUrl ?? '',
     });
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -560,7 +566,7 @@ export default function AdminPatientDetailPage() {
 
   const handleCancelEditVisit = () => {
     setEditingVisitId(null);
-    setVisitEditFormData({ visitDate: '', note: '' });
+    setVisitEditFormData({ visitDate: '', note: '', postureAnalysisUrl: '' });
     setErrorMessage(null);
   };
 
@@ -590,6 +596,7 @@ export default function AdminPatientDetailPage() {
         body: JSON.stringify({
           visitDate: visitEditFormData.visitDate,
           note: visitEditFormData.note,
+          postureAnalysisUrl: visitEditFormData.postureAnalysisUrl,
         }),
       });
 
@@ -605,7 +612,7 @@ export default function AdminPatientDetailPage() {
         current.map((visit) => (visit.id === visitId ? (data.visit as PatientVisit) : visit))
       );
       setEditingVisitId(null);
-      setVisitEditFormData({ visitDate: '', note: '' });
+      setVisitEditFormData({ visitDate: '', note: '', postureAnalysisUrl: '' });
       setSuccessMessage('通院履歴を保存しました。');
     } catch (error) {
       console.error(error);
@@ -1178,6 +1185,15 @@ export default function AdminPatientDetailPage() {
                   />
                 </div>
               </div>
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="visit-posture-analysis-url">AI姿勢分析の共有URL（任意・患者側に公開）</Label>
+                <Input id="visit-posture-analysis-url" type="url"
+                  placeholder="https://app.kartie-cloud.jp/user/..."
+                  value={visitFormData.postureAnalysisUrl}
+                  onChange={(event) => setVisitFormData({ ...visitFormData, postureAnalysisUrl: event.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">患者さんが通院履歴から開ける共有用URLを入力します。院内専用のURLは入力しないでください。</p>
+              </div>
               <div className="mt-4">
                 <Button type="submit" disabled={isSavingVisit}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -1217,6 +1233,14 @@ export default function AdminPatientDetailPage() {
                             />
                           </div>
                         </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`edit-visit-posture-url-${visit.id}`}>AI姿勢分析の共有URL（任意・患者側に公開）</Label>
+                          <Input id={`edit-visit-posture-url-${visit.id}`} type="url"
+                            placeholder="https://app.kartie-cloud.jp/user/..."
+                            value={visitEditFormData.postureAnalysisUrl}
+                            onChange={(event) => setVisitEditFormData({ ...visitEditFormData, postureAnalysisUrl: event.target.value })}
+                          />
+                        </div>
                         <div className="flex flex-wrap gap-2">
                           <Button type="submit" size="sm" disabled={savingVisitId === visit.id}>
                             {savingVisitId === visit.id ? '保存中...' : '保存'}
@@ -1236,6 +1260,12 @@ export default function AdminPatientDetailPage() {
                           <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
                             {visit.note || '施術メモは未入力です。'}
                           </p>
+                          {visit.postureAnalysisUrl && (
+                            <a href={visit.postureAnalysisUrl} target="_blank" rel="noopener noreferrer"
+                              className="mt-2 inline-block text-sm text-teal-700 underline">
+                              患者向けAI姿勢分析を確認
+                            </a>
+                          )}
                           <p className="mt-3 text-xs text-muted-foreground">登録日: {formatDate(visit.createdAt)}</p>
                         </div>
                         <div className="flex shrink-0 flex-wrap gap-2">
