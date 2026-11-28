@@ -581,6 +581,7 @@ export default function AdminProgramDetailPage({ params }: { params: { id: strin
         />
       </div>
 
+      <div id="product-recommendations" className="scroll-mt-20" />
       <SectionCard title="商品提案" className="mb-6">
         <div className="space-y-4">
           <div className="rounded-lg border bg-muted/20 p-4">
