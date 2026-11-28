@@ -11,6 +11,7 @@ type PatientVisit = {
   patient_id: string;
   visit_date: string;
   note: string | null;
+  posture_analysis_url: string | null;
   created_at: string;
   updated_at: string | null;
 };
@@ -50,6 +51,7 @@ function toVisitListItems(visits: PatientVisit[]) {
     id: visit.id,
     date: formatDate(visit.visit_date),
     memo: visit.note || '施術メモは未登録です。',
+    postureAnalysisUrl: visit.posture_analysis_url ?? undefined,
   }));
 }
 
