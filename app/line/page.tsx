@@ -55,7 +55,16 @@ function isRevokedTokenError(error: unknown) {
   return toErrorDetail(error).toLowerCase().includes('access token revoked');
 }
 
-function retryLineLogin() {
+const RETRY_KEY = 'mycare-line-entry-retry';
+
+function retryLineLogin(): boolean {
+  if (liff.isInClient()) return false;
+  try {
+    if (sessionStorage.getItem(RETRY_KEY)) return false;
+    sessionStorage.setItem(RETRY_KEY, '1');
+  } catch {
+    return false;
+  }
   try {
     liff.logout();
   } catch (error) {
@@ -65,6 +74,7 @@ function retryLineLogin() {
   window.setTimeout(() => {
     liff.login({ redirectUri: window.location.href });
   }, 500);
+  return true;
 }
 
 function toApiErrorDetail(data: LineMeResponse) {
@@ -75,7 +85,7 @@ function toApiErrorDetail(data: LineMeResponse) {
   }
 
   if (data.detail) {
-    parts.push(`detail: ${String(data.detail)}`);
+    parts.push(`detail: ${toErrorDetail(data.detail)}`);
   }
 
   return parts.join('\n');
@@ -159,10 +169,20 @@ export default function LineEntryPage() {
           console.error(data);
           setStatus('患者情報の照合に失敗しました。');
           setErrorDetail(toApiErrorDetail(data) || `HTTP ${response.status}`);
-          setLineMeResult(data);
+          setLineMeResult(null);
+          if (response.status === 401 && /idtoken expired/i.test(toErrorDetail(data.detail))) {
+            if (retryLineLogin()) {
+              setStatus('LINEログインの有効期限が切れたため、再認証しています...');
+              setErrorDetail(null);
+            } else {
+              setStatus('LINEログインの有効期限が切れました。LINEから開き直してください。');
+              setShowLiffGuide(true);
+            }
+          }
           return;
         }
 
+        try { sessionStorage.removeItem(RETRY_KEY); } catch { /* storage unavailable */ }
         setLineMeResult(data);
 
         if (data.linked && data.patient) {
@@ -181,7 +201,10 @@ export default function LineEntryPage() {
 
         if (isRevokedTokenError(error)) {
           setStatus('LINEログイン情報が無効になっています。LINEログインをやり直します...');
-          retryLineLogin();
+          if (!retryLineLogin()) {
+            setStatus('LINEログイン情報が無効です。LINEから開き直してください。');
+            setShowLiffGuide(true);
+          }
           return;
         }
 
