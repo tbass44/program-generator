@@ -10,6 +10,7 @@ import {
   Package,
   Calendar,
   Pencil,
+  Copy,
   Trash2,
   CreditCard,
 } from 'lucide-react';
@@ -555,6 +556,30 @@ export default function AdminPatientDetailPage() {
       setErrorMessage(`通院履歴の追加中にエラーが発生しました。${String(error)}`);
     } finally {
       setIsSavingVisit(false);
+    }
+  };
+
+  const handleCopyVisitFollowUp = async (visit: PatientVisit) => {
+    const message = visit.patientMessage?.trim();
+    if (!message) {
+      setErrorMessage('コピーする患者向けフォロー文がありません。');
+      return;
+    }
+
+    const contents = [
+      message,
+      visit.postureAnalysisUrl
+        ? `【AI姿勢分析結果】\n${visit.postureAnalysisUrl}`
+        : '',
+    ].filter(Boolean).join('\n\n');
+
+    try {
+      await navigator.clipboard.writeText(contents);
+      setErrorMessage(null);
+      setSuccessMessage('患者向けフォロー文をコピーしました。LINEの送信先を確認して貼り付けてください。');
+    } catch {
+      setSuccessMessage(null);
+      setErrorMessage('コピーできませんでした。ブラウザのクリップボード許可を確認してください。');
     }
   };
 
@@ -1293,6 +1318,13 @@ export default function AdminPatientDetailPage() {
                           <p className="mt-3 text-xs text-muted-foreground">登録日: {formatDate(visit.createdAt)}</p>
                         </div>
                         <div className="flex shrink-0 flex-wrap gap-2">
+                          {visit.patientMessage?.trim() && (
+                            <Button type="button" size="sm" variant="outline"
+                              onClick={() => void handleCopyVisitFollowUp(visit)}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              LINE用にコピー
+                            </Button>
+                          )}
                           <Button type="button" size="sm" variant="outline" onClick={() => handleStartEditVisit(visit)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             編集
