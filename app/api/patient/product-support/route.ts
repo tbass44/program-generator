@@ -23,7 +23,9 @@ type RecommendationRow = {
   product_id: string | null;
   category: string | null;
   reason: string | null;
+  usage_guidance: string | null;
   status: string;
+  purchase_request_reviewed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -36,12 +38,15 @@ type ProductRow = {
   price: number | null;
   inventory_count: number | null;
   product_url: string | null;
+  thumbnail_url: string | null;
+  thumbnail_pdf_url?: string | null;
   status: string;
 };
 
 type ProgramRow = {
   id: string;
   summary: string | null;
+  product_category_order: string[];
   created_at: string;
 };
 
@@ -169,7 +174,9 @@ export async function POST(request: Request) {
         product_id,
         category,
         reason,
+        usage_guidance,
         status,
+        purchase_request_reviewed_at,
         created_at,
         updated_at
       `
@@ -199,22 +206,29 @@ export async function POST(request: Request) {
     const productIds = uniq(recommendations.map((recommendation) => recommendation.product_id));
     const programIds = uniq(recommendations.map((recommendation) => recommendation.program_id));
 
-    const [productsResult, programsResult] = await Promise.all([
+    const [productsResult, programsResult, documentsResult] = await Promise.all([
       productIds.length > 0
         ? supabaseAdmin
             .from('products')
-            .select('id, name, category, description, price, inventory_count, product_url, status')
+            .select('id, name, category, description, price, inventory_count, product_url, thumbnail_url, status')
             .in('id', productIds)
             .returns<ProductRow[]>()
         : Promise.resolve({ data: [] as ProductRow[], error: null }),
       programIds.length > 0
         ? supabaseAdmin
             .from('programs')
-            .select('id, summary, created_at')
+            .select('id, summary, product_category_order, created_at')
             .in('id', programIds)
             .eq('patient_id', patient.id)
             .returns<ProgramRow[]>()
         : Promise.resolve({ data: [] as ProgramRow[], error: null }),
+      productIds.length > 0
+        ? supabaseAdmin
+            .from('product_pdf_documents')
+            .select('product_id, pdf_url')
+            .in('product_id', productIds)
+            .order('created_at', { ascending: true })
+        : Promise.resolve({ data: [] as { product_id: string; pdf_url: string }[], error: null }),
     ]);
 
     if (productsResult.error) {
@@ -247,15 +261,30 @@ export async function POST(request: Request) {
       );
     }
 
+    if (documentsResult.error) {
+      console.error('Failed to fetch product thumbnails:', documentsResult.error);
+    }
+
+    // The first linked catalog page provides a preview until a genuine image is uploaded.
+    const pdfByProduct = new Map<string, string>();
+    for (const doc of documentsResult.data ?? []) {
+      if (!pdfByProduct.has(doc.product_id)) pdfByProduct.set(doc.product_id, doc.pdf_url);
+    }
     const productSupport = attachDetails(
       recommendations,
-      productsResult.data ?? [],
+      (productsResult.data ?? []).map((product) => ({
+        ...product,
+        thumbnail_pdf_url: pdfByProduct.get(product.id) ?? null,
+      })),
       programsResult.data ?? []
     );
 
     return NextResponse.json({
       patient,
       productSupport,
+      categoryOrder: [...(programsResult.data ?? [])]
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))[0]?.product_category_order
+        ?? ['physical_sleep', 'exercise', 'nutrition', 'skincare'],
       debug: {
         patientId: patient.id,
         patientName: patient.name,

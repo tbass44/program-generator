@@ -39,6 +39,7 @@ type RecommendationRow = {
   product_id: string | null;
   category: string | null;
   reason: string | null;
+  usage_guidance: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -48,7 +49,7 @@ type VisitRow = {
   id: string;
   patient_id: string;
   visit_date: string;
-  note: string | null;
+  patient_message: string | null;
   created_at: string;
   updated_at: string | null;
 };
@@ -133,13 +134,21 @@ function attachRecommendationDetails(
   });
 }
 
+// Patient responses and failure states must never be cached by browsers or proxies.
+function patientJson(body: unknown, init?: ResponseInit) {
+  const headers = new Headers(init?.headers);
+  headers.set('Cache-Control', 'private, no-store');
+  headers.set('Referrer-Policy', 'no-referrer');
+  return NextResponse.json(body, { ...init, headers });
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as PatientDashboardRequestBody;
     const idToken = body.idToken;
 
     if (!idToken || typeof idToken !== 'string') {
-      return NextResponse.json(
+      return patientJson(
         { error: 'idToken is required' },
         { status: 400 }
       );
@@ -167,27 +176,18 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (patientError) {
-      return NextResponse.json(
+      return patientJson(
         {
           error: 'Failed to fetch patient',
-          detail: patientError.message,
-          debug: {
-            lineUserId: lineProfile.userId,
-          },
         },
         { status: 500 }
       );
     }
 
     if (!patient) {
-      return NextResponse.json(
+      return patientJson(
         {
           error: 'Patient not linked',
-          detail: 'このLINEアカウントに紐づく患者データがありません。',
-          lineProfile,
-          debug: {
-            lineUserId: lineProfile.userId,
-          },
         },
         { status: 404 }
       );
@@ -239,6 +239,7 @@ export async function POST(request: Request) {
             product_id,
             category,
             reason,
+          usage_guidance,
             status,
             created_at,
             updated_at
@@ -255,7 +256,7 @@ export async function POST(request: Request) {
             id,
             patient_id,
             visit_date,
-            note,
+            patient_message,
             created_at,
             updated_at
           `
@@ -267,45 +268,36 @@ export async function POST(request: Request) {
       ]);
 
     if (programResult.error) {
-      return NextResponse.json(
+      return patientJson(
         {
           error: 'Failed to fetch current program',
-          detail: programResult.error.message,
         },
         { status: 500 }
       );
     }
 
     if (planResult.error) {
-      return NextResponse.json(
+      return patientJson(
         {
           error: 'Failed to fetch current plan',
-          detail: planResult.error.message,
         },
         { status: 500 }
       );
     }
 
     if (recommendationsResult.error) {
-      return NextResponse.json(
+      return patientJson(
         {
           error: 'Failed to fetch product recommendations',
-          detail: recommendationsResult.error.message,
         },
         { status: 500 }
       );
     }
 
     if (visitsResult.error) {
-      return NextResponse.json(
+      return patientJson(
         {
           error: 'Failed to fetch recent visits',
-          detail: visitsResult.error.message,
-          debug: {
-            patientId: patient.id,
-            patientName: patient.name,
-            lineUserId: lineProfile.userId,
-          },
         },
         { status: 500 }
       );
@@ -326,10 +318,9 @@ export async function POST(request: Request) {
         .returns<ProductRow[]>();
 
       if (error) {
-        return NextResponse.json(
+        return patientJson(
           {
             error: 'Failed to fetch recommendation products',
-            detail: error.message,
           },
           { status: 500 }
         );
@@ -347,7 +338,7 @@ export async function POST(request: Request) {
         .returns<ProgramRow[]>();
 
       if (error) {
-        return NextResponse.json(
+        return patientJson(
           {
             error: 'Failed to fetch recommendation programs',
             detail: error.message,
@@ -373,30 +364,96 @@ export async function POST(request: Request) {
     );
     const visitRows = visitsResult.data ?? [];
 
-    return NextResponse.json({
-      lineProfile,
+    // Optional server-to-server lookup. Never claim “no reservation” if Laravel is unreachable.
+    let nextReservation: { menu: string; start_at: string; end_at: string } | null = null;
+    let reservationHistory: Array<{ menu: string; start_at: string; end_at: string; canceled: boolean; status: 'canceled' | 'completed' | 'upcoming' }> = [];
+    let nextReservationStatus: 'ok' | 'unavailable' = 'unavailable';
+    try {
+      const baseUrl = new URL(getRequiredEnv('MYCARE_LARAVEL_INTERNAL_BASE_URL'));
+      const secret = getRequiredEnv('MYCARE_BOOKING_HANDOFF_TOKEN');
+      if (baseUrl.protocol !== 'https:' || baseUrl.username || baseUrl.password ||
+          baseUrl.search || baseUrl.hash || secret.length < 32) {
+        throw new Error('Invalid Laravel configuration');
+      }
+      const url = new URL(
+        '/api/internal/mycare/patients/' + encodeURIComponent(patient.id) + '/next-reservation',
+        baseUrl.origin
+      );
+      const bookingResponse = await fetch(url, {
+        method: 'GET',
+        headers: { Authorization: 'Bearer ' + secret, Accept: 'application/json' },
+        cache: 'no-store',
+        redirect: 'error',
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!bookingResponse.ok) throw new Error('Laravel lookup failed');
+      const bookingData = (await bookingResponse.json()) as {
+        next_reservation?: { menu: string; start_at: string; end_at: string } | null;
+        reservation_history?: Array<{ menu: string; start_at: string; end_at: string; canceled: boolean; status: 'canceled' | 'completed' | 'upcoming' }>;
+      };
+      const reservation = bookingData.next_reservation;
+      // A missing field must not silently become a confirmed "no reservations" state.
+      const validBooking = (item: unknown): item is {
+        menu: string; start_at: string; end_at: string;
+      } => {
+        if (typeof item !== 'object' || item === null) return false;
+        const booking = item as Record<string, unknown>;
+        const isClinicDateTime = (value: unknown): value is string =>
+          typeof value === 'string' &&
+          /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}$/.test(value);
+        return typeof booking.menu === 'string' &&
+          isClinicDateTime(booking.start_at) &&
+          isClinicDateTime(booking.end_at);
+      };
+      if (reservation === undefined ||
+          (reservation !== null && !validBooking(reservation))) {
+        throw new Error('Invalid booking response');
+      }
+      if (!Array.isArray(bookingData.reservation_history) ||
+          bookingData.reservation_history.length > 10 ||
+          !bookingData.reservation_history.every((item) =>
+            validBooking(item) && typeof item.canceled === 'boolean' &&
+            (item.status === 'canceled' || item.status === 'completed' || item.status === 'upcoming') &&
+            item.canceled === (item.status === 'canceled'))) {
+        throw new Error('Invalid reservation history response');
+      }
+      nextReservation = reservation ?? null;
+      reservationHistory = bookingData.reservation_history;
+      nextReservationStatus = 'ok';
+    } catch (error) {
+      console.error('MyCare next reservation lookup unavailable:', error instanceof Error ? error.message : 'unknown');
+    }
+
+    return patientJson({
+      reservationHistory,
+      nextReservation,
+      nextReservationStatus,
       patient,
       currentProgram: programResult.data,
       currentPlan: planResult.data,
       recommendations: productRecommendations.slice(0, 6),
       recentVisits: visitRows.slice(0, 3),
       rentals: rentals.slice(0, 5),
-      debug: {
-        patientId: patient.id,
-        patientName: patient.name,
-        lineUserId: lineProfile.userId,
-        recommendationsCount: productRecommendations.length,
-        visitsCount: visitRows.length,
-        rentalsCount: rentals.length,
+    }, {
+      headers: {
+        'Cache-Control': 'private, no-store',
+        'Referrer-Policy': 'no-referrer',
       },
     });
   } catch (error) {
-    console.error(error);
+    // Invalid or expired LINE tokens should trigger a login retry, without
+    // exposing LINE/provider details or infrastructure errors to the browser.
+    if (error instanceof Error && error.message.startsWith('Failed to verify LINE id token')) {
+      return patientJson(
+        { error: 'LINE authentication expired' },
+        { status: 401, headers: { 'Cache-Control': 'private, no-store' } }
+      );
+    }
+    console.error('MyCare patient dashboard request failed');
 
-    return NextResponse.json(
+    return patientJson(
       {
         error: 'Unexpected server error',
-        detail: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );

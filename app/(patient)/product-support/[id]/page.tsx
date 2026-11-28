@@ -8,7 +8,7 @@ import { redirectToLineEntry, retryLineLogin } from '@/lib/patient-line-navigati
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, ChevronLeft, ExternalLink, Package, ScrollText } from 'lucide-react';
+import { Calendar, ChevronLeft, ExternalLink, Package, RefreshCw, ScrollText } from 'lucide-react';
 
 type Product = {
   id: string;
@@ -18,6 +18,7 @@ type Product = {
   price: number | null;
   product_url: string | null;
   pdf_url: string | null;
+  thumbnail_url: string | null;
 };
 
 type Program = {
@@ -42,7 +43,9 @@ type ProductSupportDetailItem = {
   product_id: string | null;
   category: string | null;
   reason: string | null;
+  usage_guidance: string | null;
   status: string;
+  purchase_request_reviewed_at: string | null;
   created_at: string;
   updated_at: string;
   product: Product | null;
@@ -181,6 +184,9 @@ export default function ProductSupportDetailPage() {
   const [activePdfId, setActivePdfId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isRequestingPurchase, setIsRequestingPurchase] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -250,7 +256,11 @@ export default function ProductSupportDetailPage() {
 
         setPatientName(data.patient?.name ?? data.debug?.patientName ?? null);
         setItem(data.item);
-        setActivePdfId(data.item.pdfDocuments?.[0]?.id ?? null);
+        setActivePdfId((previous) =>
+          data.item?.pdfDocuments?.some((document) => document.id === previous)
+            ? previous
+            : data.item?.pdfDocuments?.[0]?.id ?? null
+        );
         setStatusMessage('商品詳細を取得しました。');
       } catch (error) {
         console.error(error);
@@ -268,7 +278,90 @@ export default function ProductSupportDetailPage() {
     };
 
     fetchDetail();
-  }, [id]);
+  }, [id, refreshVersion]);
+
+  const handlePurchaseRequest = async () => {
+    if (!item || item.status !== 'recommended' || isRequestingPurchase) return;
+    if (!window.confirm('この商品の購入を希望しますか？\n※この操作で決済や購入確定は行われません。')) return;
+
+    try {
+      setIsRequestingPurchase(true);
+      setPurchaseError(null);
+      const idToken = liff.getIDToken();
+      if (!idToken) {
+        retryLineLogin();
+        return;
+      }
+      const response = await fetch(`/api/patient/product-support/${item.id}/purchase-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      const data = (await response.json()) as {
+        requested?: boolean;
+        item?: { status: string; updated_at: string };
+        error?: string;
+      };
+      if (!response.ok || !data.requested || !data.item) {
+        setPurchaseError('購入希望を送信できませんでした。時間をおいてもう一度お試しください。');
+        return;
+      }
+      setItem((previous) => previous ? {
+        ...previous,
+        status: data.item?.status ?? 'purchase_requested',
+        purchase_request_reviewed_at: null,
+        updated_at: data.item?.updated_at ?? previous.updated_at,
+      } : previous);
+    } catch (error) {
+      console.error(error);
+      setPurchaseError('通信エラーが発生しました。通信状態を確認して再度お試しください。');
+    } finally {
+      setIsRequestingPurchase(false);
+    }
+  };
+
+  const handleCancelPurchaseRequest = async () => {
+    if (!item || item.status !== 'purchase_requested' || isRequestingPurchase) return;
+    if (!window.confirm('この商品の購入希望を取り消しますか？')) return;
+
+    try {
+      setIsRequestingPurchase(true);
+      setPurchaseError(null);
+      const idToken = liff.getIDToken();
+      if (!idToken) {
+        retryLineLogin();
+        return;
+      }
+      const response = await fetch(`/api/patient/product-support/${item.id}/purchase-request/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+        cache: 'no-store',
+      });
+      const data = (await response.json()) as {
+        cancelled?: boolean;
+        item?: { status: string; updated_at: string };
+        error?: string;
+      };
+      if (!response.ok || !data.cancelled || !data.item) {
+        setPurchaseError(response.status === 409
+          ? '現在の状態では取り消せません。院へお問い合わせください。'
+          : '購入希望を取り消せませんでした。もう一度お試しください。');
+        return;
+      }
+      setItem((previous) => previous ? {
+        ...previous,
+        status: data.item?.status ?? 'recommended',
+        purchase_request_reviewed_at: null,
+        updated_at: data.item?.updated_at ?? previous.updated_at,
+      } : previous);
+    } catch (error) {
+      console.error(error);
+      setPurchaseError('通信エラーが発生しました。通信状態を確認して再度お試しください。');
+    } finally {
+      setIsRequestingPurchase(false);
+    }
+  };
 
   const product = item?.product ?? null;
   const category = product?.category ?? item?.category ?? null;
@@ -287,6 +380,12 @@ export default function ProductSupportDetailPage() {
         <p className="text-sm text-gray-500">
           {patientName ? `${patientName}さんへの提案内容` : '提案商品の詳細'}
         </p>
+        <Button type="button" size="sm" variant="outline" className="mt-3"
+          disabled={isLoading || isRequestingPurchase}
+          onClick={() => { setPurchaseError(null); setRefreshVersion((current) => current + 1); }}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          {isLoading ? '確認中...' : '最新の状況を確認'}
+        </Button>
         {isLoading && <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>}
         {errorMessage && <p className="mt-2 text-xs text-red-500">{errorMessage}</p>}
       </header>
@@ -305,9 +404,29 @@ export default function ProductSupportDetailPage() {
                 </Badge>
               </div>
 
+              {product?.id && (
+                <div className="mb-4 flex justify-center rounded-lg border bg-white p-3">
+                  <img
+                    src={product.thumbnail_url && /^https:\/\//i.test(product.thumbnail_url)
+                      ? product.thumbnail_url
+                      : `/product-thumbnails/${product.id}.webp`}
+                    alt={productName}
+                    loading="lazy"
+                    className="max-h-56 w-auto max-w-full object-contain"
+                    onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                  />
+                </div>
+              )}
+
               <p className="text-sm text-gray-600">
                 {item.reason || product?.description || '提案理由は未登録です。'}
               </p>
+
+              {item.usage_guidance && (
+                <p className="mt-3 rounded-md border border-teal-200 bg-white p-3 text-sm text-teal-800">
+                  数量・期間の目安：{item.usage_guidance}
+                </p>
+              )}
 
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-lg bg-white p-3">
@@ -321,6 +440,45 @@ export default function ProductSupportDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {item.status === 'recommended' && (
+            <Card>
+              <CardContent className="space-y-3 p-4">
+                <h3 className="font-semibold text-gray-900">商品の購入について</h3>
+                <p className="text-sm text-gray-600">
+                  購入をご希望の場合は、こちらからお知らせください。これは購入希望の連絡であり、
+                  決済や注文確定ではありません。商品の数量や受け渡しは当院から別途ご案内します。
+                </p>
+                <Button className="w-full" onClick={handlePurchaseRequest} disabled={isRequestingPurchase || !product}>
+                  {isRequestingPurchase ? '送信中...' : 'この商品の購入を希望する'}
+                </Button>
+                {purchaseError && <p role="alert" className="text-sm text-red-600">{purchaseError}</p>}
+              </CardContent>
+            </Card>
+          )}
+          {item.status === 'purchase_requested' && (
+            <Card className="border-teal-200 bg-teal-50">
+              <CardContent className="p-4">
+                <p className="font-semibold text-teal-800">購入希望を受け付けました</p>
+                <p className="mt-1 text-sm text-teal-800">
+                  これは注文確定ではありません。数量や受け渡しについては当院からのご案内をご確認ください。
+                </p>
+                {item.purchase_request_reviewed_at ? (
+                  <p className="mt-2 text-sm font-medium text-teal-800">
+                    院で購入希望を確認しました（{formatDate(item.purchase_request_reviewed_at)}）。
+                    注文確定や商品の確保を意味するものではありません。
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm text-teal-800">現在、院での確認待ちです。</p>
+                )}
+                <Button type="button" variant="outline" className="mt-3 w-full"
+                  disabled={isRequestingPurchase} onClick={handleCancelPurchaseRequest}>
+                  {isRequestingPurchase ? '取り消し中...' : '購入希望を取り消す'}
+                </Button>
+                {purchaseError && <p role="alert" className="mt-2 text-sm text-red-600">{purchaseError}</p>}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardContent className="p-4">
@@ -394,31 +552,6 @@ export default function ProductSupportDetailPage() {
               )}
             </CardContent>
           </Card>
-
-          {item.program && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="mb-3 flex items-center gap-2">
-                  <ScrollText className="h-4 w-4 text-gray-600" />
-                  <h3 className="font-semibold text-gray-900">関連プログラム</h3>
-                </div>
-                <p className="text-sm font-medium text-gray-900">
-                  {item.program.summary || '改善プログラム'}
-                </p>
-                {item.program.short_term_program && (
-                  <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-gray-600">
-                    {item.program.short_term_program}
-                  </p>
-                )}
-                <Link
-                  href={`/programs/${item.program.id}`}
-                  className="mt-4 inline-flex items-center text-sm text-teal-600"
-                >
-                  関連プログラムを見る
-                </Link>
-              </CardContent>
-            </Card>
-          )}
 
           <Card>
             <CardContent className="p-4 text-sm text-gray-600">

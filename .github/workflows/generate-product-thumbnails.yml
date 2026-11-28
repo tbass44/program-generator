@@ -1,0 +1,57 @@
+name: Generate WebP thumbnails for catalog
+on:
+  pull_request:
+    paths:
+      - 'scripts/product-thumbnails-manifest.json'
+      - 'scripts/generate_product_thumbnails.py'
+      - '.github/workflows/generate-product-thumbnails.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: product-thumbnail-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install WebP converter and Japanese fonts
+        run: |
+          python -m pip install --disable-pip-version-check 'PyMuPDF>=1.24,<2' 'Pillow>=10,<13' 'requests>=2.31,<3'
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+      - name: Convert all public catalog PDFs to WebP
+        run: python scripts/generate_product_thumbnails.py
+      - name: Confirm all product thumbnails were generated
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          products=json.loads(Path('scripts/product-thumbnails-manifest.json').read_text())
+          expected={x['id']+'.webp' for x in products}
+          produced={p.name for p in Path('public/product-thumbnails').glob('*.webp')}
+          if expected != produced:
+              raise SystemExit(f'Missing thumbnails: {len(expected-produced)}')
+          print(f'Validated {len(expected)} WebP files')
+          PY
+      - name: Commit generated product thumbnails
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/product-thumbnails scripts/product-thumbnails-result.json
+          if ! git diff --cached --quiet; then
+            git commit -m "assets(mycare): add all catalog product WebP thumbnails"
+            git push origin "HEAD:${{ github.head_ref || github.ref_name }}"
+          fi

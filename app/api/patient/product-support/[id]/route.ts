@@ -30,6 +30,7 @@ type ProductRow = {
   price: number | null;
   product_url: string | null;
   pdf_url: string | null;
+  thumbnail_url: string | null;
 };
 
 type ProgramRow = {
@@ -47,7 +48,9 @@ type RecommendationRow = {
   product_id: string | null;
   category: string | null;
   reason: string | null;
+  usage_guidance: string | null;
   status: string;
+  purchase_request_reviewed_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -167,7 +170,9 @@ export async function POST(
         product_id,
         category,
         reason,
+        usage_guidance,
         status,
+        purchase_request_reviewed_at,
         created_at,
         updated_at
       `
@@ -210,7 +215,7 @@ export async function POST(
       recommendation.product_id
         ? supabaseAdmin
             .from('products')
-            .select('id, name, category, description, price, product_url, pdf_url')
+            .select('id, name, category, description, price, product_url, pdf_url, thumbnail_url')
             .eq('id', recommendation.product_id)
             .maybeSingle<ProductRow>()
         : Promise.resolve({ data: null, error: null }),

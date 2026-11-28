@@ -23,6 +23,7 @@ export interface ProductFormValues {
   inventoryCount: string;
   url: string;
   pdfUrl?: string;
+  thumbnailUrl?: string;
   status: ProductMasterStatus;
 }
 
@@ -120,6 +121,13 @@ export function ProductForm({ values, onChange }: ProductFormProps) {
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="thumbnailUrl">商品サムネイル画像URL（任意）</Label>
+        <Input id="thumbnailUrl" type="url" placeholder="https://.../product.jpg"
+          value={values.thumbnailUrl ?? ''} onChange={(e) => onChange('thumbnailUrl', e.target.value)} />
+        <p className="text-xs text-muted-foreground">画像が未登録なら、患者画面では商品PDFのプレビューを表示します。</p>
       </div>
 
       <div className="space-y-2">

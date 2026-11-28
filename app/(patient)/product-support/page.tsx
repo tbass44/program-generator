@@ -5,6 +5,7 @@ import Link from 'next/link';
 import liff from '@line/liff';
 import { redirectToLineEntry, retryLineLogin } from '@/lib/patient-line-navigation';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SectionHeader } from '@/components/patient';
 import {
@@ -13,6 +14,7 @@ import {
   Dumbbell,
   Moon,
   ShoppingBag,
+  RefreshCw,
   Sparkles,
   Star,
 } from 'lucide-react';
@@ -27,6 +29,8 @@ type ProductSupportProduct = {
   price: number | null;
   inventory_count: number | null;
   product_url: string | null;
+  thumbnail_url: string | null;
+  thumbnail_pdf_url: string | null;
   status: string;
 };
 
@@ -43,7 +47,9 @@ type ProductSupportItem = {
   product_id: string | null;
   category: string | null;
   reason: string | null;
+  usage_guidance: string | null;
   status: string;
+  purchase_request_reviewed_at: string | null;
   created_at: string;
   updated_at: string;
   product: ProductSupportProduct | null;
@@ -56,6 +62,7 @@ type ProductSupportResponse = {
     name: string;
   };
   productSupport?: ProductSupportItem[];
+  categoryOrder?: CategoryKey[];
   debug?: {
     patientId?: string;
     patientName?: string;
@@ -68,6 +75,7 @@ type ProductSupportResponse = {
 };
 
 type CategoryKey = 'physical_sleep' | 'nutrition' | 'exercise' | 'skincare';
+const defaultCategoryOrder: CategoryKey[] = ['physical_sleep', 'exercise', 'nutrition', 'skincare'];
 
 const categoryMeta: Record<
   CategoryKey,
@@ -192,20 +200,47 @@ function shouldRetryLineLogin(message: string) {
 
 
 
-function ProductSupportCard({ item }: { item: ProductSupportItem }) {
+function ProductSupportCard({
+  item,
+  onPurchaseRequest,
+  onCancelPurchaseRequest,
+  isRequestingPurchase,
+  isAnyPurchasePending,
+  purchaseError,
+}: {
+  item: ProductSupportItem;
+  onPurchaseRequest: (item: ProductSupportItem) => void;
+  onCancelPurchaseRequest: (item: ProductSupportItem) => void;
+  isRequestingPurchase: boolean;
+  isAnyPurchasePending: boolean;
+  purchaseError: string | null;
+}) {
   const category = item.product?.category ?? item.category;
   const meta = getCategoryMeta(category);
   const Icon = meta.icon;
+  const thumbImage = item.product?.thumbnail_url;
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageUrl = thumbImage && /^https:\/\//i.test(thumbImage)
+    ? thumbImage
+    : item.product?.id ? `/product-thumbnails/${item.product.id}.webp` : null;
   const productName = item.product?.name ?? '商品名未設定';
   const reason = item.reason || item.product?.description || '提案理由は未登録です。';
 
   return (
-    <Link href={`/product-support/${item.id}`} className="block">
-      <Card className="border-gray-200 hover:shadow-sm transition-shadow">
-        <CardContent className="p-4">
+    <Card className="border-gray-200 hover:shadow-sm transition-shadow">
+      <CardContent className="p-4">
+        <Link href={`/product-support/${item.id}`} className="block">
           <div className="flex items-start gap-3">
-            <div className={`rounded-lg p-2 ${meta.iconWrapClassName}`}>
-              <Icon className={`h-4 w-4 ${meta.iconClassName}`} />
+            <div className="h-20 w-16 shrink-0 overflow-hidden rounded-md border bg-gray-50">
+              {imageUrl && !imageFailed ? (
+                <img src={imageUrl} alt={productName} loading="lazy"
+                  onError={() => setImageFailed(true)}
+                  className="h-full w-full object-contain" />
+              ) : (
+                <div className={`flex h-full w-full items-center justify-center ${meta.iconWrapClassName}`}>
+                  <Icon className={`h-6 w-6 ${meta.iconClassName}`} />
+                </div>
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="mb-1 flex items-start justify-between gap-3">
@@ -215,12 +250,9 @@ function ProductSupportCard({ item }: { item: ProductSupportItem }) {
                 </Badge>
               </div>
               <p className="font-medium text-gray-900">{productName}</p>
-              <p className="mt-1 text-xs text-gray-600">{reason}</p>
-
-              {item.program?.summary && (
-                <p className="mt-2 rounded-md bg-gray-50 px-2 py-1 text-xs text-gray-500">
-                  関連プログラム: {item.program.summary}
-                </p>
+              <p className="mt-1 line-clamp-2 text-xs text-gray-600">{reason}</p>
+              {item.usage_guidance && (
+                <p className="mt-2 text-xs font-medium text-teal-700">数量・期間の目安：{item.usage_guidance}</p>
               )}
 
               <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
@@ -238,9 +270,39 @@ function ProductSupportCard({ item }: { item: ProductSupportItem }) {
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
-    </Link>
+        </Link>
+        {item.status === 'recommended' && item.product && (
+          <div className="mt-3 border-t border-gray-100 pt-3">
+            <Button type="button" size="sm" className="w-full"
+              disabled={isAnyPurchasePending}
+              onClick={() => onPurchaseRequest(item)}>
+              <ShoppingBag className="mr-2 h-4 w-4" />
+              {isRequestingPurchase ? '送信中...' : '購入を希望する'}
+            </Button>
+            {purchaseError && <p className="mt-2 text-xs text-red-600" role="alert">{purchaseError}</p>}
+          </div>
+        )}
+        {item.status === 'purchase_requested' && (
+          <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+            <p className="text-xs font-medium text-teal-700">購入希望を受付済み（決済・注文確定ではありません）</p>
+            {item.purchase_request_reviewed_at ? (
+              <p className="text-xs text-teal-800">
+                院で購入希望を確認しました（{formatDate(item.purchase_request_reviewed_at)}）。
+                注文や商品の確保が完了した意味ではありません。
+              </p>
+            ) : (
+              <p className="text-xs text-gray-600">現在、院での確認待ちです。</p>
+            )}
+            <Button type="button" size="sm" variant="outline" className="w-full"
+              disabled={isAnyPurchasePending}
+              onClick={() => onCancelPurchaseRequest(item)}>
+              {isRequestingPurchase ? '取り消し中...' : '購入希望を取り消す'}
+            </Button>
+            {purchaseError && <p className="text-xs text-red-600" role="alert">{purchaseError}</p>}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -248,9 +310,93 @@ export default function ProductSupportPage() {
   const [activeTab, setActiveTab] = useState<Tab>('recommended');
   const [patientName, setPatientName] = useState<string | null>(null);
   const [items, setItems] = useState<ProductSupportItem[]>([]);
+  const [categoryOrder, setCategoryOrder] = useState<CategoryKey[]>(defaultCategoryOrder);
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [requestingPurchaseId, setRequestingPurchaseId] = useState<string | null>(null);
+  const [purchaseError, setPurchaseError] = useState<{ id: string; message: string } | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+
+  const handlePurchaseRequest = async (item: ProductSupportItem) => {
+    if (item.status !== 'recommended' || !item.product || requestingPurchaseId !== null) return;
+    if (!window.confirm('この商品の購入を希望しますか？\n※決済や注文確定は行われません。')) return;
+
+    try {
+      setRequestingPurchaseId(item.id);
+      setPurchaseError(null);
+      const idToken = liff.getIDToken();
+      if (!idToken) {
+        retryLineLogin();
+        return;
+      }
+
+      const response = await fetch(`/api/patient/product-support/${item.id}/purchase-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+        cache: 'no-store',
+      });
+      const data = (await response.json()) as {
+        requested?: boolean;
+        item?: { status: string; updated_at: string };
+        error?: string;
+      };
+      if (!response.ok || !data.requested || !data.item) {
+        setPurchaseError({ id: item.id, message: '購入希望を送信できませんでした。もう一度お試しください。' });
+        return;
+      }
+
+      setItems((current) => current.map((entry) => entry.id === item.id
+        ? { ...entry, status: data.item!.status, purchase_request_reviewed_at: null, updated_at: data.item!.updated_at }
+        : entry));
+    } catch (error) {
+      console.error(error);
+      setPurchaseError({ id: item.id, message: '通信エラーが発生しました。再度お試しください。' });
+    } finally {
+      setRequestingPurchaseId(null);
+    }
+  };
+
+  const handleCancelPurchaseRequest = async (item: ProductSupportItem) => {
+    if (item.status !== 'purchase_requested' || requestingPurchaseId !== null) return;
+    if (!window.confirm('この商品の購入希望を取り消しますか？')) return;
+
+    try {
+      setRequestingPurchaseId(item.id);
+      setPurchaseError(null);
+      const idToken = liff.getIDToken();
+      if (!idToken) {
+        retryLineLogin();
+        return;
+      }
+      const response = await fetch(`/api/patient/product-support/${item.id}/purchase-request/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+        cache: 'no-store',
+      });
+      const data = (await response.json()) as {
+        cancelled?: boolean;
+        item?: { status: string; updated_at: string };
+        error?: string;
+      };
+      if (!response.ok || !data.cancelled || !data.item) {
+        setPurchaseError({ id: item.id, message: response.status === 409
+          ? '現在の状態では取り消せません。院へお問い合わせください。'
+          : '購入希望を取り消せませんでした。もう一度お試しください。' });
+        return;
+      }
+      setItems((current) => current.map((entry) => entry.id === item.id
+        ? { ...entry, status: data.item!.status, purchase_request_reviewed_at: null, updated_at: data.item!.updated_at }
+        : entry));
+    } catch (error) {
+      console.error(error);
+      setPurchaseError({ id: item.id, message: '通信エラーが発生しました。再度お試しください。' });
+    } finally {
+      setRequestingPurchaseId(null);
+    }
+  };
 
   const recommendedItems = useMemo(
     () => items.filter((item) => item.status === 'recommended'),
@@ -272,6 +418,11 @@ export default function ProductSupportPage() {
 
     return items;
   }, [activeTab, items, purchaseRequestedItems, recommendedItems]);
+
+  const categorizedItems = useMemo(() => categoryOrder.map((category) => ({
+    category,
+    items: visibleItems.filter((item) => (item.product?.category ?? item.category) === category),
+  })).filter((section) => section.items.length > 0), [visibleItems, categoryOrder]);
 
   const tabs: { key: Tab; label: string; icon: typeof ShoppingBag; count: number }[] = [
     { key: 'recommended', label: '提案中', icon: Star, count: recommendedItems.length },
@@ -346,6 +497,7 @@ export default function ProductSupportPage() {
 
         setPatientName(data.patient?.name ?? data.debug?.patientName ?? null);
         setItems(data.productSupport ?? []);
+        if (data.categoryOrder && data.categoryOrder.length === 4) setCategoryOrder(data.categoryOrder);
         setStatusMessage('商品サポート情報を取得しました。');
       } catch (error) {
         console.error(error);
@@ -365,7 +517,7 @@ export default function ProductSupportPage() {
     };
 
     fetchProductSupport();
-  }, []);
+  }, [refreshVersion]);
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
@@ -377,6 +529,12 @@ export default function ProductSupportPage() {
         <p className="text-sm text-gray-500">
           {patientName ? `${patientName}さんへの商品提案` : 'あなたに合った商品とサポート'}
         </p>
+        <Button type="button" size="sm" variant="outline" className="mt-3"
+          disabled={isLoading || requestingPurchaseId !== null}
+          onClick={() => { setPurchaseError(null); setRefreshVersion((current) => current + 1); }}>
+          <RefreshCw className="mr-2 h-4 w-4" />
+          {isLoading ? '確認中...' : '最新の状況を確認'}
+        </Button>
         {isLoading && <p className="mt-2 text-xs text-gray-400">{statusMessage}</p>}
         {errorMessage && <p className="mt-2 text-xs text-red-500">{errorMessage}</p>}
       </header>
@@ -420,9 +578,32 @@ export default function ProductSupportPage() {
                   : 'すべての商品提案'
             }
           />
-          {visibleItems.map((item) => (
-            <ProductSupportCard key={item.id} item={item} />
-          ))}
+          {categorizedItems.map(({ category, items: categoryItems }) => {
+            const meta = categoryMeta[category];
+            const CategoryIcon = meta.icon;
+            return (
+              <section key={category} className="space-y-2" aria-label={meta.label}>
+                <div className="flex items-center gap-2 border-b pb-2 pt-3">
+                  <div className={`rounded-lg p-2 ${meta.iconWrapClassName}`}>
+                    <CategoryIcon className={`h-4 w-4 ${meta.iconClassName}`} />
+                  </div>
+                  <h2 className="font-semibold text-gray-900">{meta.label}</h2>
+                  <span className="ml-auto text-xs text-gray-500">{categoryItems.length}商品</span>
+                </div>
+                {categoryItems.map((item) => (
+                  <ProductSupportCard
+                    key={item.id}
+                    item={item}
+                    onPurchaseRequest={handlePurchaseRequest}
+                    onCancelPurchaseRequest={handleCancelPurchaseRequest}
+                    isRequestingPurchase={requestingPurchaseId === item.id}
+                    isAnyPurchasePending={requestingPurchaseId !== null}
+                    purchaseError={purchaseError?.id === item.id ? purchaseError.message : null}
+                  />
+                ))}
+              </section>
+            );
+          })}
         </div>
       )}
     </div>

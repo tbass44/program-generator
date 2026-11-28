@@ -6,15 +6,10 @@ import {
   Copy,
   Save,
   Sparkles,
-  BedDouble,
-  Pill,
-  Dumbbell,
-  Sparkle,
   PenLine,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -55,40 +50,6 @@ type CreateProgramResponse = {
   detail?: unknown;
 };
 
-type SupportCategoryId = 'physical' | 'nutrition' | 'exercise' | 'skincare';
-
-type ManualSupportSection = {
-  selectedProducts: string[];
-  description: string;
-  reason: string;
-};
-
-const supportCategories: Array<{
-  id: SupportCategoryId;
-  label: string;
-  icon: typeof BedDouble;
-  description: string;
-}> = [
-  { id: 'physical', label: '物理療法（睡眠）', icon: BedDouble, description: 'マットレス、枕、寝具、レンタル品など' },
-  { id: 'nutrition', label: '栄養療法', icon: Pill, description: 'サプリメント、栄養補助食品など' },
-  { id: 'exercise', label: '運動療法', icon: Dumbbell, description: 'チューブ、運動器具、セルフケア用品など' },
-  { id: 'skincare', label: 'スキンケア', icon: Sparkle, description: '化粧品、ボディケア用品など' },
-];
-
-const categoryProductOptions: Record<SupportCategoryId, string[]> = {
-  physical: ['体圧分散マットレス', '高さ調整枕', '睡眠サポートブランケット'],
-  nutrition: ['ビタミンDサプリ', 'マグネシウムサプリ', 'オメガ3サプリ'],
-  exercise: ['ストレッチチューブ', 'バランスボール', 'フォームローラー'],
-  skincare: ['保湿ローション', '低刺激クレンザー', 'UVケアクリーム'],
-};
-
-const createInitialManualSupportSections = (): Record<SupportCategoryId, ManualSupportSection> => ({
-  physical: { selectedProducts: [], description: '', reason: '' },
-  nutrition: { selectedProducts: [], description: '', reason: '' },
-  exercise: { selectedProducts: [], description: '', reason: '' },
-  skincare: { selectedProducts: [], description: '', reason: '' },
-});
-
 /**
  * 管理側：改善プログラム新規作成ページ。
  *
@@ -108,9 +69,6 @@ export default function AdminProgramNewPage() {
   const [manualSummary, setManualSummary] = useState('');
   const [manualShortTerm, setManualShortTerm] = useState('');
   const [manualLongTerm, setManualLongTerm] = useState('');
-  const [manualSupportSections, setManualSupportSections] = useState<
-    Record<SupportCategoryId, ManualSupportSection>
-  >(createInitialManualSupportSections);
   const [isLoadingPatients, setIsLoadingPatients] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -219,40 +177,13 @@ export default function AdminProgramNewPage() {
       }
 
       toast.success('改善プログラムを保存しました');
-      router.push(`/admin/patients/${data.program.patient_id}`);
+      router.push(`/admin/programs/${data.program.id}#product-recommendations`);
     } catch (error) {
       console.error(error);
       setErrorMessage('改善プログラムの保存中にエラーが発生しました。');
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const updateManualSupportSection = (
-    categoryId: SupportCategoryId,
-    field: keyof ManualSupportSection,
-    value: string | string[]
-  ) => {
-    setManualSupportSections((prev) => ({
-      ...prev,
-      [categoryId]: {
-        ...prev[categoryId],
-        [field]: value,
-      },
-    }));
-  };
-
-  const handleManualProductToggle = (
-    categoryId: SupportCategoryId,
-    productName: string,
-    checked: boolean
-  ) => {
-    const section = manualSupportSections[categoryId];
-    const nextProducts = checked
-      ? [...section.selectedProducts, productName]
-      : section.selectedProducts.filter((product) => product !== productName);
-
-    updateManualSupportSection(categoryId, 'selectedProducts', nextProducts);
   };
 
   const canSaveManual =
@@ -265,7 +196,7 @@ export default function AdminProgramNewPage() {
     <div className="max-w-4xl mx-auto">
       <PageHeader
         title="改善プログラム作成"
-        description="AI提案または手動入力で改善プログラムを作成"
+        description="改善プログラムを手動入力し、保存後に実際の商品を提案"
         backHref={selectedPatient ? `/admin/patients/${selectedPatient}` : '/admin/dashboard'}
       />
 
@@ -397,63 +328,15 @@ export default function AdminProgramNewPage() {
         </div>
       </SectionCard>
 
-      <SectionCard title="商品サポート提案" className="mb-6">
-        <div className="space-y-4">
-          {supportCategories.map((category) => {
-            const Icon = category.icon;
-            const section = manualSupportSections[category.id];
-
-            return (
-              <div key={category.id} className="rounded-lg border p-4">
-                <div className="mb-3 flex items-center gap-2">
-                  <Icon className="h-4 w-4" />
-                  <div>
-                    <p className="font-medium">{category.label}</p>
-                    <p className="text-xs text-muted-foreground">{category.description}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-sm font-medium">商品（仮候補）</p>
-                  {categoryProductOptions[category.id].map((productName) => (
-                    <label key={productName} className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={section.selectedProducts.includes(productName)}
-                        onCheckedChange={(checked) =>
-                          handleManualProductToggle(category.id, productName, checked === true)
-                        }
-                      />
-                      {productName}
-                    </label>
-                  ))}
-                </div>
-
-                <div className="mt-4 space-y-2">
-                  <Label>商品の説明</Label>
-                  <Textarea
-                    placeholder={`${category.label}の商品説明を入力`}
-                    value={section.description}
-                    onChange={(e) => updateManualSupportSection(category.id, 'description', e.target.value)}
-                    rows={3}
-                  />
-                </div>
-
-                <div className="mt-4 space-y-2">
-                  <Label>提案理由</Label>
-                  <Textarea
-                    placeholder={`${category.label}の提案理由を入力`}
-                    value={section.reason}
-                    onChange={(e) => updateManualSupportSection(category.id, 'reason', e.target.value)}
-                    rows={3}
-                  />
-                </div>
-              </div>
-            );
-          })}
-          <p className="text-xs text-muted-foreground">
-            商品提案は今回まだDB保存していません。次のSTEPで products / patient_product_recommendations に接続します。
-          </p>
-        </div>
+      <SectionCard title="商品提案はプログラム保存後に登録" className="mb-6">
+        <p className="text-sm text-muted-foreground">
+          「保存」を押すと、この患者さんの改善プログラム詳細画面へ移動します。
+          続けて「商品提案」から、登録済みの商品マスターを使って商品・提案理由・数量や期間の目安を保存できます。
+        </p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          仮の商品候補は保存されないため、この画面では表示しません。
+          商品はプログラム保存後に実際のマスターから選んでください。
+        </p>
       </SectionCard>
 
       <div className="flex gap-3 pb-8">

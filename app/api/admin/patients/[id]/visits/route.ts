@@ -18,6 +18,8 @@ type VisitRow = {
   patient_id: string;
   visit_date: string;
   note: string | null;
+  patient_message: string | null;
+  posture_analysis_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -25,6 +27,8 @@ type VisitRow = {
 type CreateVisitBody = {
   visitDate?: unknown;
   note?: unknown;
+  patientMessage?: unknown;
+  postureAnalysisUrl?: unknown;
 };
 
 function getRequiredEnv(key: string): string {
@@ -103,6 +107,24 @@ function normalizeOptionalText(value: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
+function normalizePostureAnalysisUrl(value: unknown): string | null {
+  if (value == null || value === '') return null;
+  if (typeof value !== 'string' || value.trim().length > 2048) throw new Error('Invalid posture analysis URL');
+  const input = value.trim();
+  let url: URL;
+  try {
+    url = new URL(input);
+  } catch {
+    throw new Error('Invalid posture analysis URL');
+  }
+  // Share links can include a patient-specific token. Never accept arbitrary redirect destinations.
+  if (url.protocol !== 'https:' || url.hostname !== 'app.kartie-cloud.jp' ||
+      !url.pathname.startsWith('/user/') || url.username || url.password) {
+    throw new Error('Invalid posture analysis URL');
+  }
+  return input;
+}
+
 function normalizeRequiredDate(value: unknown): string {
   if (typeof value !== 'string') {
     return '';
@@ -117,6 +139,8 @@ function formatVisit(row: VisitRow) {
     patientId: row.patient_id,
     visitDate: row.visit_date,
     note: row.note ?? '',
+    patientMessage: row.patient_message ?? '',
+    postureAnalysisUrl: row.posture_analysis_url ?? '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -127,6 +151,8 @@ const visitSelect = `
   patient_id,
   visit_date,
   note,
+  patient_message,
+  posture_analysis_url,
   created_at,
   updated_at
 `;
@@ -254,6 +280,17 @@ export async function POST(
 
     const body = (await request.json()) as CreateVisitBody;
     const visitDate = normalizeRequiredDate(body.visitDate);
+    if (body.patientMessage != null &&
+        (typeof body.patientMessage !== 'string' || body.patientMessage.length > 5000)) {
+      return NextResponse.json({ error: '患者向けフォロー文は5000文字以内で入力してください。' }, { status: 400 });
+    }
+    const patientMessage = normalizeOptionalText(body.patientMessage);
+    let postureAnalysisUrl: string | null;
+    try {
+      postureAnalysisUrl = normalizePostureAnalysisUrl(body.postureAnalysisUrl);
+    } catch {
+      return NextResponse.json({ error: '姿勢分析URLはapp.kartie-cloud.jpの共有用HTTPSリンクを入力してください。' }, { status: 400 });
+    }
 
     if (!visitDate) {
       return NextResponse.json(
@@ -287,6 +324,8 @@ export async function POST(
         patient_id: patient.id,
         visit_date: visitDate,
         note: normalizeOptionalText(body.note),
+        patient_message: patientMessage,
+        posture_analysis_url: postureAnalysisUrl,
       })
       .select(visitSelect)
       .single<VisitRow>();

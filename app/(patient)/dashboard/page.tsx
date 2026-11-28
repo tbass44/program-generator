@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import liff from '@line/liff';
 import { redirectToLineEntry, retryLineLogin } from '@/lib/patient-line-navigation';
@@ -57,6 +57,7 @@ type DashboardRecommendation = {
   product_id: string | null;
   category: string | null;
   reason: string | null;
+  usage_guidance: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -71,13 +72,34 @@ type DashboardVisit = {
   id: string;
   patient_id: string;
   visit_date: string;
-  note: string | null;
+  patient_message: string | null;
   created_at: string;
   updated_at: string | null;
 };
 
+type NextReservation = {
+  menu: string;
+  start_at: string;
+  end_at: string;
+};
+
+function formatReservationDateTime(value: string): string {
+  // Laravel stores local clinic time without an offset. Do not shift it to the browser's timezone.
+  const match = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(value);
+  if (!match) return value;
+  return `${match[1]}年${Number(match[2])}月${Number(match[3])}日 ${match[4]}:${match[5]}`;
+}
+
+type ReservationHistoryItem = NextReservation & {
+  canceled: boolean;
+  status: 'canceled' | 'completed' | 'upcoming';
+};
+
 type DashboardResponse = {
   patient?: DashboardPatient;
+  nextReservation?: NextReservation | null;
+  reservationHistory?: ReservationHistoryItem[];
+  nextReservationStatus?: 'ok' | 'unavailable';
   currentProgram?: DashboardCurrentProgram | null;
   currentPlan?: DashboardCurrentPlan | null;
   recommendations?: DashboardRecommendation[];
@@ -230,7 +252,7 @@ function toVisitListItems(visits: DashboardVisit[]) {
   return visits.map((visit) => ({
     id: visit.id,
     date: formatDate(visit.visit_date),
-    memo: visit.note || '施術メモは未登録です。',
+    memo: visit.patient_message || '施術後のフォローはまだ登録されていません。',
   }));
 }
 
@@ -247,22 +269,6 @@ function shouldRetryLineLogin(message: string) {
 
 
 
-function formatDetail(detail: unknown) {
-  if (!detail) {
-    return '';
-  }
-
-  if (typeof detail === 'string') {
-    return detail;
-  }
-
-  try {
-    return JSON.stringify(detail);
-  } catch {
-    return String(detail);
-  }
-}
-
 export default function DashboardPage() {
   const [patient, setPatient] = useState<DashboardPatient | null>(null);
   const [currentProgram, setCurrentProgram] = useState<ProgramCardViewModel | null>(null);
@@ -273,6 +279,14 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState('LINE認証を確認しています...');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [nextReservation, setNextReservation] = useState<NextReservation | null>(null);
+  const [reservationHistory, setReservationHistory] = useState<ReservationHistoryItem[]>([]);
+  const [showAllReservationHistory, setShowAllReservationHistory] = useState(false);
+  const [nextReservationStatus, setNextReservationStatus] = useState<'loading' | 'ok' | 'unavailable'>('loading');
+  const [bookingBusy, setBookingBusy] = useState(false);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+  const [refreshCount, setRefreshCount] = useState(0);
+  const lastAutomaticRefresh = useRef(0);
 
   const supportRecommendations = useMemo(
     () => recommendations.filter((recommendation) => !rentalStatuses.includes(recommendation.status)),
@@ -280,10 +294,25 @@ export default function DashboardPage() {
   );
 
   useEffect(() => {
+    let active = true;
+    const abortController = new AbortController();
     const fetchPatientDashboard = async () => {
       try {
         setIsLoading(true);
+        // Clear the previous patient's details before re-checking LINE identity.
+        // Otherwise a failed refresh or account switch can leave stale data visible.
+        setPatient(null);
+        setCurrentProgram(null);
+        setCurrentPlan(null);
+        setRecommendations([]);
+        setRecentVisits([]);
+        setRentals([]);
+        setNextReservation(null);
+        setReservationHistory([]);
+        setShowAllReservationHistory(false);
+        setBookingError(null);
         setErrorMessage(null);
+        setNextReservationStatus('loading');
         setStatusMessage('LINE認証を確認しています...');
 
         const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
@@ -294,6 +323,7 @@ export default function DashboardPage() {
         }
 
         await liff.init({ liffId });
+        if (!active) return;
 
         if (!liff.isLoggedIn()) {
           redirectToLineEntry();
@@ -316,29 +346,32 @@ export default function DashboardPage() {
           },
           body: JSON.stringify({ idToken }),
           cache: 'no-store',
+          signal: abortController.signal,
         });
 
         const data = (await response.json()) as DashboardResponse;
+        if (!active) return;
 
         if (!response.ok || !data.patient) {
-          console.error(data);
-          const detail = formatDetail(data.detail);
-
-          if (shouldRetryLineLogin(`${data.error ?? ''} ${detail}`)) {
+          if (shouldRetryLineLogin(data.error ?? '')) {
             retryLineLogin();
             return;
           }
 
+          setNextReservationStatus('unavailable');
           if (data.error === 'Patient not linked') {
             setErrorMessage('このLINEアカウントはまだ患者データと連携されていません。');
           } else {
-            setErrorMessage(`患者情報を取得できませんでした。${detail ? ` ${detail}` : ''}`);
+            setErrorMessage('患者情報を取得できませんでした。時間をおいて再度お試しください。');
           }
 
           return;
         }
 
         setPatient(data.patient);
+        setNextReservation(data.nextReservation ?? null);
+        setReservationHistory(data.reservationHistory ?? []);
+        setNextReservationStatus(data.nextReservationStatus === 'ok' ? 'ok' : 'unavailable');
         setCurrentPlan(data.currentPlan ?? null);
         setRecommendations(data.recommendations ?? []);
         setRecentVisits(data.recentVisits ?? []);
@@ -351,7 +384,7 @@ export default function DashboardPage() {
           setCurrentProgram(null);
         }
       } catch (error) {
-        console.error(error);
+        if (!active) return;
         const message = error instanceof Error ? error.message : String(error);
 
         if (shouldRetryLineLogin(message)) {
@@ -359,14 +392,82 @@ export default function DashboardPage() {
           return;
         }
 
-        setErrorMessage(`患者情報の取得中にエラーが発生しました。${message ? ` ${message}` : ''}`);
+        setNextReservationStatus('unavailable');
+        setErrorMessage('患者情報の取得中にエラーが発生しました。時間をおいて再度お試しください。');
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     };
 
     fetchPatientDashboard();
+    return () => {
+      active = false;
+      abortController.abort();
+    };
+  }, [refreshCount]);
+
+  // A fresh navigation to /dashboard fetches on mount. Restored pages may
+  // remain mounted in LINE's in-app browser, so refresh when they become visible.
+  useEffect(() => {
+    let wasHidden = document.visibilityState === 'hidden';
+    const refreshWhenRestored = () => {
+      // pageshow and visibilitychange can fire together; avoid duplicate requests.
+      const now = Date.now();
+      if (now - lastAutomaticRefresh.current < 1500) return;
+      lastAutomaticRefresh.current = now;
+      setRefreshCount((count) => count + 1);
+    };
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) refreshWhenRestored();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        wasHidden = true;
+      } else if (wasHidden) {
+        wasHidden = false;
+        refreshWhenRestored();
+      }
+    };
+    window.addEventListener('pageshow', onPageShow);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pageshow', onPageShow);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
+
+  const startBooking = async () => {
+    if (bookingBusy || !patient) return;
+    setBookingBusy(true);
+    setBookingError(null);
+    try {
+      if (!liff.isLoggedIn()) {
+        redirectToLineEntry();
+        return;
+      }
+      const idToken = liff.getIDToken();
+      if (!idToken) {
+        retryLineLogin();
+        return;
+      }
+      const response = await fetch('/api/patient/booking-handoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+        cache: 'no-store',
+      });
+      const body = (await response.json()) as { entryUrl?: string; error?: string };
+      if (!response.ok || !body.entryUrl) {
+        setBookingError('予約画面を開けませんでした。時間をおいて再度お試しください。');
+        return;
+      }
+      window.location.assign(body.entryUrl);
+    } catch {
+      setBookingError('予約画面との接続に失敗しました。もう一度お試しください。');
+    } finally {
+      setBookingBusy(false);
+    }
+  };
 
   const canShowDashboard = Boolean(patient);
 
@@ -389,6 +490,77 @@ export default function DashboardPage() {
 
       {canShowDashboard && (
         <>
+          <section className="mb-6 rounded-lg border border-teal-200 bg-white p-4">
+            <h2 className="font-semibold text-gray-900">次回のご予約</h2>
+            {nextReservationStatus === 'loading' ? (
+              <p className="mt-2 text-sm text-gray-500">予約情報を確認しています…</p>
+            ) : nextReservationStatus === 'unavailable' ? (
+              <p className="mt-2 text-sm text-amber-700">予約情報を現在取得できません。予約済みの場合は、確認後に表示されます。</p>
+            ) : nextReservation ? (
+              <div className="mt-2 text-sm text-gray-700">
+                <p className="font-semibold">{formatReservationDateTime(nextReservation.start_at)}〜{nextReservation.end_at.slice(11, 16)}</p>
+                <p className="mt-1">{nextReservation.menu}</p>
+              </div>
+            ) : (
+              <p className="mt-2 text-sm text-gray-600">現在、MyCareからの次回予約はありません。</p>
+            )}
+            <p className="mt-2 text-sm text-gray-600">ご希望の日時を選んで、次回の施術をご予約いただけます。</p>
+            <p className="mt-2 text-xs text-gray-600">予約日時の変更・キャンセルをご希望の場合は、LINEから当院へご連絡ください。</p>
+            <button
+              type="button"
+              disabled={bookingBusy}
+              onClick={startBooking}
+              className="mt-3 w-full rounded-md bg-teal-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+            >{bookingBusy ? '予約画面に接続しています…' : nextReservation ? '別の日程も予約する' : '次回の施術を予約する'}</button>
+            {bookingError && <p role="alert" className="mt-2 text-sm text-red-600">{bookingError}</p>}
+            <button
+              type="button"
+              onClick={() => setRefreshCount((count) => count + 1)}
+              disabled={isLoading}
+              className="mt-3 w-full rounded-md border border-teal-200 py-2 text-sm font-medium text-teal-700 disabled:opacity-50"
+            >
+              {isLoading ? '予約情報を確認しています…' : '予約情報を更新する'}
+            </button>
+          </section>
+          <section className="mb-6 rounded-lg border bg-white p-4">
+            <h2 className="font-semibold text-gray-900">MyCareからの予約履歴</h2>
+            {nextReservationStatus === 'loading' ? (
+              <p className="mt-2 text-sm text-gray-500">予約履歴を確認しています…</p>
+            ) : nextReservationStatus === 'unavailable' ? (
+              <p className="mt-2 text-sm text-amber-700">予約履歴を現在取得できません。</p>
+            ) : reservationHistory.length === 0 ? (
+              <p className="mt-2 text-sm text-gray-600">MyCareからの予約履歴はまだありません。</p>
+            ) : (
+              <div>
+                <ul className="mt-3 space-y-3">
+                {(showAllReservationHistory ? reservationHistory : reservationHistory.slice(0, 3)).map((booking, index) => (
+                  <li key={`${booking.start_at}-${index}`} className="border-t pt-3 first:border-t-0 first:pt-0">
+                    <p className="text-sm font-medium text-gray-900">
+                      {formatReservationDateTime(booking.start_at)}〜{booking.end_at.slice(11, 16)}
+                    </p>
+                    <p className="mt-1 text-sm text-gray-600">{booking.menu}</p>
+                    <p className={`mt-1 text-xs ${booking.status === 'canceled' ? 'text-red-600' : booking.status === 'completed' ? 'text-gray-500' : 'text-teal-700'}`}>
+                      {booking.status === 'canceled' ? 'キャンセル済み' : booking.status === 'completed' ? '日時経過' : '予約済み'}
+                    </p>
+                  </li>
+                ))}
+                </ul>
+                {reservationHistory.length > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllReservationHistory((current) => !current)}
+                    aria-expanded={showAllReservationHistory}
+                    className="mt-3 w-full rounded-md border border-teal-200 py-2 text-sm font-medium text-teal-700"
+                  >
+                    {showAllReservationHistory ? '閉じる' : 'さらに履歴を見る'}
+                  </button>
+                )}
+              </div>
+            )}
+            <p className="mt-3 text-xs text-gray-500">
+              MyCareからの直近最大10件を表示しています。従来の予約システムから行った予約は含みません。
+            </p>
+          </section>
           <section className="mb-6">
             <SectionHeader
               title="現在のプラン"
@@ -433,7 +605,7 @@ export default function DashboardPage() {
               }
             />
             {currentProgram ? (
-              <ProgramCard {...currentProgram} />
+              <ProgramCard {...currentProgram} previewChars={140} />
             ) : (
               <div className="rounded-lg border bg-white p-4 text-sm text-gray-500">
                 まだ改善プログラムは登録されていません。

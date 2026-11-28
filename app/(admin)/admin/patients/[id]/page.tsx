@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
@@ -10,6 +10,7 @@ import {
   Package,
   Calendar,
   Pencil,
+  Copy,
   Trash2,
   CreditCard,
 } from 'lucide-react';
@@ -65,6 +66,8 @@ type PatientProductRecommendation = {
   rentalStartedAt: string | null;
   rentalDueAt: string | null;
   rentalReturnedAt: string | null;
+  purchaseRequestReviewedAt: string | null;
+  purchaseRequestAdminNote: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -88,6 +91,8 @@ type PatientVisit = {
   patientId: string;
   visitDate: string;
   note: string;
+  patientMessage: string;
+  postureAnalysisUrl: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -151,6 +156,8 @@ type PatientEditFormData = {
 type VisitFormData = {
   visitDate: string;
   note: string;
+  patientMessage: string;
+  postureAnalysisUrl: string;
 };
 
 function buildApiErrorMessage(prefix: string, status: number, data: { error?: string; detail?: unknown }) {
@@ -224,10 +231,14 @@ export default function AdminPatientDetailPage() {
   const [visitFormData, setVisitFormData] = useState<VisitFormData>({
     visitDate: getTodayDateString(),
     note: '',
+    patientMessage: '',
+    postureAnalysisUrl: '',
   });
   const [visitEditFormData, setVisitEditFormData] = useState<VisitFormData>({
     visitDate: '',
     note: '',
+    patientMessage: '',
+    postureAnalysisUrl: '',
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -241,6 +252,13 @@ export default function AdminPatientDetailPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [warningMessage, setWarningMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [reviewUpdatingId, setReviewUpdatingId] = useState<string | null>(null);
+  const [reviewUpdateError, setReviewUpdateError] = useState<string | null>(null);
+  const [editingPurchaseNoteId, setEditingPurchaseNoteId] = useState<string | null>(null);
+  const [purchaseNoteDraft, setPurchaseNoteDraft] = useState('');
+  const [savingPurchaseNoteId, setSavingPurchaseNoteId] = useState<string | null>(null);
+  const [purchaseNoteError, setPurchaseNoteError] = useState<string | null>(null);
+  const scrolledToPurchaseRef = useRef<string | null>(null);
 
   const syncFormDataFromPatient = (nextPatient: AdminPatientDetail) => {
     setFormData({
@@ -363,6 +381,83 @@ export default function AdminPatientDetailPage() {
     fetchPatientDetail();
   }, [patientId]);
 
+  // Navigate to the specific item only after the patient recommendations have loaded.
+  useEffect(() => {
+    if (isLoading || !patientId || typeof window === 'undefined') return;
+    const hash = decodeURIComponent(window.location.hash.slice(1));
+    if (!/^purchase-request-[0-9a-f-]{36}$/i.test(hash)) return;
+    if (scrolledToPurchaseRef.current === hash) return;
+    if (!productRecommendations.some((item) => `purchase-request-${item.id}` === hash && item.status === '購入希望')) return;
+    const target = document.getElementById(hash);
+    if (target) {
+      scrolledToPurchaseRef.current = hash;
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [isLoading, patientId, productRecommendations]);
+
+  const handlePurchaseReview = async (recommendation: PatientProductRecommendation) => {
+    if (reviewUpdatingId !== null || recommendation.status !== '購入希望') return;
+    setReviewUpdatingId(recommendation.id);
+    setReviewUpdateError(null);
+    try {
+      const reviewed = !recommendation.purchaseRequestReviewedAt;
+      const response = await fetch(`/api/admin/purchase-requests/${recommendation.id}/review`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewed }),
+        cache: 'no-store',
+      });
+      const data = (await response.json()) as { reviewedAt?: string | null; error?: string };
+      if (!response.ok) {
+        setReviewUpdateError('確認状況の変更に失敗しました。購入希望が取り消されていないか確認してください。');
+        return;
+      }
+      setProductRecommendations((current) => current.map((item) => item.id === recommendation.id
+        ? { ...item, purchaseRequestReviewedAt: data.reviewedAt ?? null }
+        : item));
+    } catch (error) {
+      console.error(error);
+      setReviewUpdateError('通信エラーで確認状況を変更できませんでした。');
+    } finally {
+      setReviewUpdatingId(null);
+    }
+  };
+
+  const handleSavePurchaseNote = async (recommendation: PatientProductRecommendation) => {
+    if (savingPurchaseNoteId !== null || recommendation.status !== '購入希望') return;
+    if (purchaseNoteDraft.length > 2000) {
+      setPurchaseNoteError('対応メモは2000文字以内にしてください。');
+      return;
+    }
+    setSavingPurchaseNoteId(recommendation.id);
+    setPurchaseNoteError(null);
+    try {
+      const response = await fetch(`/api/admin/purchase-requests/${recommendation.id}/note`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: purchaseNoteDraft }),
+        cache: 'no-store',
+      });
+      const data = (await response.json()) as { note?: string; error?: string };
+      if (!response.ok || typeof data.note !== 'string') {
+        setPurchaseNoteError(response.status === 409
+          ? '購入希望がすでに取り消された可能性があります。再読み込みしてください。'
+          : '対応メモを保存できませんでした。もう一度お試しください。');
+        return;
+      }
+      setProductRecommendations((current) => current.map((item) => item.id === recommendation.id
+        ? { ...item, purchaseRequestAdminNote: data.note ?? '' }
+        : item));
+      setEditingPurchaseNoteId(null);
+      setPurchaseNoteDraft('');
+    } catch (error) {
+      console.error(error);
+      setPurchaseNoteError('通信エラーのためメモを保存できませんでした。');
+    } finally {
+      setSavingPurchaseNoteId(null);
+    }
+  };
+
   const handleSavePatient = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -440,6 +535,8 @@ export default function AdminPatientDetailPage() {
         body: JSON.stringify({
           visitDate: visitFormData.visitDate,
           note: visitFormData.note,
+          patientMessage: visitFormData.patientMessage,
+          postureAnalysisUrl: visitFormData.postureAnalysisUrl,
         }),
       });
 
@@ -452,7 +549,7 @@ export default function AdminPatientDetailPage() {
       }
 
       setVisits((current) => [data.visit as PatientVisit, ...current]);
-      setVisitFormData({ visitDate: getTodayDateString(), note: '' });
+      setVisitFormData({ visitDate: getTodayDateString(), note: '', patientMessage: '', postureAnalysisUrl: '' });
       setSuccessMessage('通院履歴を追加しました。');
     } catch (error) {
       console.error(error);
@@ -462,11 +559,37 @@ export default function AdminPatientDetailPage() {
     }
   };
 
+  const handleCopyVisitFollowUp = async (visit: PatientVisit) => {
+    const message = visit.patientMessage?.trim();
+    if (!message) {
+      setErrorMessage('コピーする患者向けフォロー文がありません。');
+      return;
+    }
+
+    const contents = [
+      message,
+      visit.postureAnalysisUrl
+        ? `【AI姿勢分析結果】\n${visit.postureAnalysisUrl}`
+        : '',
+    ].filter(Boolean).join('\n\n');
+
+    try {
+      await navigator.clipboard.writeText(contents);
+      setErrorMessage(null);
+      setSuccessMessage('患者向けフォロー文をコピーしました。LINEの送信先を確認して貼り付けてください。');
+    } catch {
+      setSuccessMessage(null);
+      setErrorMessage('コピーできませんでした。ブラウザのクリップボード許可を確認してください。');
+    }
+  };
+
   const handleStartEditVisit = (visit: PatientVisit) => {
     setEditingVisitId(visit.id);
     setVisitEditFormData({
       visitDate: visit.visitDate,
       note: visit.note,
+      patientMessage: visit.patientMessage ?? '',
+      postureAnalysisUrl: visit.postureAnalysisUrl ?? '',
     });
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -474,7 +597,7 @@ export default function AdminPatientDetailPage() {
 
   const handleCancelEditVisit = () => {
     setEditingVisitId(null);
-    setVisitEditFormData({ visitDate: '', note: '' });
+    setVisitEditFormData({ visitDate: '', note: '', patientMessage: '', postureAnalysisUrl: '' });
     setErrorMessage(null);
   };
 
@@ -504,6 +627,8 @@ export default function AdminPatientDetailPage() {
         body: JSON.stringify({
           visitDate: visitEditFormData.visitDate,
           note: visitEditFormData.note,
+          patientMessage: visitEditFormData.patientMessage,
+          postureAnalysisUrl: visitEditFormData.postureAnalysisUrl,
         }),
       });
 
@@ -519,7 +644,7 @@ export default function AdminPatientDetailPage() {
         current.map((visit) => (visit.id === visitId ? (data.visit as PatientVisit) : visit))
       );
       setEditingVisitId(null);
-      setVisitEditFormData({ visitDate: '', note: '' });
+      setVisitEditFormData({ visitDate: '', note: '', patientMessage: '', postureAnalysisUrl: '' });
       setSuccessMessage('通院履歴を保存しました。');
     } catch (error) {
       console.error(error);
@@ -911,23 +1036,91 @@ export default function AdminPatientDetailPage() {
       <SectionCard title="購入希望・購入関連の商品" className="mb-6">
         {purchaseRecommendations.length > 0 ? (
           <div className="space-y-3">
+            {reviewUpdateError && (
+              <p role="alert" className="text-sm text-red-600">{reviewUpdateError}</p>
+            )}
             {purchaseRecommendations.map((item) => (
-              <div key={item.id} className="rounded-lg border p-4">
+              <div
+                key={item.id}
+                id={`purchase-request-${item.id}`}
+                className="scroll-mt-20 rounded-lg border p-4 target:border-teal-500 target:bg-teal-50"
+              >
                 <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-medium">{item.productName}</p>
                       <Badge variant="secondary">{item.category}</Badge>
                       <Badge variant={statusBadgeVariant(item.status)}>{item.status}</Badge>
+                      <Badge variant={item.purchaseRequestReviewedAt ? 'secondary' : 'outline'}>
+                        {item.purchaseRequestReviewedAt ? '確認済み' : '未確認'}
+                      </Badge>
                     </div>
                     <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
                       {item.reason || '提案理由は未入力です。'}
                     </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      受付日時: {new Date(item.updatedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })}
+                    </p>
                   </div>
-                  {item.programId && (
-                    <Link href={`/admin/programs/${item.programId}`}>
-                      <Button size="sm" variant="outline">プログラム詳細</Button>
-                    </Link>
+                  <div className="flex flex-wrap items-start gap-2">
+                    <Button type="button" size="sm" variant="outline"
+                      disabled={reviewUpdatingId !== null}
+                      onClick={() => void handlePurchaseReview(item)}>
+                      {reviewUpdatingId === item.id ? '更新中...' :
+                        item.purchaseRequestReviewedAt ? '未確認に戻す' : '確認済みにする'}
+                    </Button>
+                    {item.programId && (
+                      <Link href={`/admin/programs/${item.programId}`}>
+                        <Button size="sm" variant="outline">プログラム詳細</Button>
+                      </Link>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-3 border-t pt-3">
+                  {editingPurchaseNoteId === item.id ? (
+                    <div className="space-y-2">
+                      <label htmlFor={`purchase-note-${item.id}`} className="text-sm font-medium">
+                        対応メモ（管理者専用）
+                      </label>
+                      <textarea
+                        id={`purchase-note-${item.id}`}
+                        rows={3}
+                        maxLength={2000}
+                        value={purchaseNoteDraft}
+                        onChange={(event) => setPurchaseNoteDraft(event.target.value)}
+                        placeholder="例：在庫を確認中。次回来院時にお渡し予定。"
+                        className="w-full rounded-md border bg-white p-2 text-sm"
+                        disabled={savingPurchaseNoteId !== null}
+                      />
+                      <p className="text-xs text-muted-foreground">{purchaseNoteDraft.length}/2000文字（患者画面には表示しません）</p>
+                      {purchaseNoteError && <p role="alert" className="text-sm text-red-600">{purchaseNoteError}</p>}
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="button" size="sm"
+                          disabled={savingPurchaseNoteId !== null}
+                          onClick={() => void handleSavePurchaseNote(item)}>
+                          {savingPurchaseNoteId === item.id ? '保存中...' : 'メモを保存'}
+                        </Button>
+                        <Button type="button" size="sm" variant="outline"
+                          disabled={savingPurchaseNoteId !== null}
+                          onClick={() => { setEditingPurchaseNoteId(null); setPurchaseNoteError(null); }}>
+                          キャンセル
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="whitespace-pre-wrap text-sm text-gray-700">
+                        {item.purchaseRequestAdminNote || '対応メモは未登録です。'}
+                      </p>
+                      <Button type="button" size="sm" variant="outline"
+                        onClick={() => {
+                          setEditingPurchaseNoteId(item.id);
+                          setPurchaseNoteDraft(item.purchaseRequestAdminNote ?? '');
+                          setPurchaseNoteError(null);
+                        }}>
+                        {item.purchaseRequestAdminNote ? '対応メモを編集' : '対応メモを入力'}
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1014,7 +1207,7 @@ export default function AdminPatientDetailPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="visit-note">施術メモ</Label>
+                  <Label htmlFor="visit-note">院内用施術メモ（患者さんには非公開）</Label>
                   <textarea
                     id="visit-note"
                     className="flex min-h-[84px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -1023,6 +1216,22 @@ export default function AdminPatientDetailPage() {
                     placeholder="例：首肩こり、腰痛、施術内容、次回確認事項など"
                   />
                 </div>
+              </div>
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="visit-patient-message">患者向け施術後フォロー（MyCareに公開）</Label>
+                <textarea id="visit-patient-message" maxLength={5000}
+                  className="flex min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  placeholder="例：今日は首肩の緊張がみられました。無理のない範囲でセルフケアを続けましょう。"
+                  value={visitFormData.patientMessage}
+                  onChange={(event) => setVisitFormData({ ...visitFormData, patientMessage: event.target.value })}
+                />
+                <Label htmlFor="visit-posture-analysis-url">AI姿勢分析の共有URL（任意・患者側に公開）</Label>
+                <Input id="visit-posture-analysis-url" type="url"
+                  placeholder="https://app.kartie-cloud.jp/user/..."
+                  value={visitFormData.postureAnalysisUrl}
+                  onChange={(event) => setVisitFormData({ ...visitFormData, postureAnalysisUrl: event.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">患者さんが通院履歴から開ける共有用URLを入力します。院内専用のURLは入力しないでください。</p>
               </div>
               <div className="mt-4">
                 <Button type="submit" disabled={isSavingVisit}>
@@ -1052,7 +1261,7 @@ export default function AdminPatientDetailPage() {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor={`edit-visit-note-${visit.id}`}>施術メモ</Label>
+                            <Label htmlFor={`edit-visit-note-${visit.id}`}>院内用施術メモ（患者さんには非公開）</Label>
                             <textarea
                               id={`edit-visit-note-${visit.id}`}
                               className="flex min-h-[84px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -1062,6 +1271,20 @@ export default function AdminPatientDetailPage() {
                               }
                             />
                           </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`edit-visit-patient-message-${visit.id}`}>患者向け施術後フォロー（MyCareに公開）</Label>
+                          <textarea id={`edit-visit-patient-message-${visit.id}`} maxLength={5000}
+                            className="flex min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            value={visitEditFormData.patientMessage}
+                            onChange={(event) => setVisitEditFormData({ ...visitEditFormData, patientMessage: event.target.value })}
+                          />
+                          <Label htmlFor={`edit-visit-posture-url-${visit.id}`}>AI姿勢分析の共有URL（任意・患者側に公開）</Label>
+                          <Input id={`edit-visit-posture-url-${visit.id}`} type="url"
+                            placeholder="https://app.kartie-cloud.jp/user/..."
+                            value={visitEditFormData.postureAnalysisUrl}
+                            onChange={(event) => setVisitEditFormData({ ...visitEditFormData, postureAnalysisUrl: event.target.value })}
+                          />
                         </div>
                         <div className="flex flex-wrap gap-2">
                           <Button type="submit" size="sm" disabled={savingVisitId === visit.id}>
@@ -1082,9 +1305,26 @@ export default function AdminPatientDetailPage() {
                           <p className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap">
                             {visit.note || '施術メモは未入力です。'}
                           </p>
+                          <p className="mt-2 text-sm font-medium">患者向け施術後フォロー</p>
+                          <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+                            {visit.patientMessage || '未登録（患者側にはフォロー文を表示しません）'}
+                          </p>
+                          {visit.postureAnalysisUrl && (
+                            <a href={visit.postureAnalysisUrl} target="_blank" rel="noopener noreferrer"
+                              className="mt-2 inline-block text-sm text-teal-700 underline">
+                              患者向けAI姿勢分析を確認
+                            </a>
+                          )}
                           <p className="mt-3 text-xs text-muted-foreground">登録日: {formatDate(visit.createdAt)}</p>
                         </div>
                         <div className="flex shrink-0 flex-wrap gap-2">
+                          {visit.patientMessage?.trim() && (
+                            <Button type="button" size="sm" variant="outline"
+                              onClick={() => void handleCopyVisitFollowUp(visit)}>
+                              <Copy className="mr-2 h-4 w-4" />
+                              LINE用にコピー
+                            </Button>
+                          )}
                           <Button type="button" size="sm" variant="outline" onClick={() => handleStartEditVisit(visit)}>
                             <Pencil className="h-4 w-4 mr-2" />
                             編集

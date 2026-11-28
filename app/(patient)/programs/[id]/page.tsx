@@ -23,6 +23,7 @@ type PatientProgram = {
 type ProgramRecommendation = {
   id: string;
   reason: string | null;
+  usageGuidance: string;
   status: string | null;
   statusLabel: string;
   created_at: string;
@@ -251,6 +252,19 @@ export default function ProgramDetailPage() {
                         <p className="mt-2 whitespace-pre-wrap text-sm text-gray-700">
                           {recommendation.reason}
                         </p>
+                      )}
+                      {recommendation.usageGuidance && (
+                        <p className="mt-2 whitespace-pre-wrap text-sm text-teal-700">
+                          数量・期間の目安：{recommendation.usageGuidance}
+                        </p>
+                      )}
+                      {recommendation.product && (
+                        <Link
+                          href={`/product-support/${recommendation.id}`}
+                          className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-teal-700 underline-offset-2 hover:underline"
+                        >
+                          商品の詳細を見る
+                        </Link>
                       )}
                     </div>
                   ))}

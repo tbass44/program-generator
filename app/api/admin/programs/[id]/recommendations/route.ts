@@ -71,6 +71,7 @@ type RecommendationRow = {
   product_id: string | null;
   category: ProductCategoryDb;
   reason: string | null;
+  usage_guidance: string | null;
   status: PatientProductStatusDb;
   created_at: string;
   updated_at: string;
@@ -82,6 +83,7 @@ type RecommendationRow = {
 type CreateRecommendationBody = {
   productId?: unknown;
   reason?: unknown;
+  usageGuidance?: unknown;
 };
 
 /**
@@ -249,6 +251,7 @@ function formatRecommendation(
     productName: product?.name ?? '商品情報なし',
     category: toLabelCategory(row.category),
     reason: row.reason ?? '',
+    usageGuidance: row.usage_guidance ?? '',
     status: toLabelStatus(row.status),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -310,7 +313,7 @@ export async function GET(
 
     const { data: recommendations, error: recommendationsError } = await adminResult.supabaseAdmin
       .from('patient_product_recommendations')
-      .select('id, patient_id, program_id, product_id, category, reason, status, created_at, updated_at')
+      .select('id, patient_id, program_id, product_id, category, reason, usage_guidance, status, created_at, updated_at')
       .eq('program_id', programId)
       .order('created_at', { ascending: false })
       .returns<RecommendationRow[]>();
@@ -454,6 +457,10 @@ export async function POST(
       );
     }
 
+    if (body.usageGuidance !== undefined && (typeof body.usageGuidance !== 'string' || body.usageGuidance.length > 300)) {
+      return NextResponse.json({ error: 'Invalid usage guidance' }, { status: 400 });
+    }
+    const usageGuidance = normalizeOptionalText(body.usageGuidance);
     const reason = normalizeOptionalText(body.reason) ?? product.recommendation_template;
 
     const { data: recommendation, error: insertError } = await adminResult.supabaseAdmin
@@ -464,9 +471,10 @@ export async function POST(
         product_id: product.id,
         category: product.category,
         reason,
+        usage_guidance: usageGuidance,
         status: 'recommended',
       })
-      .select('id, patient_id, program_id, product_id, category, reason, status, created_at, updated_at')
+      .select('id, patient_id, program_id, product_id, category, reason, usage_guidance, status, created_at, updated_at')
       .single<RecommendationRow>();
 
     if (insertError) {
